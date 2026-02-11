@@ -1,0 +1,38 @@
+[project]
+name = "tsproj"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "catboost>=1.2.8",
+    "ipykernel>=7.1.0",
+    "jupyter>=1.1.1",
+    "lightgbm>=4.6.0",
+    "matplotlib>=3.10.8",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "pypmml>=1.5.8",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+    "sklearn-pandas>=2.2.0",
+    "sklearn2pmml>=0.127.2",
+    "torch>=2.10.0",
+    "torchtext>=0.18.0",
+    "torchvision>=0.25.0",
+    "tqdm>=4.67.3",
+    "xgboost>=3.1.3",
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
