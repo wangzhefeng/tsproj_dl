@@ -203,9 +203,15 @@ class Data_Loader:
 
 # 测试代码 main 函数
 def main():
-    from utils.ts.tsproj_dl.config.gru import Config
-    
-    configs = Config()
+    configs = {
+        "data": {
+            "filename": "example.csv",
+            "train_test_split": 0.8,
+            "columns": [],
+            "sequence_length": 24,
+            "normalise": True,
+        }
+    }
 
     # 读取数据
     data = Data_Loader(

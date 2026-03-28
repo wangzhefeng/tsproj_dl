@@ -1,120 +1,129 @@
+# tsproj_dl
 
-<details><summary>目录</summary><p>
+`tsproj_dl` 是一个面向时间序列预测任务的神经网络快速测试、训练、验证与推理项目。当前仓库以 PyTorch 为主，包含 Transformer、MLP、RNN、CNN、GNN 等多类模型实现，以及配套的数据处理、实验流程和脚本模板。
 
-- [项目说明](#项目说明)
-    - [步骤 1：确定代码框架](#步骤-1确定代码框架)
-    - [步骤 2：定义命令行解析](#步骤-2定义命令行解析)
-    - [步骤 3：确定调参工具](#步骤-3确定调参工具)
-    - [步骤 4：减少随机性](#步骤-4减少随机性)
-- [项目优化](#项目优化)
-</p></details><p></p>
+项目治理、分支流转、模块状态和开发看板统一维护在 [AGENTS.md](/Users/wangzf/projects/tsproj_dl/AGENTS.md)。本文件只负责项目使用说明。
 
-# 项目说明
+## 项目简介
 
-## 步骤 1：确定代码框架
+- 当前推荐入口是 `run_dl.py`。
+- 当前推荐主线是长周期时间序列预测链路：
+  `run_dl.py -> exp/exp_long_term_forecasting.py -> data_provider/TFs_type -> exp/exp_basic.py`
+- 目前仓库中包含可直接使用模块、在建模块和待补充模块，具体开发状态请查看根目录 `AGENTS.md`。
 
-首先确定好具体任务，然后根据任务选择合适的框架，如 `PyTorch Lightning` 或 `MMDection`。
-如果框架有默认目录，则遵守。否则可以创建适合自己的目录，一般而言目录推荐如下：
+## 环境准备
 
-* `general`：常见的训练过程、保存加载模型过程，与具体任务相关的代码
-* `layers`：模型定义、损失函数等
-* `models`: 模型定义、损失函数等
-* `experiments`：具体任务的训练流程、数据读取和验证过程
-
-```
-general/
-│   train.py
-│   task.py
-│   mutils.py
-layers/
-experiments/
-│   task1/
-│        train.py
-│        task.py
-│        eval.py
-│        dataset.py
-│   task2/
-│        train.py
-│        task.py
-│        eval.py
-│        dataset.py
-```
-
-## 步骤 2：定义命令行解析
-
-Notebook 虽然很好用，但是具体 `.py` 代码实际运行和管理更加方便。所以命令行解析就非常关键。
-可以选择自己喜欢的参数解析器，在命令行中一般推荐加入**学习率**、**batch size**、**seed** 等超参数。
+项目根目录已经包含 `pyproject.toml`、`uv.lock` 和 `requirements.txt`。推荐使用 `uv` 初始化环境。
 
 ```bash
-$ python train.py --learning ... --seed ... --hidden_size ...
+uv sync
+source .venv/bin/activate
 ```
 
-## 步骤 3：确定调参工具
+如果只使用已有虚拟环境，也可以直接：
 
-在调试和训练模型的过程中，肯定需要多次训练，此时 TensorBoard 可以非常好的管理实验日志。
-
-调参是非常乏味的，比较重要的是确定好**学习率**和 **batch size**。
-**学习率**和**优化器**有非常多的选择，SGD 是一个比较好的开始。
-一般而言模型越深，学习率越小；batch size 越大，学习率越大。
-
-## 步骤 4：减少随机性
-
-深度学习模型有一定的随机性，模型是否可复现非常重要。在比赛期间，
-非常推荐提前把不同 fold 的次序存储到文件，减少随机性。
-
-把配置文件、模型权重、日志文件保存好，这样每次都可以进行实验对比。
-
-* PyTorch 设置 SEED
-
-```python
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed_all(SEED)
-torch.backends.cudnn.deterministic = True
+```bash
+source .venv/bin/activate
 ```
 
-* TF 1.X 设置 SEED
+说明：
 
-```python
-from tfdeterminism import patch
-patch()
-os.environ['PYTHONHASHSEED']=str(SEED)
-random.seed(SEED)
-np.random.seed(SEED)
-tf.set_random_seed(SEED)
+- Python 要求见 `pyproject.toml`，当前为 `>=3.10`
+- 仓库中部分模型依赖额外第三方包，后续以 `AGENTS.md` 中的主线稳定化任务为准逐步补齐
+
+## 快速运行
+
+最简单的使用方式是直接运行 `scripts/` 下已经整理好的实验脚本。
+
+示例 1：ETTh1 上运行 Transformer
+
+```bash
+bash scripts/ETTh1_script/ETTh1_transformer.sh
 ```
 
-* TF 2.X 设置 SEED
+示例 2：直接调用训练入口
 
-```python
-os.environ['TF_DETERMINISTIC_OPS'] = '1'
-os.environ['PYTHONHASHSEED']=str(SEED)
-random.seed(SEED)
-np.random.seed(SEED)
-tf.random.set_seed(SEED)
+```bash
+python run_dl.py \
+    --task_name long_term_forecast \
+    --des "Exp Transformer_24_12_24" \
+    --is_training 1 \
+    --is_testing 1 \
+    --testing_step 24 \
+    --is_forecasting 0 \
+    --model_id etth1_24_12_24 \
+    --model Transformer \
+    --root_path ./dataset/ETT-small/ \
+    --data_path ETTh1.csv \
+    --data ETTh1 \
+    --features MS \
+    --target OT \
+    --time date \
+    --freq 1h \
+    --seq_len 24 \
+    --label_len 12 \
+    --pred_len 24 \
+    --train_ratio 0.7 \
+    --test_ratio 0.2 \
+    --results_root ./results/ \
+    --enc_in 7 \
+    --dec_in 7 \
+    --c_out 1 \
+    --e_layers 2 \
+    --d_layers 1 \
+    --n_heads 1 \
+    --d_model 512 \
+    --d_ff 2048 \
+    --dropout 0.05 \
+    --train_epochs 1 \
+    --batch_size 8 \
+    --learning_rate 1e-4 \
+    --loss MSE \
+    --scale 1 \
+    --inverse 1 \
+    --use_gpu 1 \
+    --gpu_type mps
 ```
 
-# 项目优化
+## 结果输出
 
-1. 本项目主要作用是实现 “基于神经网络模型的时间序列预测”快速测试、训练、推理框架
-2. 项目中包含了多类模型，具体分类参考 `models` 目录下模型的子目录分类：
-    - 有些模型已经比较完整，可以直接使用
-    - 有些模型没有完成，需要进行补充
-    - 有些模型只是建立了空脚本，需要进行调研和编写补充
-3. 项目中模型的主要构建模块在 `layers` 中，主要包含了神经网络的定义，目前没有进行分类，是否需要分类还有待考虑
-4. 项目的数据处理流程在 `data_provider` 目录中，由于对各类模型输入数据格式、处理流程的不同，目前进行了简单分类
-    - `RNNs_type` 为 RNNs 模型的数据处理流程
-    - `TFs_type` 为 TFs 模型的数据处理流程
-    - `todo` 为未完成的模型的数据处理流程，是 `RNNs_type` 的未完成部分，需要进行整合
-5. 目录 `dataset` 中包含了很多公开数据集，用于模型进行测试；
-6. 目录 `exp` 中包含了模型运行的主流程，包括训练、验证、推理等流程
-    - `exp_basic.py` 是一个接口类型脚本，用于定义模型的主流程，目前的想法是各种模型都可以集成这个脚本
-    - `exp_forecasting.py` 是一个数据集类型脚本，用于定义模型的主流程，目前是作为 RNNs 模型的主流程
-    - `exp_long_term_forecasting.py` 和 `exp_short_term_forecasting.py` 是两个时间序列类型脚本，用于定义模型的主流程，目前是作为 TFs 模型的主流程
-    - 其他类型模型的主流程可以在这个目录中进行定义，如果可以使用目前已有的脚本，可以直接使用，如果需要自己进行定义，可以在这个目录中进行定义
-7. 目录 `docs` 中包含了一些可读的文档，用于保存帮助进行时间序列预测研究的相关文档，其他有用的文档可以保存在这个目录中
-8. 目录 `scripts` 中包含了一些可执行的脚本，用于进行时间序列预测研究的快速测试，其他有用的脚本可以保存在这个目录中，目前以数据集进行分类构建
-9. `logs` 和 `saved_results`（希望重命名为 `results`）目录用于保存模型的训练结果，以及模型的推理结果
-10. 目前的 `utils` 目录是一个单独的 git 仓库，包含了其他算法项目的依赖，作为一个统一的工具库供多个项目使用。优化效果：
-   新建 `utils` 仓库，作为本项目单独的依赖库，从 git 仓库 `utils` 中提取出目前项目的依赖。最后将 git 仓库 `utils` 删除。
+- `logs/`：运行日志
+- `results/pretrained_models/`：默认模型权重输出目录
+- `results/test_results/`：默认测试结果与可视化输出目录
+- `results/predict_results/`：默认预测结果输出目录
+
+说明：
+
+- 当前统一使用 `results/` 作为结果输出根目录
+- 如需自定义输出位置，可通过 `--results_root` 或单独目录参数覆盖
+
+## 目录简介
+
+- `run_dl.py`：命令行训练/测试/预测入口
+- `exp/`：实验流程，包括训练、验证、测试、预测主逻辑
+- `data_provider/`：数据读取、切窗、标准化、时间特征与 DataLoader 构建
+- `models/`：模型实现，按 `transformer`、`mlp`、`rnn`、`cnn`、`gnn`、`others` 分类
+- `layers/`：模型公用层与模块
+- `scripts/`：可直接执行的实验脚本，按数据集或业务场景组织
+- `docs/`：研究文档、图示和资料
+- `dataset/`：本地测试数据集
+- `results/`：默认训练和推理结果输出目录
+
+## 示例脚本
+
+可以优先参考以下脚本理解当前使用方式：
+
+- `scripts/ETTh1_script/ETTh1_transformer.sh`
+- `scripts/ETTh1_script/ETTh1_dlinear.sh`
+- `scripts/ETTh1_script/ETTh1_itransformer.sh`
+- `scripts/smoke/smoke_engineering_checks.sh`
+
+## 文档说明
+
+- `README.md`：项目使用说明、环境准备、运行方式、目录简介
+- `AGENTS.md`：项目治理规则、分支策略、主线定义、模块状态、开发看板
+- `docs/`：时间序列研究资料、图示与补充文档
+
+## 项目优化
+
+项目治理、模块状态、里程碑和后续优化路线不再在本文件维护，请统一查看根目录 [AGENTS.md](/Users/wangzf/projects/tsproj_dl/AGENTS.md)。

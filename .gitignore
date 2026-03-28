@@ -156,9 +156,8 @@ lightning_logs/
 data/
 datasets/
 dataset/
-saved_results/
+results/
 logs/
 checkpoints/
-utils/
 time-series-features/
 time-series-forecast/

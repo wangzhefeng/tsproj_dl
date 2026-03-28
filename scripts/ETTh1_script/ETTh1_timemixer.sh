@@ -19,9 +19,9 @@ python -u run_dl.py \
     --features M \
     --target OT \
     --time date \
-    --checkpoints ./saved_results/pretrained_models/ \
-    --test_results ./saved_results/test_results/ \
-    --predict_results ./saved_results/predict_results/ \
+    --checkpoints ./results/pretrained_models/ \
+    --test_results ./results/test_results/ \
+    --predict_results ./results/predict_results/ \
     --freq 1h \
     --embed timeF \
     --seq_len 24 \

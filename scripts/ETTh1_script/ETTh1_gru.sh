@@ -19,9 +19,9 @@ python -u run_dl.py \
     --target OT \
     --time date \
     --pred_method recursive_multi_step \
-    --checkpoints ./saved_results/pretrained_models/ \
-    --test_results ./saved_results/test_results/ \
-    --predict_results ./saved_results/predict_results/ \
+    --checkpoints ./results/pretrained_models/ \
+    --test_results ./results/test_results/ \
+    --predict_results ./results/predict_results/ \
     --freq d \
     --embed timeF \
     --window_len 6 \

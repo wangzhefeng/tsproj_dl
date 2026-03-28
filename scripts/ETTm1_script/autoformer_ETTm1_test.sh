@@ -22,9 +22,9 @@ python -u run_dl.py \
     --features MS \
     --target OT \
     --time date \
-    --checkpoints ./saved_results/pretrained_models/ \
-    --test_results ./saved_results/test_results/ \
-    --predict_results ./saved_results/predict_results/ \
+    --checkpoints ./results/pretrained_models/ \
+    --test_results ./results/test_results/ \
+    --predict_results ./results/predict_results/ \
     --freq 15min \
     --embed timeF \
     --seq_len 96 \

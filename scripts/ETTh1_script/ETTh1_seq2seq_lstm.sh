@@ -25,9 +25,9 @@ python -u run_dl.py \
     --inspect_fit 1 \
     --rolling_predict 1 \
     --rolling_data_path ETTh1-Test.csv \
-    --checkpoints ./saved_results/pretrained_models/ \
-    --test_results ./saved_results/test_results/ \
-    --predict_results ./saved_results/predict_results/ \
+    --checkpoints ./results/pretrained_models/ \
+    --test_results ./results/test_results/ \
+    --predict_results ./results/predict_results/ \
     --freq h \
     --embed timeF \
     --seq_len 64 \

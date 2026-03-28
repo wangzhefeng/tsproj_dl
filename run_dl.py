@@ -27,6 +27,33 @@ from utils.random_seed import set_seed
 from utils.log_util import logger
 
 
+def _normalize_output_dir(path_like: str | Path) -> str:
+    path = Path(path_like)
+    return f"{path.as_posix().rstrip('/')}/"
+
+
+def _set_output_dirs(args):
+    results_root = _normalize_output_dir(args.results_root or "./results/")
+    args.results_root = results_root
+
+    if not args.checkpoints:
+        args.checkpoints = f"{results_root}pretrained_models/"
+    else:
+        args.checkpoints = _normalize_output_dir(args.checkpoints)
+
+    if not args.test_results:
+        args.test_results = f"{results_root}test_results/"
+    else:
+        args.test_results = _normalize_output_dir(args.test_results)
+
+    if not args.predict_results:
+        args.predict_results = f"{results_root}predict_results/"
+    else:
+        args.predict_results = _normalize_output_dir(args.predict_results)
+
+    return args
+
+
 def args_parse():
     parser = argparse.ArgumentParser(description='Transformer Time Series Forecasting')
     # basic config
@@ -53,9 +80,10 @@ def args_parse():
     parser.add_argument('--scale', type=int, default=0, help = 'data transform')
     parser.add_argument('--inverse', type=int, default=0, help='inverse output data')
     # output dirs
-    parser.add_argument('--checkpoints', type=str, default='./saved_results/pretrained_models/', help='location of model models')
-    parser.add_argument('--test_results', type=str, default='./saved_results/test_results/', help='location of model models')
-    parser.add_argument('--predict_results', type=str, default='./saved_results/predict_results/', help='location of model models') 
+    parser.add_argument('--results_root', type=str, default='./results/', help='base output directory for checkpoints and result artifacts')
+    parser.add_argument('--checkpoints', type=str, default=None, help='checkpoint directory, defaults to <results_root>/pretrained_models/')
+    parser.add_argument('--test_results', type=str, default=None, help='test result directory, defaults to <results_root>/test_results/')
+    parser.add_argument('--predict_results', type=str, default=None, help='forecast result directory, defaults to <results_root>/predict_results/') 
     # forecasting task
     parser.add_argument('--seq_len', type=int, required=True, default=72, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=12, help='start token length')
@@ -167,6 +195,7 @@ def args_parse():
     
     # 命令行参数解析
     args = parser.parse_args()
+    args = _set_output_dirs(args)
 
     return args
 
