@@ -1,44 +1,15 @@
 
 <details><summary>目录</summary><p>
 
-- [文章](#文章)
-- [项目开发步骤](#项目开发步骤)
+- [项目说明](#项目说明)
     - [步骤 1：确定代码框架](#步骤-1确定代码框架)
     - [步骤 2：定义命令行解析](#步骤-2定义命令行解析)
     - [步骤 3：确定调参工具](#步骤-3确定调参工具)
     - [步骤 4：减少随机性](#步骤-4减少随机性)
-- [框架](#框架)
+- [项目优化](#项目优化)
 </p></details><p></p>
 
-
-# 文章
-
-* [一文梳理Transformer在时间序列预测中的发展历程代表工作](https://mp.weixin.qq.com/s/OjK7Q7DSoTM_p1MLye9RWw)
-* [圆圆的算法笔记](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzIyOTUyMDIwNg==&action=getalbum&album_id=2339781350876332033&scene=173&from_msgid=2247487281&from_itemidx=1&count=3&nolastread=1#wechat_redirect)
-* [时序人1](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=Mzg3NDUwNTM3MA==&action=getalbum&album_id=1565545072782278657&scene=173&from_msgid=2247484974&from_itemidx=1&count=3&nolastread=1#wechat_redirect)
-* [时序人2](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=Mzg3NDUwNTM3MA==&action=getalbum&album_id=1588681516295979011&scene=173&from_msgid=2247484974&from_itemidx=1&count=3&nolastread=1#wechat_redirect)
-* [时序人3](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzU4NTA1MDk4MA==&action=getalbum&album_id=1401576921242337281&scene=173&from_msgid=2247526075&from_itemidx=2&count=3&nolastread=1#wechat_redirect)
-* [时间序列预报](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzkzMTMyMDQ0Mw==&action=getalbum&album_id=2512078794435133440&scene=173&from_msgid=2247485132&from_itemidx=2&count=3&nolastread=1#wechat_redirect)
-* Informer
-    - [知乎](https://zhuanlan.zhihu.com/p/355133560)
-    - [知乎](https://zhuanlan.zhihu.com/p/499399526)
-    - [GitHub](https://github.com/zhouhaoyi/Informer2020)
-    - [Paper](https://arxiv.org/abs/2012.07436)
-* [CL-Timeseries](https://github.com/kashif/CL_Timeseries)
-* [LSTNet](https://github.com/laiguokun/LSTNet)
-* [TSForecasting](https://github.com/rakshitha123/TSForecasting)
-* TFT
-    - [知乎](https://zhuanlan.zhihu.com/p/514287527)
-    - [GitHub](https://github.com/google-research/google-research/tree/master/tft)
-    - [Complete Tutorial](https://towardsdatascience.com/temporal-fusion-transformer-time-series-forecasting-with-deep-learning-complete-tutorial-d32c1e51cd91)
-    - [公众号](https://mp.weixin.qq.com/s/0AXSOgivCytHKTCmpPJfFg)
-* [多任务学习MTL模型：MMoE、PLE](https://zhuanlan.zhihu.com/p/425209494)
-* [Temporal Pattern Attention for Multivariate Time Series Forecasting](https://github.com/shunyaoshih/TPA-LSTM)
-* [pytorch-forecasting](https://github.com/jdb78/pytorch-forecasting)
-* [pytorch-ts](https://github.com/zalandoresearch/pytorch-ts)
-* [HF-Time Series Transformer](https://huggingface.co/docs/transformers/main/en/model_doc/time_series_transformer)
-
-# 项目开发步骤
+# 项目说明
 
 ## 步骤 1：确定代码框架
 
@@ -124,15 +95,26 @@ np.random.seed(SEED)
 tf.random.set_seed(SEED)
 ```
 
-# 框架
+# 项目优化
 
-* UniTS
-    - [时间序列统一大模型](https://mp.weixin.qq.com/s/a4TCsYub-OPaqRPSbs6qXw)
-    - [mims-harvard/UniTS](https://github.com/mims-harvard/UniTS)
-* 时间序列预测基准测试
-    - [TFB：2024最新时间序列预测Benchmark](https://mp.weixin.qq.com/s/IPY2QwJ68YIrclMi2JtkMA)
-    - [TFB GitHub](https://github.com/decisionintelligence/TFB)
-* [GIFT-Eval: A Benchmark For General Time Series Forecasting Model Evaluation](https://arxiv.org/abs/2410.10393)
-* Chronos
-    * [时间序列+预训练大模型](https://mp.weixin.qq.com/s?__biz=Mzk0NDE5Nzg1Ng==&mid=2247510967&idx=1&sn=4bffea1d34a5d8770c6939cbf301057c&chksm=c2ef08d9218fc514d4537d2109cb5370b87294b115e8d5df2fc696072b173486908e5b7b90db&scene=132&exptype=timeline_recommend_article_extendread_samebiz&show_related_article=1&subscene=0&scene=132#wechat_redirect)
-    * [chronos-forecasting](https://github.com/amazon-science/chronos-forecasting)
+1. 本项目主要作用是实现 “基于神经网络模型的时间序列预测”快速测试、训练、推理框架
+2. 项目中包含了多类模型，具体分类参考 `models` 目录下模型的子目录分类：
+    - 有些模型已经比较完整，可以直接使用
+    - 有些模型没有完成，需要进行补充
+    - 有些模型只是建立了空脚本，需要进行调研和编写补充
+3. 项目中模型的主要构建模块在 `layers` 中，主要包含了神经网络的定义，目前没有进行分类，是否需要分类还有待考虑
+4. 项目的数据处理流程在 `data_provider` 目录中，由于对各类模型输入数据格式、处理流程的不同，目前进行了简单分类
+    - `RNNs_type` 为 RNNs 模型的数据处理流程
+    - `TFs_type` 为 TFs 模型的数据处理流程
+    - `todo` 为未完成的模型的数据处理流程，是 `RNNs_type` 的未完成部分，需要进行整合
+5. 目录 `dataset` 中包含了很多公开数据集，用于模型进行测试；
+6. 目录 `exp` 中包含了模型运行的主流程，包括训练、验证、推理等流程
+    - `exp_basic.py` 是一个接口类型脚本，用于定义模型的主流程，目前的想法是各种模型都可以集成这个脚本
+    - `exp_forecasting.py` 是一个数据集类型脚本，用于定义模型的主流程，目前是作为 RNNs 模型的主流程
+    - `exp_long_term_forecasting.py` 和 `exp_short_term_forecasting.py` 是两个时间序列类型脚本，用于定义模型的主流程，目前是作为 TFs 模型的主流程
+    - 其他类型模型的主流程可以在这个目录中进行定义，如果可以使用目前已有的脚本，可以直接使用，如果需要自己进行定义，可以在这个目录中进行定义
+7. 目录 `docs` 中包含了一些可读的文档，用于保存帮助进行时间序列预测研究的相关文档，其他有用的文档可以保存在这个目录中
+8. 目录 `scripts` 中包含了一些可执行的脚本，用于进行时间序列预测研究的快速测试，其他有用的脚本可以保存在这个目录中，目前以数据集进行分类构建
+9. `logs` 和 `saved_results`（希望重命名为 `results`）目录用于保存模型的训练结果，以及模型的推理结果
+10. 目前的 `utils` 目录是一个单独的 git 仓库，包含了其他算法项目的依赖，作为一个统一的工具库供多个项目使用。优化效果：
+   新建 `utils` 仓库，作为本项目单独的依赖库，从 git 仓库 `utils` 中提取出目前项目的依赖。最后将 git 仓库 `utils` 删除。
