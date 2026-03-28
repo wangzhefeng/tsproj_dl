@@ -1,0 +1,58 @@
+export CUDA_VISIBLE_DEVICES=0
+export LOG_NAME=transformer-ettm1
+
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
+mkdir -p "$MPLCONFIGDIR"
+
+model_name=Transformer
+
+"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
+    --task_name long_term_forecast \
+    --des 'Exp Transformer ETTm1' \
+    --is_training 1 \
+    --is_testing 1 \
+    --is_forecasting 0 \
+    --model_id ettm1_96_48_96 \
+    --model $model_name \
+    --root_path ./dataset/ETT-small/ \
+    --data_path ETTm1.csv \
+    --data ETTm1 \
+    --features MS \
+    --target OT \
+    --time date \
+    --results_root ./results/ \
+    --freq 15min \
+    --embed timeF \
+    --seq_len 96 \
+    --label_len 48 \
+    --pred_len 96 \
+    --train_ratio 0.6 \
+    --test_ratio 0.2 \
+    --moving_avg 25 \
+    --embed_type 0 \
+    --d_model 128 \
+    --d_ff 256 \
+    --enc_in 7 \
+    --dec_in 7 \
+    --e_layers 1 \
+    --d_layers 1 \
+    --factor 3 \
+    --n_heads 1 \
+    --c_out 1 \
+    --dropout 0.05 \
+    --num_workers 0 \
+    --itr 1 \
+    --train_epochs 1 \
+    --batch_size 32 \
+    --loss MSE \
+    --activation gelu \
+    --use_dtw 0 \
+    --learning_rate 1e-4 \
+    --patience 7 \
+    --lradj type1 \
+    --scale 1 \
+    --inverse 1 \
+    --use_gpu 0 \
+    --gpu_type 'cpu' \
+    --use_multi_gpu 0 \
+    --devices 0

@@ -4,6 +4,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-$ROOT_DIR/.venv/bin/python}"
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
+mkdir -p "$MPLCONFIGDIR"
 
 if [ ! -x "$PYTHON_BIN" ]; then
     echo "Python interpreter not found: $PYTHON_BIN" >&2

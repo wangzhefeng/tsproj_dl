@@ -41,7 +41,22 @@ source .venv/bin/activate
 bash scripts/ETTh1_script/ETTh1_transformer.sh
 ```
 
-示例 2：直接调用训练入口
+示例 2：ETTh1 上运行已经补齐并验证过的 MLP 系列脚本
+
+```bash
+bash scripts/ETTh1_script/ETTh1_tsmixer.sh
+bash scripts/ETTh1_script/ETTh1_nhits.sh
+bash scripts/ETTh1_script/ETTh1_nbeats.sh
+```
+
+示例 3：运行已经验证通过的 ETTh1 smoke 脚本
+
+```bash
+bash scripts/smoke/smoke_etth1_dlinear.sh
+bash scripts/smoke/smoke_etth1_transformer.sh
+```
+
+示例 4：直接调用训练入口
 
 ```bash
 python run_dl.py \
@@ -115,8 +130,15 @@ python run_dl.py \
 
 - `scripts/ETTh1_script/ETTh1_transformer.sh`
 - `scripts/ETTh1_script/ETTh1_dlinear.sh`
+- `scripts/ETTh1_script/ETTh1_tsmixer.sh`
+- `scripts/ETTh1_script/ETTh1_nhits.sh`
+- `scripts/ETTh1_script/ETTh1_nbeats.sh`
+- `scripts/smoke/smoke_etth1_transformer.sh`
+- `scripts/smoke/smoke_etth1_dlinear.sh`
 - `scripts/ETTh1_script/ETTh1_itransformer.sh`
 - `scripts/smoke/smoke_engineering_checks.sh`
+
+历史风场业务脚本已归档到 [docs/archive_wind_forecast](/Users/wangzf/projects/tsproj_dl/docs/archive_wind_forecast)，不再作为当前主线可运行脚本维护。
 
 ## 文档说明
 

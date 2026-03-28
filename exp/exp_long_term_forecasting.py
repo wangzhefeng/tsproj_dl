@@ -51,7 +51,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         # 时间序列模型初始化
         logger.info(f"Initializing model {self.args.model}...")
-        model = self.model_dict[self.args.model].Model(self.args).float()
+        model = self.get_model_module(self.args.model).Model(self.args).float()
         # 多 GPU 训练
         if self.args.use_gpu and self.args.use_multi_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -352,7 +352,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             train_losses.append(train_loss)
             vali_losses.append(vali_loss)
             # 早停机制、模型保存
-            early_stopping(vali_loss, epoch, self.model, optimizer, scheduler, model_checkpoint_path)
+            early_stopping(
+                epoch=epoch,
+                val_loss=vali_loss,
+                model=self.model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                model_path=model_checkpoint_path,
+            )
             if early_stopping.early_stop:
                 logger.info(f"Epoch: {epoch + 1}, \tEarly stopping...")
                 break

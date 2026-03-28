@@ -83,8 +83,14 @@ def model_memory_size(model, input_dtype=torch.float32, verbose:bool=True):
     # Calculate buffer size (non-parameters that require memory)
     total_buffers = sum(buf.numel() for buf in model.buffers())
     
-    # Account for weight tying
-    total_params_normalized = total_params - model.tok_embed.weight.numel()
+    # Some Transformer-like models tie token embeddings, but many forecasting
+    # models do not expose ``tok_embed`` at all. Fall back to the raw parameter
+    # count for generic models such as DLinear.
+    tok_embed = getattr(model, "tok_embed", None)
+    if tok_embed is not None and hasattr(tok_embed, "weight"):
+        total_params_normalized = total_params - tok_embed.weight.numel()
+    else:
+        total_params_normalized = total_params
     
     # Size in bytes = (Number of elements) * (Size of each element in bytes)
     # We assume parameters and gradients are stored in the same type as input dtype

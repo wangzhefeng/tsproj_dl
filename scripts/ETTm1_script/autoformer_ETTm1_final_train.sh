@@ -1,6 +1,9 @@
 export CUDA_VISIBLE_DEVICES=1
 export LOG_NAME=asc
 
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
+mkdir -p "$MPLCONFIGDIR"
+
 model_name=Autoformer
 
 # 模型大小相关参数
@@ -8,7 +11,7 @@ model_name=Autoformer
 # --d_ff 2048
 
 # 训练、验证、测试
-python -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
     --task_name long_term_forecast \
     --des 'Exp' \
     --is_training 0 \

@@ -20,11 +20,7 @@ if ROOT not in sys.path:
 from typing import Union, List
 
 import numpy as np
-import torch
-from torchmetrics.functional.regression import (
-    r2_score,
-    mean_absolute_percentage_error, 
-)
+from sklearn.metrics import r2_score
 
 from utils.dtw_metric import accelerated_dtw
 
@@ -43,10 +39,7 @@ def CORR(pred, true):
     return (u / d).mean(-1)
 
 def R_square(pred, true):
-    pred = torch.from_numpy(pred)
-    true = torch.from_numpy(true)
-    # true, pred = np.array(true), np.array(pred)
-    return r2_score(pred, true)
+    return float(r2_score(true, pred))
 
 
 def MSE(pred, true):
@@ -72,19 +65,17 @@ def MAPE_v2(true: Union[List, np.array], pred: Union[List, np.array]):
     """
     Calculates MAPE(mean absolute percentage error) given true and pred
     """
-    pred = torch.from_numpy(pred)
-    true = torch.from_numpy(true)
-    return mean_absolute_percentage_error(pred, true)
+    true = np.asarray(true, dtype=float)
+    pred = np.asarray(pred, dtype=float)
+    denominator = np.where(np.abs(true) < 1e-8, 1.0, np.abs(true))
+    return float(np.mean(np.abs((true - pred) / denominator)))
 
 
 def Accuracy(pred, true):
     """
     时序预测准确率计算，1-MAPE
     """
-    pred = torch.from_numpy(pred)
-    true = torch.from_numpy(true)
-    
-    return 1 - mean_absolute_percentage_error(pred, true)
+    return 1 - MAPE_v2(true, pred)
 
 
 def MSPE(pred, true):
@@ -141,14 +132,11 @@ def main():
     # print(f"mae: {mae}\nmse: {mse}\nrmse: {rmse}\nmape: {mape}\
     #     \naccuracy: {accuracy}\nmspe: {mspe}")
     
-    import torch
-    from torchmetrics.functional.regression import mean_absolute_percentage_error
-    
-    target = torch.tensor([1, 10, 1e6])
-    preds = torch.tensor([0.9, 15, 1.2e6])
-    r2 = r2_score(preds, target)
+    target = np.array([1, 10, 1e6], dtype=float)
+    preds = np.array([0.9, 15, 1.2e6], dtype=float)
+    r2 = r2_score(target, preds)
     print(r2)
-    mape = mean_absolute_percentage_error(preds, target)
+    mape = MAPE_v2(target, preds)
     print(mape)
     print(1-mape)
 

@@ -3,10 +3,13 @@ export CUDA_VISIBLE_DEVICES=0
 # log vars
 model_id=ETTh1_lstm2lstm
 export LOG_NAME=$model_id
+
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
+mkdir -p "$MPLCONFIGDIR"
 # model vars
 model_name=LSTM2LSTM
 
-python -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
     --task_name long_term_forecast \
     --des 'Exp' \
     --is_training 1 \
@@ -23,8 +26,8 @@ python -u run_dl.py \
     --time date \
     --pred_method recursive_multi_step \
     --inspect_fit 1 \
-    --rolling_predict 1 \
-    --rolling_data_path ETTh1-Test.csv \
+    --rolling_predict 0 \
+    --rolling_data_path ETTh1.csv \
     --checkpoints ./results/pretrained_models/ \
     --test_results ./results/test_results/ \
     --predict_results ./results/predict_results/ \
@@ -56,7 +59,7 @@ python -u run_dl.py \
     --scale 1 \
     --inverse 1 \
     --num_workers 0 \
-    --use_gpu 1 \
-    --gpu_type 'cuda' \
+    --use_gpu 0 \
+    --gpu_type 'cpu' \
     --use_multi_gpu 0 \
     --devices 0,1,2,3,4,5,6,7

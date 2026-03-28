@@ -23,6 +23,7 @@ import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 import torch
 import torch.nn as nn
 
@@ -47,7 +48,8 @@ from utils.plot_losses import plot_losses
 from utils.timestamp_utils import from_unix_time
 from utils.log_util import logger
 
-plt.rcParams['font.sans-serif']=['SimHei']    # 用来正常显示中文标签
+preferred_font = "SimHei" if "SimHei" in {font.name for font in font_manager.fontManager.ttflist} else "DejaVu Sans"
+plt.rcParams["font.sans-serif"] = [preferred_font]
 plt.rcParams['axes.unicode_minus'] = False    # 用来显示负号
 
 # global variable
@@ -68,7 +70,7 @@ class Exp_Forecast(Exp_Basic):
         """
         # 构建 Transformer 模型
         logger.info(f"Initializing model {self.args.model}...")
-        model = self.model_dict[self.args.model].Model(self.args)
+        model = self.get_model_module(self.args.model).Model(self.args)
         # 多 GPU 训练
         if self.args.use_gpu and self.args.use_multi_gpu:
             model = nn.DataParallel(model, device_ids=self.args.devices)
@@ -465,11 +467,11 @@ class Exp_Forecast(Exp_Basic):
             vali_losses.append(vali_loss)
             # 早停机制、模型保存
             early_stopping(
-                vali_loss, 
-                epoch=epoch, 
-                model=self.model, 
-                optimizer=optimizer, 
-                scheduler=None, 
+                epoch=epoch,
+                val_loss=vali_loss,
+                model=self.model,
+                optimizer=optimizer,
+                scheduler=None,
                 model_path=model_checkpoint_path,
             )
             if early_stopping.early_stop:

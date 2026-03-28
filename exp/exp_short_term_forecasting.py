@@ -55,7 +55,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             self.args.label_len = self.args.pred_len
             self.args.frequency_map = M4Meta.frequency_map[self.args.seasonal_patterns]
         # 时间序列模型初始化
-        model = self.model_dict[self.args.model].Model(self.args)
+        model = self.get_model_module(self.args.model).Model(self.args)
         # 多 GPU 训练
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.devices)
@@ -274,18 +274,18 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             vali_losses.append(vali_loss)
             # 早停机制、模型保存
             early_stopping(
-                vali_loss, 
-                epoch=epoch, 
-                model=self.model, 
-                optimizer=optimizer, 
-                scheduler=None, 
+                epoch=epoch,
+                val_loss=vali_loss,
+                model=self.model,
+                optimizer=optimizer,
+                scheduler=None,
                 model_path=model_checkpoint_path,
             )
             if early_stopping.early_stop:
                 logger.info(f"Epoch: {epoch + 1}, \tEarly stopping...")
                 break
             # 学习率调整
-            adjust_learning_rate(optimizer, epoch + 1, self.args)
+            adjust_learning_rate(optimizer, None, epoch + 1, self.args)
         # -----------------------------
         # 模型加载
         # ------------------------------

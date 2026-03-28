@@ -37,6 +37,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 from matplotlib import dates, ticker
 import seaborn as sns
 # import plotly.express as px
@@ -46,10 +47,12 @@ from sklearn.metrics import mean_absolute_percentage_error
 # 绘图风格
 plt.style.use("seaborn-v0_8-whitegrid")  # "ggplot", "classic", "darkgrid"
 
-# 用来正常显示中文标签
-plt.rcParams["font.sans-serif"]=["SimHei"]  # 'Arial Unicode MS'
+# 用来正常显示中文标签；在非中文环境下回退到默认 sans-serif，避免大量字体告警
+available_fonts = {font.name for font in font_manager.fontManager.ttflist}
+preferred_font = "SimHei" if "SimHei" in available_fonts else "DejaVu Sans"
+plt.rcParams["font.sans-serif"] = [preferred_font]
 # 处理 matplotlib 字体问题
-plt.rcParams["font.family"].append("SimHei")
+plt.rcParams["font.family"] = ["sans-serif"]
 # 用来显示负号
 plt.rcParams["axes.unicode_minus"] = False
 

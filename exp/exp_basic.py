@@ -17,22 +17,12 @@ __all__ = []
 import os
 import sys
 from pathlib import Path
-
-from models.mlp import DLinear
-from models.others import TimeKAN, TimeMixer
-from models.rnn import RNN
-from models.transformer import Autoformer, PatchTST, iTransformer
+from importlib import import_module
 ROOT = str(Path.cwd())
 if ROOT not in sys.path:
     sys.path.append(ROOT)
 
 import torch
-
-from models import (
-    Transformer_v2,
-    Transformer,
-    LSTM2LSTM,
-)
 from utils.log_util import logger
 
 # global variable
@@ -53,29 +43,31 @@ class Exp_Basic:
             # Time Series Library models
             # ------------------------------
             # 'TimesNet': TimesNet,
-            'Autoformer': Autoformer,
-            'Transformer_v2': Transformer_v2,
-            'Transformer': Transformer,
+            'Autoformer': "models.transformer.Autoformer",
+            'Transformer': "models.transformer.Transformer",
+            'LSTMTransformer': "models.transformer.LSTMTransformer",
             # 'Nonstationary_Transformer': Nonstationary_Transformer,
-            'DLinear': DLinear,
+            'DLinear': "models.mlp.DLinear",
             # 'FEDformer': FEDformer,
             # 'Informer': Informer,
             # 'LightTS': LightTS,
             # 'Reformer': Reformer,
             # 'ETSformer': ETSformer,
-            'PatchTST': PatchTST,
+            'PatchTST': "models.transformer.PatchTST",
             # 'Pyraformer': Pyraformer,
             # 'MICN': MICN,
             # 'Crossformer': Crossformer,
             # 'FiLM': FiLM,
-            'iTransformer': iTransformer,
+            'iTransformer': "models.transformer.iTransformer",
             # 'Koopa': Koopa,
             # 'TiDE': TiDE,
             # 'FreTS': FreTS,
             # 'MambaSimple': MambaSimple,
-            'TimeKAN': TimeKAN,
-            'TimeMixer': TimeMixer,
-            # 'TSMixer': TSMixer,
+            'TimeKAN': "models.others.TimeKAN",
+            'TimeMixer': "models.others.TimeMixer",
+            'TSMixer': "models.mlp.TSMixer",
+            'N_HiTs': "models.mlp.N_HiTs",
+            'N_BEATS': "models.mlp.N_BEATS",
             # 'SegRNN': SegRNN,
             # 'TemporalFusionTransformer': TemporalFusionTransformer,
             # "SCINet": SCINet,
@@ -87,8 +79,8 @@ class Exp_Basic:
             # Basic Neural Network model
             # ------------------------------
             # "MLP": MLP,
-            "RNN": RNN,
-            # "GRU": GRU,
+            "RNN": "models.rnn.RNN",
+            "GRU": "models.rnn.GRU",
             # "LSTM": LSTM,
             # "BiLSTM": BiLSTM,
             # "Attention": Attention,
@@ -102,16 +94,18 @@ class Exp_Basic:
             # "LSTM_CNN": LSTM_CNN,
             # "TCN": TCN,
             # "Transformer": Transformer,
-            "LSTM2LSTM": LSTM2LSTM,
+            "LSTM2LSTM": "models.rnn.LSTM2LSTM",
         }
         if args.model == 'Mamba':
             logger.info('Please make sure you have successfully installed mamba_ssm')
-            from models import Mamba
-            self.model_dict["Mamba"] = Mamba
+            self.model_dict["Mamba"] = "models.rnn.Mamba"
         # 设备
         self.device = self._acquire_device()
         # 模型构建
         self.model = self._build_model().to(self.device)
+
+    def get_model_module(self, model_name: str):
+        return import_module(self.model_dict[model_name])
     
     def _acquire_device(self):
         # use gpu or not

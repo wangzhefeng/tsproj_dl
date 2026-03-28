@@ -18,9 +18,9 @@ from pathlib import Path
 ROOT = str(Path.cwd())
 if ROOT not in sys.path:
     sys.path.append(ROOT)
-import pytz
 from typing import Union
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 # global variable
 LOGGING_LABEL = Path(__file__).name[:-3]
@@ -50,10 +50,10 @@ def from_unix_time(unix_time: int, tz: str = None) -> datetime:
         datetime: datetime 格式
     """
     if tz:
-        local_tz = pytz.timezone(tz)
+        local_tz = ZoneInfo(tz)
         timestamp = datetime \
             .fromtimestamp(int(unix_time)) \
-            .replace(tzinfo = pytz.utc) \
+            .replace(tzinfo = timezone.utc) \
             .astimezone(local_tz)
     else:
         timestamp = datetime.fromtimestamp(int(unix_time))
@@ -104,7 +104,7 @@ def align_timestamp(timestamp: int, time_zone: str = "Asia/Shanghai", resolution
     >>> _align_timestamp(1503497069, "Australia/Sydney", resolution="1d")
     1503496800
     """
-    tz = pytz.timezone(time_zone)
+    tz = ZoneInfo(time_zone)
     if resolution is None:
         return timestamp
     elif resolution == "1s":
@@ -125,28 +125,28 @@ def align_timestamp(timestamp: int, time_zone: str = "Asia/Shanghai", resolution
         return int(timestamp / 900) * 900
     elif resolution == "1h":
         dt = datetime.fromtimestamp(timestamp, tz = tz).replace(minute = 0, second = 0, microsecond = 0)
-        return int((dt - datetime(1970, 1, 1, tzinfo=pytz.utc)).total_seconds())
+        return int((dt - datetime(1970, 1, 1, tzinfo=timezone.utc)).total_seconds())
     elif resolution == "6h":
         dt = datetime.fromtimestamp(timestamp, tz = tz).replace(minute = 0, second = 0, microsecond = 0)
         dt = dt.replace(hour = int(dt.hour / 6) * 6)
-        return int((dt - datetime(1970, 1, 1, tzinfo = pytz.utc)).total_seconds())
+        return int((dt - datetime(1970, 1, 1, tzinfo = timezone.utc)).total_seconds())
     elif resolution == "8h":
         dt = datetime.fromtimestamp(timestamp, tz = tz).replace(minute = 0, second = 0, microsecond = 0)
         dt = dt.replace(hour = int(dt.hour / 8) * 8)
-        return int((dt - datetime(1970, 1, 1, tzinfo = pytz.utc)).total_seconds())
+        return int((dt - datetime(1970, 1, 1, tzinfo = timezone.utc)).total_seconds())
     elif resolution == "12h":
         dt = datetime.fromtimestamp(timestamp, tz = tz).replace(minute = 0, second = 0, microsecond = 0)
         dt = dt.replace(hour = int(dt.hour / 12) * 12)
-        return int((dt - datetime(1970, 1, 1, tzinfo = pytz.utc)).total_seconds())
+        return int((dt - datetime(1970, 1, 1, tzinfo = timezone.utc)).total_seconds())
     elif resolution == "1d":
         dt = datetime.fromtimestamp(timestamp, tz = tz).replace(hour = 0, minute = 0, second = 0, microsecond = 0)
-        return int((dt - datetime(1970, 1, 1, tzinfo = pytz.utc)).total_seconds())
+        return int((dt - datetime(1970, 1, 1, tzinfo = timezone.utc)).total_seconds())
     elif resolution == "1mo":
         dt = datetime.fromtimestamp(timestamp, tz = tz).replace(day = 1, hour = 0, minute = 0, second = 0, microsecond = 0)
-        return int((dt - datetime(1970, 1, 1, tzinfo = pytz.utc)).total_seconds())
+        return int((dt - datetime(1970, 1, 1, tzinfo = timezone.utc)).total_seconds())
     elif resolution == "1y":
         dt = datetime.fromtimestamp(timestamp, tz = tz).replace(month = 1, day = 1, hour = 0, minute = 0, second = 0, microsecond = 0)
-        return int((dt - datetime(1970, 1, 1, tzinfo = pytz.utc)).total_seconds())
+        return int((dt - datetime(1970, 1, 1, tzinfo = timezone.utc)).total_seconds())
     else:
         raise ValueError("Invalid resolution: %s" % resolution)
 

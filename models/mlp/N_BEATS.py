@@ -105,11 +105,11 @@ class TrendBasis(nn.Module):
         super().__init__()
         self.polynomial_size = degree_of_polynomial + 1  # degree of polynomial with constant term
         self.backcast_time = nn.Parameter(
-            torch.tensor(np.concatenate([np.power(np.arange(backcast_size, dtype=np.float) / backcast_size, i)[None, :]
+            torch.tensor(np.concatenate([np.power(np.arange(backcast_size, dtype=np.float64) / backcast_size, i)[None, :]
                                      for i in range(self.polynomial_size)]), dtype=torch.float32),
             requires_grad=False)
         self.forecast_time = nn.Parameter(
-            torch.tensor(np.concatenate([np.power(np.arange(forecast_size, dtype=np.float) / forecast_size, i)[None, :]
+            torch.tensor(np.concatenate([np.power(np.arange(forecast_size, dtype=np.float64) / forecast_size, i)[None, :]
                                      for i in range(self.polynomial_size)]), dtype=torch.float32), requires_grad=False)
 
     def forward(self, theta: torch.Tensor):
@@ -153,6 +153,57 @@ class SeasonalityBasis(nn.Module):
         forecast = forecast_harmonics_sin + forecast_harmonics_cos
 
         return backcast, forecast
+
+
+class Model(nn.Module):
+
+    def __init__(self, configs):
+        super().__init__()
+        self.task_name = configs.task_name
+        self.seq_len = configs.seq_len
+        self.pred_len = configs.pred_len
+        self.enc_in = configs.enc_in
+        self.c_out = configs.c_out
+        hidden_size = max(64, getattr(configs, "d_model", 128))
+        num_blocks = max(2, getattr(configs, "e_layers", 3))
+        num_layers = max(2, min(4, getattr(configs, "d_layers", 2) + 1))
+        dropout = getattr(configs, "dropout", 0.0)
+
+        blocks = []
+        for _ in range(num_blocks):
+            block = NBeatsBlock(
+                input_size=self.seq_len,
+                theta_size=self.seq_len + self.pred_len,
+                basis_function=GenericBasis(self.seq_len, self.pred_len),
+                layers=num_layers,
+                layer_size=hidden_size,
+            )
+            if dropout > 0:
+                block.layers.append(nn.Dropout(dropout))
+            blocks.append(block)
+        self.core = NBeats(nn.ModuleList(blocks))
+        self.channel_projection = (
+            nn.Identity() if self.enc_in == self.c_out else nn.Linear(self.enc_in, self.c_out)
+        )
+
+    def forecast(self, x_enc: torch.Tensor) -> torch.Tensor:
+        batch_size, _, channels = x_enc.shape
+        series = x_enc.transpose(1, 2).reshape(batch_size * channels, self.seq_len)
+        mask = torch.ones_like(series)
+        forecast = self.core(series, mask)
+        forecast = forecast.reshape(batch_size, channels, self.pred_len).transpose(1, 2)
+        forecast = self.channel_projection(forecast)
+        return forecast
+
+    def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None, mask=None):
+        if self.task_name in {"long_term_forecast", "short_term_forecast"}:
+            return self.forecast(x_enc)
+        if self.task_name in {"imputation", "anomaly_detection"}:
+            return self.forecast(x_enc)
+        if self.task_name == "classification":
+            x = self.forecast(x_enc)
+            return x.reshape(x.shape[0], -1)
+        return None
 
 
 

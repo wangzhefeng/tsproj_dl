@@ -1,10 +1,13 @@
 export CUDA_VISIBLE_DEVICES=0
 export LOG_NAME=timemixer-etth1
 
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
+mkdir -p "$MPLCONFIGDIR"
+
 model_name=TimeMixer
 
 # 训练、验证、测试
-python -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
     --task_name long_term_forecast \
     --des 'Exp TimeMixer_24_0_24' \
     --is_training 1 \

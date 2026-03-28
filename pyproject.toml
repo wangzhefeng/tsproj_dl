@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "catboost>=1.2.8",
+    "einops>=0.8.1",
     "ipykernel>=7.1.0",
     "jupyter>=1.1.1",
     "lightgbm>=4.6.0",
@@ -18,6 +19,7 @@ dependencies = [
     "sklearn-pandas>=2.2.0",
     "sklearn2pmml>=0.127.2",
     "torch>=2.10.0",
+    "reformer-pytorch>=1.4.4",
     "torchtext>=0.18.0",
     "torchvision>=0.25.0",
     "tqdm>=4.67.3",

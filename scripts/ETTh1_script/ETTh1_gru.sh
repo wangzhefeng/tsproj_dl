@@ -1,9 +1,12 @@
 export CUDA_VISIBLE_DEVICES=0
 export LOG_NAME=ETTh1_gru
 
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
+mkdir -p "$MPLCONFIGDIR"
+
 model_name=GRU
 
-python -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
     --task_name long_term_forecast \
     --des 'Exp' \
     --is_training 1 \
@@ -22,14 +25,14 @@ python -u run_dl.py \
     --checkpoints ./results/pretrained_models/ \
     --test_results ./results/test_results/ \
     --predict_results ./results/predict_results/ \
-    --freq d \
+    --freq h \
     --embed timeF \
-    --window_len 6 \
+    --seq_len 6 \
+    --label_len 0 \
     --pred_len 2 \
     --step_size 1 \
-    --feature_size 1 \
+    --feature_size 7 \
     --output_size 1 \
-    --output 1 \
     --hidden_size 32 \
     --num_layers 2 \
     --train_ratio 0.8 \
