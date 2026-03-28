@@ -45,6 +45,7 @@ class Dataset_Train(Dataset):
                  features: str,
                  seq_len: int,
                  pred_len: int,
+                 pred_method: str="recursive_multi_step",
                  step_size: int=1,
                  scale: bool=True,
                  flag: str="train"):
@@ -64,6 +65,7 @@ class Dataset_Train(Dataset):
         # data size
         self.seq_len = seq_len
         self.pred_len = pred_len
+        self.pred_method = pred_method
         self.step_size = step_size
         # data trans
         self.scale = scale
@@ -107,8 +109,8 @@ class Dataset_Train(Dataset):
             df_data = df_raw[df_raw.columns[1:]]
         elif self.features == 'S':
             df_data = df_raw[[self.target]]
-        # TODO self.input_size = df_data.shape[1]
-        df_stamp = df_raw[['time']]
+        self.feature_dim = df_data.shape[1]
+        self.target_dim = 1 if self.features in ["MS", "S"] else self.feature_dim
         logger.info(f"Train data shape after feature selection: {df_data.shape}")
         # 数据分割比例
         num_train = int(len(df_data) * self.args.train_ratio)  # 0.7
@@ -134,7 +136,7 @@ class Dataset_Train(Dataset):
         logger.info(f"{self.flag.capitalize()} input data shape: {data_tensor.shape}")
         # 创建 Dataset
         self.sequences = self.__create_input_sequences(data_tensor)
-    
+
     def __create_input_sequences(self, input_data) -> List[Tuple]:
         """
         创建时间序列数据专用的数据分割器
@@ -142,34 +144,59 @@ class Dataset_Train(Dataset):
         # 模型输入数据收集器
         output_seq = []
         input_data_len = len(input_data)
-        for i in range(0, input_data_len - self.seq_len, self.step_size):            
-            # 滑窗停止条件
+        valid_pred_methods = {
+            "recursive_multi_step",
+            "direct_multi_output",
+            "direct_multi_step",
+            "direct_recursive_multi_step_mix",
+        }
+        if self.pred_method not in valid_pred_methods:
+            raise ValueError(
+                f"Unsupported pred_method: {self.pred_method}. "
+                f"Expected one of {sorted(valid_pred_methods)}."
+            )
+
+        for i in range(0, input_data_len - self.seq_len, self.step_size):
             if (i + self.seq_len + self.pred_len) > input_data_len:
                 break
-            # logger.info(f"debug::input_data[0:10]: \n{input_data[0:10]} \ninput_data[0:10].shape: {input_data[0:10].shape}")
-            
-            # predict seq
+
             train_seq = input_data[i:(i + self.seq_len)]
-            # logger.info(f"debug::train_seq: \n{train_seq} \ntrain_seq.shape: {train_seq.shape}")
-            
-            # targee seq
-            if self.features == "MS" or self.features == "S":
-                train_label = input_data[:, -1:][(i + self.seq_len):(i + self.seq_len + self.pred_len)]
-            else:
-                train_label = input_data[(i + self.seq_len):(i + self.seq_len + self.pred_len)]
-            # logger.info(f"debug::train_label: \n{train_label} \ntrain_label.shape: {train_label.shape}")
-            
-            # 模型输入数据收集
+            train_label = self._build_label_window(input_data, i)
             output_seq.append((train_seq, train_label))
-            # logger.info(f"debug::output_seq: \n{output_seq}")
-        # logger.info(f"output_seq[0][0]: \n{output_seq[0][0]} \noutput_seq[0][0].shape: {output_seq[0][0].shape}")
-        # logger.info(f"output_seq[0][1]: \n{output_seq[0][1]} \noutput_seq[0][1].shape: {output_seq[0][1].shape}")
-        
+
         # 样本数量
-        sample_num = input_data_len - (self.seq_len + self.pred_len - self.step_size)
+        sample_num = len(output_seq)
         logger.info(f"{self.flag.capitalize()} sample number: {sample_num}")
-        
+
         return output_seq
+
+    def _build_label_window(self, input_data: torch.Tensor, start_idx: int) -> torch.Tensor:
+        """
+        构造监督标签窗口。
+
+        业内常见做法是让数据层统一输出未来 horizon 标签，
+        将“递归/直接/混合”的预测策略放在模型或推理阶段控制。
+        这样可以保持 Dataset、损失函数和评估逻辑的一致性。
+        """
+        label_start = start_idx + self.seq_len
+        label_end = label_start + self.pred_len
+
+        if self.features in ["MS", "S"]:
+            future_target = input_data[label_start:label_end, -1:]
+        else:
+            future_target = input_data[label_start:label_end]
+
+        # 当前 RNN 主链中的模型都按 horizon 直接监督训练。
+        # 因此数据层统一返回 [pred_len, target_dim]，避免把推理策略耦合进样本定义。
+        if self.pred_method in [
+            "recursive_multi_step",
+            "direct_multi_output",
+            "direct_multi_step",
+            "direct_recursive_multi_step_mix",
+        ]:
+            return future_target
+
+        return future_target
     
     def __len__(self):
         return len(self.sequences)
