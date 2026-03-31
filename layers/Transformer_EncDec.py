@@ -1,28 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : Transformer_EncDec.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2023-04-19
-# * Version     : 0.1.041916
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch.nn as nn
 import torch.nn.functional as F
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class ConvLayer(nn.Module):
@@ -170,13 +150,3 @@ class Decoder(nn.Module):
         if self.projection is not None:
             x = self.projection(x)
         return x
-
-
-
-
-# 测试代码 main 函数
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()

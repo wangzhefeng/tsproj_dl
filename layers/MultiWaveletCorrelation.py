@@ -1,23 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : MultiWaveletCorrelation.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2023-04-19
-# * Version     : 0.1.041917
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import math
 from functools import partial
 from typing import List, Tuple
@@ -29,8 +12,6 @@ import torch.nn.functional as F
 from scipy.special import eval_legendre
 from sympy import Poly, Symbol, chebyshevt, legendre
 
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 def legendreDer(k, x):
@@ -406,7 +387,7 @@ class MultiWaveletCross(nn.Module):
         xa = torch.cat(
             [x[:, ::2, :, :],
              x[:, 1::2, :, :]], 
-             axis = -1
+            axis = -1
         )
         d = torch.matmul(xa, self.ec_d)
         s = torch.matmul(xa, self.ec_s)
@@ -613,13 +594,3 @@ class MWT_CZ1d(nn.Module):
         x[..., ::2, :, :] = x_e
         x[..., 1::2, :, :] = x_o
         return x
-
-
-
-
-# 测试代码 main 函数
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()

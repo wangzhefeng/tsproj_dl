@@ -1,9 +1,9 @@
 import torch
 from torch import nn
-from layers.Transformer_EncDec_tsl import Encoder, EncoderLayer
-from layers.SelfAttention_Family_tsl import FullAttention, AttentionLayer
+from layers.Transformer_EncDec import Encoder, EncoderLayer
+from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from layers.Embed_tsl import PatchEmbedding
-import timesfm
+from tirex import load_model, ForecastModel
 
 
 class Model(nn.Module):
@@ -13,20 +13,7 @@ class Model(nn.Module):
         stride: int, stride for patch_embedding
         """
         super().__init__()
-
-        self.model = timesfm.TimesFM_2p5_200M_torch.from_pretrained("google/timesfm-2.5-200m-pytorch")
-        self.model.compile(
-            timesfm.ForecastConfig(
-                max_context=configs.seq_len,
-                max_horizon=configs.pred_len,
-                normalize_inputs=True,
-                use_continuous_quantile_head=True,
-                force_flip_invariance=True,
-                infer_is_positive=True,
-                fix_quantile_crossing=True,
-            )
-        )
-
+        self.model = load_model("NX-AI/TiRex")
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
@@ -39,15 +26,8 @@ class Model(nn.Module):
         x_enc = x_enc.div(stdev)
 
         B, L, C = x_enc.shape
-        device = x_enc.device
         x_enc = torch.reshape(x_enc, (B*C, L))
-
-        output, _ = self.model.forecast(
-            horizon=self.pred_len,
-            inputs=x_enc.cpu().numpy()
-        )
-        output = torch.Tensor(output).to(device)
-
+        quantiles, output = self.model.forecast(x_enc, prediction_length=self.pred_len)
         dec_out = torch.reshape(output, (B, output.shape[-1], C)).to(x_enc.device)
         dec_out = dec_out * \
                   (stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))

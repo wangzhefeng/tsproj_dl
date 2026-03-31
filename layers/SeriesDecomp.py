@@ -1,29 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : SeriesDecomp.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2024-11-04
-# * Version     : 0.1.110400
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
 from typing import List
 
 import torch
 import torch.nn as nn
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class moving_avg(nn.Module):

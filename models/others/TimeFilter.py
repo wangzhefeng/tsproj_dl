@@ -8,19 +8,12 @@
 # * Description : Time-Series-Library TimeFilter model adapted for local config style
 # ***************************************************
 
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from layers.Embed_tsl import PositionalEmbedding
-from layers.StandardNorm_tsl import Normalize
+from layers.StandardNorm import Normalize
 from layers.TimeFilter_layers import TimeFilter_Backbone
 
 

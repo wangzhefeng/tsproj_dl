@@ -1,9 +1,9 @@
 import torch
 from torch import nn
-from layers.Transformer_EncDec_tsl import Encoder, EncoderLayer
-from layers.SelfAttention_Family_tsl import FullAttention, AttentionLayer
+from layers.Transformer_EncDec import Encoder, EncoderLayer
+from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from layers.Embed_tsl import PatchEmbedding
-from tirex import load_model, ForecastModel
+from chronos import BaseChronosPipeline
 
 
 class Model(nn.Module):
@@ -13,7 +13,7 @@ class Model(nn.Module):
         stride: int, stride for patch_embedding
         """
         super().__init__()
-        self.model = load_model("NX-AI/TiRex")
+        self.model = BaseChronosPipeline.from_pretrained("amazon/chronos-2", device_map="cuda")
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
@@ -26,9 +26,10 @@ class Model(nn.Module):
         x_enc = x_enc.div(stdev)
 
         B, L, C = x_enc.shape
-        x_enc = torch.reshape(x_enc, (B*C, L))
-        quantiles, output = self.model.forecast(x_enc, prediction_length=self.pred_len)
-        dec_out = torch.reshape(output, (B, output.shape[-1], C)).to(x_enc.device)
+        x_enc = x_enc.permute(0, 2, 1)
+        quantiles, dec_out = self.model.predict_quantiles(x_enc.cpu().numpy(), prediction_length=self.pred_len, quantile_levels=[0.1, 0.5, 0.9])
+        dec_out = torch.stack(dec_out, dim=0).to(x_enc.device)
+        dec_out= dec_out.permute(0, 2, 1)
         dec_out = dec_out * \
                   (stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         dec_out = dec_out + \

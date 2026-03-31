@@ -1,32 +1,11 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : Crossformer_EncDec.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2023-04-19
-# * Version     : 0.1.041915
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import os
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch
 import torch.nn as nn
 from einops import rearrange
 
 from layers.SelfAttention_Family import TwoStageAttentionLayer
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class SegMerging(nn.Module):
@@ -158,14 +137,3 @@ class Decoder(nn.Module):
         final_predict = rearrange(final_predict, 'b (out_d seg_num) seg_len -> b (seg_num seg_len) out_d', out_d=ts_d)
 
         return final_predict
-
-
-
-
-
-# 测试代码 main 函数
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()

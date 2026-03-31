@@ -1,29 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : FourierCorrelation.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2023-04-19
-# * Version     : 0.1.041917
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import numpy as np
 import torch
 import torch.nn as nn
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 def get_frequency_modes(seq_len, modes = 64, mode_select_method = 'random'):
@@ -47,7 +27,7 @@ class FourierBlock(nn.Module):
     """
     fourier layer
     """
-    def __init__(self, in_channels, out_channels, seq_len, modes = 0, mode_select_method = 'random'):
+    def __init__(self, in_channels, out_channels, n_heads, seq_len, modes=0, mode_select_method='random'):
         super(FourierBlock, self).__init__()
         print('fourier enhanced block used!')
         """
@@ -55,12 +35,16 @@ class FourierBlock(nn.Module):
         it does FFT, linear transform, and Inverse FFT.    
         """
         # get modes on frequency domain
-        self.index = get_frequency_modes(seq_len, modes = modes, mode_select_method = mode_select_method)
+        self.index = get_frequency_modes(seq_len, modes=modes, mode_select_method=mode_select_method)
         print('modes = {}, index = {}'.format(modes, self.index))
-
+        self.n_heads = n_heads
         self.scale = (1 / (in_channels * out_channels))
-        self.weights1 = nn.Parameter(self.scale * torch.rand(8, in_channels // 8, out_channels // 8, len(self.index), dtype = torch.float))
-        self.weights2 = nn.Parameter(self.scale * torch.rand(8, in_channels // 8, out_channels // 8, len(self.index), dtype = torch.float))
+        self.weights1 = nn.Parameter(
+            self.scale * torch.rand(self.n_heads, in_channels // self.n_heads, out_channels // self.n_heads,
+                                    len(self.index), dtype=torch.float))
+        self.weights2 = nn.Parameter(
+            self.scale * torch.rand(self.n_heads, in_channels // self.n_heads, out_channels // self.n_heads,
+                                    len(self.index), dtype=torch.float))
 
     # Complex multiplication
     def compl_mul1d(self, order, x, weights):
@@ -97,7 +81,7 @@ class FourierBlock(nn.Module):
                 torch.complex(self.weights1, self.weights2)[:, :, :, wi]
             )
         # Return to time domain
-        x = torch.fft.irfft(out_ft, n = x.size(-1))
+        x = torch.fft.irfft(out_ft, n=x.size(-1))
         return (x, None)
 
 
@@ -105,8 +89,8 @@ class FourierCrossAttention(nn.Module):
     """
     Fourier Cross Former
     """
-    def __init__(self, in_channels, out_channels, seq_len_q, seq_len_kv, 
-                 modes = 64, mode_select_method = 'random', activation = 'tanh', policy = 0, num_heads = 8):
+    def __init__(self, in_channels, out_channels, seq_len_q, seq_len_kv, modes=64, mode_select_method='random', 
+                 activation='tanh', policy=0, num_heads=8):
         super(FourierCrossAttention, self).__init__()
         print(' fourier enhanced cross attention used!')
         """
@@ -183,16 +167,4 @@ class FourierCrossAttention(nn.Module):
             out_ft[:, :, :, j] = xqkvw[:, :, :, i]
         # Return to time domain
         out = torch.fft.irfft(out_ft / self.in_channels / self.out_channels, n=xq.size(-1))
-        return (out, None) 
-
-
-
-
-# 测试代码 main 函数
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()
-
-
+        return (out, None)

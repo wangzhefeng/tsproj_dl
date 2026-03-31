@@ -1,30 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : DLinear.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2024-11-03
-# * Version     : 0.1.110323
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch
 import torch.nn as nn
 
 from layers.SeriesDecomp import series_decomp
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Model(nn.Module):

@@ -53,6 +53,27 @@ class RNNDataProviderTestCase(unittest.TestCase):
         self.assertEqual(tuple(batch_x.shape), (4, 24, 7))
         self.assertEqual(tuple(batch_y.shape), (4, 6, 1))
 
+    def test_pred_dataset_shape(self):
+        args = build_args(
+            features="MS",
+            pred_method="recursive_multi_step",
+            batch_size=1,
+            rolling_data_path="ETTh1.csv",
+        )
+        _, data_loader = data_provider(args, "pred")
+        batch_x, batch_y = next(iter(data_loader))
+
+        self.assertEqual(tuple(batch_x.shape), (1, 24, 7))
+        self.assertEqual(tuple(batch_y.shape), (1, 6, 1))
+
+    def test_inverse_transform_target_shape(self):
+        args = build_args(features="MS")
+        data_set, data_loader = data_provider(args, "train")
+        _, batch_y = next(iter(data_loader))
+        restored = data_set.inverse_transform(batch_y)
+
+        self.assertEqual(tuple(restored.shape), (4, 6, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

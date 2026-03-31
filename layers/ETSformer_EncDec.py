@@ -1,22 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : ETSformer_EncDec.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2023-04-19
-# * Version     : 0.1.041917
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
 import math
 
 import torch
@@ -25,9 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, reduce, repeat
 from scipy.fftpack import next_fast_len
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Transform:
@@ -195,7 +176,7 @@ class FourierLayer(nn.Module):
     def topk_freq(self, x_freq):
         values, indices = torch.topk(x_freq.abs(), self.k, dim = 1, largest = True, sorted = True)
         mesh_a, mesh_b = torch.meshgrid(torch.arange(x_freq.size(0)), torch.arange(x_freq.size(2)))
-        index_tuple = (mesh_a.unsqueeze(1), indices, mesh_b.unsqueeze(1))
+        index_tuple = (mesh_a.unsqueeze(1).to(indices.device), indices, mesh_b.unsqueeze(1).to(indices.device))
         x_freq = x_freq[index_tuple]
         return x_freq, index_tuple
 
@@ -352,13 +333,3 @@ class Decoder(nn.Module):
         growth_repr = sum(growth_repr)
         season_repr = sum(season_repr)
         return self.pred(growth_repr), self.pred(season_repr)
-
-
-
-
-# 测试代码 main 函数
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()

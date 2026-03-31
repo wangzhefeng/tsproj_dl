@@ -12,17 +12,17 @@ class DFT_series_decomp(nn.Module):
     Series decomposition block
     """
 
-    def __init__(self, top_k=5):
+    def __init__(self, top_k: int = 5):
         super(DFT_series_decomp, self).__init__()
         self.top_k = top_k
 
     def forward(self, x):
-        xf = torch.fft.rfft(x)
+        xf = torch.fft.rfft(x, dim=1)
         freq = abs(xf)
         freq[0] = 0
-        top_k_freq, top_list = torch.topk(freq, self.top_k)
+        top_k_freq, top_list = torch.topk(freq, k=self.top_k)
         xf[freq <= top_k_freq.min()] = 0
-        x_season = torch.fft.irfft(xf)
+        x_season = torch.fft.irfft(xf, dim=1)
         x_trend = x - x_season
         return x_season, x_trend
 
@@ -136,7 +136,7 @@ class PastDecomposableMixing(nn.Module):
         else:
             raise ValueError('decompsition is error')
 
-        if configs.channel_independence == 0:
+        if not configs.channel_independence:
             self.cross_layer = nn.Sequential(
                 nn.Linear(in_features=configs.d_model, out_features=configs.d_ff),
                 nn.GELU(),
@@ -166,7 +166,7 @@ class PastDecomposableMixing(nn.Module):
         trend_list = []
         for x in x_list:
             season, trend = self.decompsition(x)
-            if self.channel_independence == 0:
+            if not self.channel_independence:
                 season = self.cross_layer(season)
                 trend = self.cross_layer(trend)
             season_list.append(season.permute(0, 2, 1))
@@ -200,7 +200,6 @@ class Model(nn.Module):
         self.down_sampling_window = configs.down_sampling_window
         self.channel_independence = configs.channel_independence
         self.layer = configs.e_layers
-        self.use_future_temporal_feature = configs.use_future_temporal_feature
 
         # PDM
         self.pdm_blocks = nn.ModuleList([
@@ -223,13 +222,13 @@ class Model(nn.Module):
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
             self.predict_layers = torch.nn.ModuleList([
                 torch.nn.Linear(
-                    configs.seq_len // (configs.down_sampling_window ** i), 
+                    configs.seq_len // (configs.down_sampling_window ** i),
                     configs.pred_len,
                 )
                 for i in range(configs.down_sampling_layers + 1)
             ])
 
-            if self.channel_independence == 1:
+            if self.channel_independence:
                 self.projection_layer = nn.Linear(configs.d_model, 1, bias=True)
             else:
                 self.projection_layer = nn.Linear(configs.d_model, configs.c_out, bias=True)
@@ -249,7 +248,7 @@ class Model(nn.Module):
                 ])
         # Task: Imputation & Anomaly Detection
         if self.task_name == 'imputation' or self.task_name == 'anomaly_detection':
-            if self.channel_independence == 1:
+            if self.channel_independence:
                 self.projection_layer = nn.Linear(configs.d_model, 1, bias=True)
             else:
                 self.projection_layer = nn.Linear(configs.d_model, configs.c_out, bias=True)
@@ -268,7 +267,7 @@ class Model(nn.Module):
         return dec_out
 
     def pre_enc(self, x_list):
-        if self.channel_independence == 1:
+        if self.channel_independence:
             return (x_list, None)
         else:
             out1_list = []
@@ -314,27 +313,16 @@ class Model(nn.Module):
             x_enc_sampling_list.append(x_enc_sampling.permute(0, 2, 1))
             x_enc_ori = x_enc_sampling
 
-            if x_mark_enc_mark_ori is not None:
+            if x_mark_enc is not None:
                 x_mark_sampling_list.append(x_mark_enc_mark_ori[:, ::self.configs.down_sampling_window, :])
                 x_mark_enc_mark_ori = x_mark_enc_mark_ori[:, ::self.configs.down_sampling_window, :]
 
         x_enc = x_enc_sampling_list
-        if x_mark_enc_mark_ori is not None:
-            x_mark_enc = x_mark_sampling_list
-        else:
-            x_mark_enc = x_mark_enc
+        x_mark_enc = x_mark_sampling_list if x_mark_enc is not None else None
 
         return x_enc, x_mark_enc
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
-        if self.use_future_temporal_feature:
-            if self.channel_independence == 1:
-                B, T, N = x_enc.size()
-                x_mark_dec = x_mark_dec.repeat(N, 1, 1)
-                self.x_mark_dec = self.enc_embedding(None, x_mark_dec)
-            else:
-                self.x_mark_dec = self.enc_embedding(None, x_mark_dec)
-
         x_enc, x_mark_enc = self.__multi_scale_process_inputs(x_enc, x_mark_enc)
 
         x_list = []
@@ -343,16 +331,19 @@ class Model(nn.Module):
             for i, x, x_mark in zip(range(len(x_enc)), x_enc, x_mark_enc):
                 B, T, N = x.size()
                 x = self.normalize_layers[i](x, 'norm')
-                if self.channel_independence == 1:
+                if self.channel_independence:
                     x = x.permute(0, 2, 1).contiguous().reshape(B * N, T, 1)
+                    x_list.append(x)
                     x_mark = x_mark.repeat(N, 1, 1)
-                x_list.append(x)
-                x_mark_list.append(x_mark)
+                    x_mark_list.append(x_mark)
+                else:
+                    x_list.append(x)
+                    x_mark_list.append(x_mark)
         else:
             for i, x in zip(range(len(x_enc)), x_enc, ):
                 B, T, N = x.size()
                 x = self.normalize_layers[i](x, 'norm')
-                if self.channel_independence == 1:
+                if self.channel_independence:
                     x = x.permute(0, 2, 1).contiguous().reshape(B * N, T, 1)
                 x_list.append(x)
 
@@ -381,16 +372,12 @@ class Model(nn.Module):
 
     def future_multi_mixing(self, B, enc_out_list, x_list):
         dec_out_list = []
-        if self.channel_independence == 1:
+        if self.channel_independence:
             x_list = x_list[0]
             for i, enc_out in zip(range(len(x_list)), enc_out_list):
                 dec_out = self.predict_layers[i](enc_out.permute(0, 2, 1)).permute(
                     0, 2, 1)  # align temporal dimension
-                if self.use_future_temporal_feature:
-                    dec_out = dec_out + self.x_mark_dec
-                    dec_out = self.projection_layer(dec_out)
-                else:
-                    dec_out = self.projection_layer(dec_out)
+                dec_out = self.projection_layer(dec_out)
                 dec_out = dec_out.reshape(B, self.configs.c_out, self.pred_len).permute(0, 2, 1).contiguous()
                 dec_out_list.append(dec_out)
 
@@ -438,7 +425,7 @@ class Model(nn.Module):
         for i, x in zip(range(len(x_enc)), x_enc, ):
             B, T, N = x.size()
             x = self.normalize_layers[i](x, 'norm')
-            if self.channel_independence == 1:
+            if self.channel_independence:
                 x = x.permute(0, 2, 1).contiguous().reshape(B * N, T, 1)
             x_list.append(x)
 
@@ -476,7 +463,7 @@ class Model(nn.Module):
         if x_mark_enc is not None:
             for i, x, x_mark in zip(range(len(x_enc)), x_enc, x_mark_enc):
                 B, T, N = x.size()
-                if self.channel_independence == 1:
+                if self.channel_independence:
                     x = x.permute(0, 2, 1).contiguous().reshape(B * N, T, 1)
                 x_list.append(x)
                 x_mark = x_mark.repeat(N, 1, 1)
@@ -484,7 +471,7 @@ class Model(nn.Module):
         else:
             for i, x in zip(range(len(x_enc)), x_enc, ):
                 B, T, N = x.size()
-                if self.channel_independence == 1:
+                if self.channel_independence:
                     x = x.permute(0, 2, 1).contiguous().reshape(B * N, T, 1)
                 x_list.append(x)
 

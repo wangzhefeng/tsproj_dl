@@ -1,23 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# ***************************************************
-# * File        : Pyraformer_EncDec.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2023-04-19
-# * Version     : 0.1.041917
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 # python libraries
-import os
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
 import math
 
 import torch
@@ -25,17 +8,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.linear import Linear
 
-from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import AttentionLayer, FullAttention
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
+from layers.Embed import DataEmbedding
 
 
 def get_mask(input_size, window_size, inner_size):
     """
     Get the attention mask of PAM-Naive
-    '"""
+    """
     # Get the size of all layers
     all_size = []
     all_size.append(input_size)
@@ -254,13 +234,3 @@ class PositionwiseFeedForward(nn.Module):
         if not self.normalize_before:
             x = self.layer_norm(x)
         return x
-
-
-
-
-# 测试代码 main 函数
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()

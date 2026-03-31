@@ -3,7 +3,7 @@ import torch.nn as nn
 import math
 from einops import rearrange
 
-from layers.SelfAttention_Family_tsl import AttentionLayer, FullAttention
+from layers.SelfAttention_Family import AttentionLayer, FullAttention
 
 
 class FeedForward(nn.Module):
