@@ -32,9 +32,9 @@ from data_provider.RNNs_type.data_factory import data_provider
 # model training
 from utils.model_tools import adjust_learning_rate, EarlyStopping
 # loss
-from utils.ts.losses import mape_loss, mase_loss, smape_loss
+from utils.losses import mape_loss, mase_loss, smape_loss
 # metrics
-from utils.ts.metrics_dl import metric, DTW
+from utils.metrics_dl import metric, DTW
 from utils.plot_results import predict_result_visual
 from utils.plot_losses import plot_losses
 # log

@@ -25,8 +25,8 @@ import torch.nn as nn
 from exp.exp_basic import Exp_Basic
 from data_provider.TFs_type.data_factory import data_provider
 from utils.model_tools import adjust_learning_rate, EarlyStopping
-from utils.ts.losses import mape_loss, mase_loss, smape_loss
-from utils.ts.metrics_dl import metric, DTW
+from utils.losses import mape_loss, mase_loss, smape_loss
+from utils.metrics_dl import metric
 from utils.plot_results import predict_result_visual
 from utils.plot_losses import plot_losses
 from utils.model_memory import model_memory_size
@@ -128,24 +128,36 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         测试结果保存
         """
+        # ------------------------------
         # 计算测试结果评价指标
-        r2, mse, rmse, mae, mape, mape_accuracy, mspe = metric(preds, trues)
-        dtw = DTW(preds, trues) if self.args.use_dtw else -999
-        logger.info(f"Test results: r2:{r2:.4f} mse:{mse:.4f} rmse:{rmse:.4f} mae:{mae:.4f} mape:{mape:.4f} mape accuracy:{mape_accuracy:.4f} mspe:{mspe:.4f} dtw: {dtw:.4f}")
-        # result1 保存
-        with open(Path(path).joinpath("result_forecast.txt"), 'a') as file:
+        # ------------------------------
+        (r2, mse, rmse, mae, mape, mape_accuracy, mspe, dtw) = metric(
+            preds, trues, 
+            use_dtw=self.args.use_dtw
+        )
+        summary_line = (
+            f"Test results: r2:{r2:.4f}, mse:{mse:.4f}, rmse:{rmse:.4f}, mae:{mae:.4f} \
+            mape:{mape:.4f}, mape accuracy:{mape_accuracy:.4f}, mspe:{mspe:.4f}, dtw:{dtw:.4f}"
+        )
+        logger.info(summary_line)
+        with open(Path(path).joinpath("result_forecast.txt"), 'a', encoding='utf-8') as file:
             file.write(setting + "  \n")
-            file.write(f"r2:{r2:.4f}, mse:{mse:.4f}, rmse:{rmse:.4f}, mae:{mae:.4f}, mape:{mape:.4f}, mape accuracy:{mape_accuracy:.4f}, mspe:{mspe:.4f}, dtw:{dtw:.4f}")
+            file.write(summary_line)
             file.write('\n')
             file.write('\n')
             file.close()
-        # result2 保存
-        np.save(
-            Path(path).joinpath('metrics.npy'), 
-            np.array([r2, mae, mse, rmse, mape, mape_accuracy, mspe, dtw])
-        )
-        np.save(Path(path).joinpath('preds.npy'), preds)
-        np.save(Path(path).joinpath('trues.npy'), trues)
+        # ------------------------------
+        # 测试集上的预测值、真实值 
+        # ------------------------------
+        test_results = pd.DataFrame({
+            "preds": preds.reshape(1, -1)[0], 
+            "trues": trues.reshape(1, -1)[0]
+        }, index=range(len(preds.reshape(1, -1)[0])))
+        test_results.to_csv(Path(path).joinpath("test_results.csv"), index=False, encoding="utf-8")
+        logger.info(f"test_results: \n{test_results}")
+        # np.save(Path(path).joinpath('metrics.npy'), np.array([r2, mae, mse, rmse, mape, mape_accuracy, mspe, dtw]))
+        # np.save(Path(path).joinpath('preds.npy'), preds)
+        # np.save(Path(path).joinpath('trues.npy'), trues)
     
     def _pred_results_save(self, preds, preds_df, path):
         """
@@ -426,7 +438,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"Test results will be saved in path:")
         logger.info(f"{40 * '-'}")
         test_results_path = self._get_test_results_path(setting) 
-        logger.info(test_results_path) 
+        logger.info(test_results_path)
         # 模型开始测试
         logger.info(f"{40 * '-'}")
         logger.info(f"Model start testing...")
@@ -459,13 +471,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     if test_data.scale and self.args.inverse:
                         inputs = test_data.inverse_transform(inputs.reshape(inputs.shape[0] * inputs.shape[1], -1)).reshape(inputs.shape)
                         # or inputs = test_data.inverse_transform(inputs.squeeze(0)).reshape(inputs.shape)
-                    pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
                     true_plot = np.concatenate((inputs[0, :, -1], true[0, :, -1]), axis=0)
+                    pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
                     predict_result_visual(pred_plot, true_plot, path=Path(test_results_path).joinpath(f'{str(iters)}.pdf')) 
         # 测试结果保存
-        logger.info(f"{40 * '-'}")
-        logger.info(f"Test metric results have been saved in path:")
-        logger.info(f"{40 * '-'}")
         preds = np.concatenate(preds, axis = 0)  # preds = np.array(preds)
         trues = np.concatenate(trues, axis = 0)  # trues = np.array(trues)
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
@@ -475,14 +484,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"trues.reshape(1, -1): \n{trues.reshape(1, -1)}")
         logger.info(f"trues.reshape(1, -1)[0]: \n{trues.reshape(1, -1)[0]}")
         logger.info(f"trues.reshape(1, -1)[0]: \n{len(trues.reshape(1, -1)[0])}")
-        test_results = pd.DataFrame({
-            "preds": preds.reshape(1, -1)[0],
-            "trues": trues.reshape(1, -1)[0],
-        }, index=range(len(preds.reshape(1, -1)[0])))
-        test_results.to_csv(Path(test_results_path).joinpath("test_results.csv"), index=False, encoding="utf-8")
-        logger.info(f"test_results: \n{test_results}")
+        
+        logger.info(f"{40 * '-'}")
+        logger.info(f"Test metric results have been saved in path:")
+        logger.info(f"{40 * '-'}")
         self._test_results_save(preds.reshape(-1, 1), trues.reshape(-1, 1), setting, test_results_path)
         logger.info(test_results_path)
+        
         # 测试结果可视化
         logger.info(f"{40 * '-'}")
         logger.info(f"Test visual results have been saved in path:")

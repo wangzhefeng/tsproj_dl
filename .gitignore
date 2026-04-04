@@ -153,12 +153,6 @@ lightning_logs/
 # custom setting
 # ---------------------------------------
 # data
-data/
-datasets/
 dataset/
-saved_results/
+results/
 logs/
-checkpoints/
-utils/
-time-series-features/
-time-series-forecast/
