@@ -17,8 +17,8 @@ if ROOT not in sys.path:
 import torch
 import torch.nn as nn
 
-from layers.Embed_tsl import DataEmbedding
-from layers.ETSformer_EncDec_tsl import EncoderLayer, Encoder, DecoderLayer, Decoder, Transform
+from layers.Embed import DataEmbedding
+from layers.ETSformer_EncDec import EncoderLayer, Encoder, DecoderLayer, Decoder, Transform
 
 
 class Model(nn.Module):

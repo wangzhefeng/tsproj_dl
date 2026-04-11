@@ -76,7 +76,8 @@ class Model(nn.Module):
                     configs.d_ff,
                     dropout = configs.dropout,
                     activation = configs.activation,
-                ) for l in range(configs.d_layers)
+                )
+                for l in range(configs.d_layers)
             ],
             norm_layer = torch.nn.LayerNorm(configs.d_model),
             projection = nn.Linear(configs.d_model, configs.c_out, bias = True)

@@ -93,6 +93,7 @@ class Model(nn.Module):
             encoder_self_att = FourierBlock(
                 in_channels = configs.d_model,
                 out_channels = configs.d_model,
+                n_heads = configs.n_heads,
                 seq_len = self.seq_len,
                 modes = self.modes,
                 mode_select_method = self.mode_select
@@ -100,6 +101,7 @@ class Model(nn.Module):
             decoder_self_att = FourierBlock(
                 in_channels = configs.d_model,
                 out_channels = configs.d_model,
+                n_heads = configs.n_heads,
                 seq_len = self.seq_len // 2 + self.pred_len,
                 modes = self.modes,
                 mode_select_method = self.mode_select
@@ -151,7 +153,8 @@ class Model(nn.Module):
                     moving_avg = configs.moving_avg,
                     dropout = configs.dropout,
                     activation = configs.activation,
-                ) for l in range(configs.d_layers)
+                )
+                for l in range(configs.d_layers)
             ],
             norm_layer = my_Layernorm(configs.d_model),
             projection = nn.Linear(configs.d_model, configs.c_out, bias=True)
@@ -167,7 +170,7 @@ class Model(nn.Module):
             self.projection = nn.Linear(configs.d_model * configs.seq_len, configs.num_class)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
-        # decomp init 
+        # decomp init
         seasonal_init, trend_init = self.decomp(x_enc)  # x - moving_avg, moving_avg
         # decoder input
         mean = torch.mean(x_enc, dim = 1).unsqueeze(1).repeat(1, self.pred_len, 1)

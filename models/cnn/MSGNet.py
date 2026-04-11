@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.fft
 
-from layers.Embed_tsl import DataEmbedding
+from layers.Embed import DataEmbedding
 from layers.MSGBlock import GraphBlock, simpleVIT, Attention_Block, Predict
 
 

@@ -4,9 +4,9 @@ import torch.nn.functional as F
 from einops import rearrange, repeat
 
 from layers.Crossformer_EncDec import scale_block, Encoder, Decoder, DecoderLayer
-from layers.Embed_tsl import PatchEmbedding
+from layers.Embed import PatchEmbedding
 from layers.SelfAttention_Family import AttentionLayer, FullAttention, TwoStageAttentionLayer
-from models.transformer.PatchTST_tsl import FlattenHead
+from models.transformer.PatchTST import FlattenHead
 
 
 from math import ceil

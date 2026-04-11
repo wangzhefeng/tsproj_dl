@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from layers.Transformer_EncDec_tsl import Encoder, EncoderLayer
-from layers.SelfAttention_Family_tsl import FullAttention, AttentionLayer
+from layers.Transformer_EncDec import Encoder, EncoderLayer
+from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from einops import rearrange
 
 

@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers.Embed_tsl import PositionalEmbedding
+from layers.Embed import PositionalEmbedding
 from layers.StandardNorm import Normalize
 from layers.TimeFilter_layers import TimeFilter_Backbone
 

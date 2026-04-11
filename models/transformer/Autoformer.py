@@ -37,6 +37,11 @@ LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Model(nn.Module):
+    """
+    Autoformer is the first method to achieve the series-wise connection,
+    with inherent O(LlogL) complexity
+    Paper link: https://openreview.net/pdf?id=I55UqU-M11y
+    """
 
     def __init__(self, configs):
         super(Model, self).__init__()
@@ -54,7 +59,7 @@ class Model(nn.Module):
             configs.enc_in, 
             configs.d_model, 
             configs.embed, 
-            configs.freq, 
+            configs.freq,
             configs.dropout
         )
         # Encoder
@@ -81,7 +86,7 @@ class Model(nn.Module):
                 configs.dec_in, 
                 configs.d_model, 
                 configs.embed, 
-                configs.freq, 
+                configs.freq,
                 configs.dropout
             )
             self.decoder = Decoder(
@@ -103,7 +108,8 @@ class Model(nn.Module):
                         moving_avg = configs.moving_avg,
                         dropout = configs.dropout,
                         activation = configs.activation,
-                    ) for l in range(configs.d_layers)
+                    )
+                    for l in range(configs.d_layers)
                 ],
                 norm_layer = my_Layernorm(configs.d_model),
                 projection = nn.Linear(configs.d_model, configs.c_out, bias = True)
@@ -121,7 +127,7 @@ class Model(nn.Module):
             self.projection = nn.Linear(configs.d_model * configs.seq_len, configs.num_class)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
-        # decomp init 
+        # decomp init
         seasonal_init, trend_init = self.decomp(x_enc)
         # decoder input
         mean = torch.mean(x_enc, dim = 1).unsqueeze(1).repeat(1, self.pred_len, 1)
@@ -137,7 +143,7 @@ class Model(nn.Module):
             dec_out, 
             enc_out, 
             x_mask = None, 
-            cross_mask = None, 
+            cross_mask = None,
             trend = trend_init
         )
         # final

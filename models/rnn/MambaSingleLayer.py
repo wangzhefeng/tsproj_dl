@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from layers.Embed_tsl import PositionalEmbedding
+from layers.Embed import PositionalEmbedding
 from layers.MambaBlock import Mamba_TimeVariant
 
 

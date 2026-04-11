@@ -238,13 +238,13 @@ class DataEmbedding(nn.Module):
         if embed_type == "timeF":
             self.temporal_embedding = TimeFeatureEmbedding(
                 d_model = d_model, 
-                embed_type = embed_type, 
+                embed_type = embed_type,
                 freq = freq,
             )
         else:
             self.temporal_embedding = TemporalEmbedding(
                 d_model = d_model, 
-                embed_type = embed_type, 
+                embed_type = embed_type,
                 freq = freq,
             )
         # dropout
@@ -312,7 +312,7 @@ class DataEmbedding_wo_pos(nn.Module):
         if x_mark is None:
             x = self.value_embedding(x)
         else:
-            x = self.value_embedding(x) + self.temporal_embedding(x_mark)        
+            x = self.value_embedding(x) + self.temporal_embedding(x_mark)
         x = self.dropout(x)
 
         return x
@@ -342,38 +342,4 @@ class PatchEmbedding(nn.Module):
         x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))
         # Input encoding
         x = self.value_embedding(x) + self.position_embedding(x)
-        
         return self.dropout(x), n_vars
-
-
-
-
-# 测试代码 main 函数
-def main():
-    x = torch.randn(1, 50, 5)
-    x = x.permute(0, 2, 1)
-    print(x)
-    print(x.size())
-    x = x.transpose(1, 2)
-    print(x.size())
-
-    # ------------------------------
-    # conv1d
-    # ------------------------------
-    conv1 = nn.Conv1d(in_channels=50, out_channels=5, kernel_size=3) 
-    conv1_out = conv1(x)
-    # conv1_out = conv1_out.transpose(1, 2)
-    print(conv1_out)
-    print(conv1_out.size())
-
-    # ------------------------------
-    # token embedding
-    # ------------------------------
-    # token_embed = TokenEmbedding(c_in = 7, d_model = 512)
-    # print(token_embed)
-
-    # res = token_embed(x)
-    # print(res)
-
-if __name__ == "__main__":
-    main()

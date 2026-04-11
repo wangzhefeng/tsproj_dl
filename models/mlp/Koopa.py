@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # ***************************************************
-# * File        : Koopa_tsl.py
+# * File        : Koopa.py
 # * Author      : Open Source Contributors / Zhefeng Wang
 # * Date        : 2026-03-28
 # * Version     : 1.0.032820

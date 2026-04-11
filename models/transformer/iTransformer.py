@@ -38,7 +38,7 @@ class Model(nn.Module):
                         attention=FullAttention(
                             mask_flag=False, 
                             factor=configs.factor, 
-                            attention_dropout=configs.dropout, 
+                            attention_dropout=configs.dropout,
                             output_attention=configs.output_attention,
                         ), 
                         d_model=configs.d_model, 
