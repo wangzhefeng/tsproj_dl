@@ -142,10 +142,10 @@ class Exp_Basic:
     def _get_data(self):
         pass
 
-    def train(self):
-        pass
-
     def valid(self):
+        pass
+    
+    def train(self):
         pass
 
     def test(self):

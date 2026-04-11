@@ -39,26 +39,27 @@ def data_provider(args, flag):
     shuffle_flag = False if flag.lower() in ["test", "pred"] else True
     # 是否丢弃最后一个 batch
     drop_last = False
+    num_workers = 0 if flag.lower() == "pred" else args.num_workers
     # 数据集参数
     if args.data == "m4":
         from data_provider.TFs_type.data_loader_m4 import Dataset_M4
-        if flag in ["train", "valid"]:
+        if flag.lower() in ["train", "valid", "val"]:
             batch_size = args.batch_size
             Data = Dataset_M4
-        elif flag in "test":
+        elif flag.lower() == "test":
             batch_size = 1
             Data = Dataset_M4
-        elif flag == "pred":
+        elif flag.lower() == "pred":
             batch_size = 1
             Data = Dataset_M4
     else:
-        if flag in ["train", "valid"]:
+        if flag.lower() in ["train", "valid", "val"]:
             batch_size = args.batch_size
             Data = Dataset_Train
-        elif flag in "test":
+        elif flag.lower() == "test":
             batch_size = 1
             Data = Dataset_Train
-        elif flag == "pred":
+        elif flag.lower() == "pred":
             batch_size = 1
             Data = Dataset_Pred
     # 构建 Dataset 和 DataLoader
@@ -75,7 +76,7 @@ def data_provider(args, flag):
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
-            num_workers=args.num_workers,
+            num_workers=num_workers,
             drop_last=drop_last
         )
         return data_set, data_loader
@@ -91,7 +92,7 @@ def data_provider(args, flag):
             data_set,
             batch_size = batch_size,
             shuffle = shuffle_flag,
-            num_workers = args.num_workers,
+            num_workers = num_workers,
             drop_last = drop_last,
             # collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
         )
@@ -121,7 +122,7 @@ def data_provider(args, flag):
             data_set,
             batch_size = batch_size,
             shuffle = shuffle_flag,
-            num_workers = args.num_workers,
+            num_workers = num_workers,
             drop_last = drop_last,
         )
         return data_set, data_loader
