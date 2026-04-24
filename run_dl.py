@@ -20,7 +20,7 @@ import argparse
 
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 # from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
-# from exp.exp_forecasting_dl import Exp_Long_Term_Forecast
+# from exp.exp_forecasting_rnns import Exp_Long_Term_Forecast
 from utils.args_tools import print_args_ts
 from utils.device import torch_gc
 from utils.random_seed import set_seed

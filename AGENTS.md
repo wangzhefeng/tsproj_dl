@@ -47,7 +47,7 @@
   - `exp_basic.py`：基础实验接口与模型注册
   - `exp_long_term_forecasting.py`：当前主训练主线
   - `exp_short_term_forecasting.py`：短期预测实验分支
-  - `exp_forecasting_dl.py`：旧版或分支化的深度学习实验流程
+  - `exp_forecasting_rnns.py`：旧版或分支化的深度学习实验流程
   - `exp/dl_todo/`：在建实验流程
 - `data_provider/`：数据处理流程
   - `TFs_type/`：Transformer 类模型当前主线
@@ -83,7 +83,7 @@
 
 ### 在建区
 
-- `exp/exp_forecasting_dl.py`、`exp/exp_short_term_forecasting.py`（待决定是否继续维护）
+- `exp/exp_forecasting_rnns.py`、`exp/exp_short_term_forecasting.py`（待决定是否继续维护）
 - `exp/dl_todo/*`
 - `scripts/ETTm1_script/*`
 - 开源新收录但尚未接入主入口的非 Transformer 模型
@@ -116,7 +116,7 @@
 
 | ID | Status | Owner | Targets | Acceptance |
 | --- | --- | --- | --- | --- |
-| EXP-001 | Doing | TBD | `exp/exp_forecasting_dl.py`, `exp/exp_short_term_forecasting.py` | 已完成主要工具接口对齐；下一步需明确旧实验分支是继续维护还是转入暂缓区 |
+| EXP-001 | Doing | TBD | `exp/exp_forecasting_rnns.py`, `exp/exp_short_term_forecasting.py` | 已完成主要工具接口对齐；下一步需明确旧实验分支是继续维护还是转入暂缓区 |
 
 任务更新规则：
 

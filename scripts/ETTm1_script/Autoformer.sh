@@ -1,22 +1,18 @@
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 export LOG_NAME=asc
 
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
 mkdir -p "$MPLCONFIGDIR"
 
-model_name=DLinear
-
-# 模型大小相关参数
-# --d_model 512
-# --d_ff 2048
+model_name=Autoformer
 
 # 训练、验证、测试
 "${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
     --task_name long_term_forecast \
     --des 'Exp' \
     --is_training 0 \
-    --is_testing 1 \
-    --is_forecasting 1 \
+    --is_testing 0 \
+    --is_forecasting 0 \
     --model_id ETTm1_96_96 \
     --model $model_name \
     --root_path ./dataset/ETT-small \
@@ -43,14 +39,14 @@ model_name=DLinear
     --dec_in 7 \
     --e_layers 2 \
     --d_layers 1 \
-    --factor  3 \
+    --factor 3 \
     --n_heads 1 \
     --c_out 1 \
     --dropout 0.05 \
     --num_workers 0 \
     --itr 1 \
     --train_epochs 1 \
-    --batch_size 1 \
+    --batch_size 64 \
     --loss MSE \
     --activation gelu \
     --use_dtw 0 \
@@ -63,16 +59,3 @@ model_name=DLinear
     --gpu_type 'cuda' \
     --use_multi_gpu 0 \
     --devices 0,1,2,3,4,5,6,7
-
-
-    # --add_fredf 0 \
-    # --rec_lambda 0.0 \
-    # --auxi_lambda 1.0 \
-    # --auxi_mode 'rfft' \
-    # --auxi_type 'mag' \
-    # --leg_degree 2 \
-    # --auxi_loss 'MAE' \
-    # --module_first 1 \
-    # --add_noise 1 \
-    # --noise_amp 1.0 \
-    # --noise_freq_percentage 0.05

@@ -1,10 +1,10 @@
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
 export LOG_NAME=asc
 
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
 mkdir -p "$MPLCONFIGDIR"
 
-model_name=Autoformer
+model_name=DLinear
 
 # 模型大小相关参数
 # --d_model 512
@@ -15,8 +15,8 @@ model_name=Autoformer
     --task_name long_term_forecast \
     --des 'Exp' \
     --is_training 0 \
-    --is_testing 0 \
-    --is_forecasting 0 \
+    --is_testing 1 \
+    --is_forecasting 1 \
     --model_id ETTm1_96_96 \
     --model $model_name \
     --root_path ./dataset/ETT-small \
@@ -33,8 +33,8 @@ model_name=Autoformer
     --seq_len 96 \
     --label_len 48 \
     --pred_len 96 \
-    --train_ratio 0.8 \
-    --test_ratio 0.3 \
+    --train_ratio 0.6 \
+    --test_ratio 0.2 \
     --moving_avg 25 \
     --embed_type 0 \
     --d_model 512 \
@@ -50,7 +50,7 @@ model_name=Autoformer
     --num_workers 0 \
     --itr 1 \
     --train_epochs 1 \
-    --batch_size 8 \
+    --batch_size 1 \
     --loss MSE \
     --activation gelu \
     --use_dtw 0 \
