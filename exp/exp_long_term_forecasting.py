@@ -20,6 +20,9 @@ from utils.model_memory import model_memory_size
 from utils.timestamp_utils import from_unix_time
 from utils.log_util import logger
 
+import warnings
+warnings.filterwarnings('ignore')
+
 # global variable
 LOGGING_LABEL = Path(__file__).name[:-3]
 
@@ -111,28 +114,69 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         
         return results_path
 
-    def _test_results_save(self, preds, trues, setting, path):
+    def _test_results_save(self, preds, trues, setting, path,
+                           stitched_preds=None,
+                           stitched_trues=None,
+                           overlap_counts=None,
+                           stitched_dates=None):
         """
         测试结果保存
         """
-        # 计算测试结果评价指标
-        r2, mse, rmse, mae, mape, mape_accuracy, mspe = metric(preds, trues)
-        dtw = DTW(preds, trues) if self.args.use_dtw else -999
-        logger.info(f"Test results: r2:{r2:.4f} mse:{mse:.4f} rmse:{rmse:.4f} mae:{mae:.4f} mape:{mape:.4f} mape accuracy:{mape_accuracy:.4f} mspe:{mspe:.4f} dtw: {dtw:.4f}")
-        # result1 保存
-        with open(Path(path).joinpath("result_forecast.txt"), 'a') as file:
+        # ------------------------------
+        # 计算窗口级测试结果评价指标
+        # ------------------------------
+        # 窗口级测试结果
+        (window_r2, window_mse, window_rmse, window_mae, window_mape, window_mape_accuracy, window_mspe, window_dtw) = metric(
+            preds, trues,
+            use_dtw=self.args.use_dtw
+        )
+        window_summary_line = (
+            f"Window metrics: r2:{window_r2:.4f}, mse:{window_mse:.4f}, rmse:{window_rmse:.4f}, "
+            f"mae:{window_mae:.4f}, mape:{window_mape:.4f}, mape accuracy:{window_mape_accuracy:.4f}, "
+            f"mspe:{window_mspe:.4f}"
+        )
+        logger.info(window_summary_line)
+        # 缝合的级测试结果
+        stitched_summary_line = None
+        if stitched_preds is not None and stitched_trues is not None:
+            (stitched_r2, stitched_mse, stitched_rmse, stitched_mae, stitched_mape, stitched_mape_accuracy, stitched_mspe, stitched_dtw) = metric(
+                stitched_preds.reshape(-1, 1),
+                stitched_trues.reshape(-1, 1),
+                use_dtw=self.args.use_dtw
+            )
+            stitched_summary_line = (
+                f"Stitched metrics: r2:{stitched_r2:.4f}, mse:{stitched_mse:.4f}, rmse:{stitched_rmse:.4f}, "
+                f"mae:{stitched_mae:.4f}, mape:{stitched_mape:.4f}, mape accuracy:{stitched_mape_accuracy:.4f}, "
+                f"mspe:{stitched_mspe:.4f}"
+            )
+            logger.info(stitched_summary_line)
+
+        with open(Path(path).joinpath("result_forecast.txt"), 'w', encoding='utf-8') as file:
             file.write(setting + "  \n")
-            file.write(f"r2:{r2:.4f}, mse:{mse:.4f}, rmse:{rmse:.4f}, mae:{mae:.4f}, mape:{mape:.4f}, mape accuracy:{mape_accuracy:.4f}, mspe:{mspe:.4f}, dtw:{dtw:.4f}")
+            file.write(window_summary_line)
+            file.write('\n')
+            if stitched_summary_line is not None:
+                file.write(stitched_summary_line)
             file.write('\n')
             file.write('\n')
             file.close()
-        # result2 保存
-        np.save(
-            Path(path).joinpath('metrics.npy'), 
-            np.array([r2, mae, mse, rmse, mape, mape_accuracy, mspe, dtw])
-        )
-        np.save(Path(path).joinpath('preds.npy'), preds)
-        np.save(Path(path).joinpath('trues.npy'), trues)
+        # ------------------------------
+        # 测试集上的预测值、真实值
+        # ------------------------------
+        # 无缝合的测试集上的预测值、真实值
+        flat_results = pd.DataFrame({
+            "preds": preds.reshape(-1),
+            "trues": trues.reshape(-1),
+        })
+        flat_results.to_csv(Path(path).joinpath("test_results_windows.csv"), index=False, encoding="utf-8")
+        # 缝合的测试集上的预测值、真实值
+        if stitched_preds is not None and stitched_trues is not None:
+            test_results = self._build_stitched_results_frame(stitched_preds, stitched_trues, overlap_counts, stitched_dates)
+        else:
+            test_results = flat_results.copy()
+            test_results.insert(0, "step", np.arange(len(test_results)))
+        test_results.to_csv(Path(path).joinpath("test_results.csv"), index=False, encoding="utf-8")
+        logger.info(f"test_results: \n{test_results.head()}")
     
     def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None):
         """
@@ -163,11 +207,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         batch_y = batch_y.float().to(self.device)
         batch_x_mark = batch_x_mark.float().to(self.device)
         batch_y_mark = batch_y_mark.float().to(self.device)
-        # logger.info(f"debug::batch_x: {batch_x.shape}")
-        # logger.info(f"debug::batch_x_mark: {batch_x_mark.shape}")
-        # logger.info(f"debug::batch_y: {batch_y.shape}")
-        # logger.info(f"debug::batch_y_mark: {batch_y_mark.shape}")
-        
         # decoder input
         # ---------------------
         if batch_y.shape[1] != (self.args.label_len + self.args.pred_len):
@@ -179,7 +218,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         else:
             dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
         dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
-        
+        # TODO 增加注释
         if self.args.down_sampling_layers != 0:
             dec_inp = None
         # encoder-decoder
@@ -193,7 +232,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 outputs = _run_model()
         else:
             outputs = _run_model()
-        
         # pred and true process
         # ---------------------
         # pred and true 提取
@@ -201,16 +239,23 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         batch_y = batch_y[:, -self.args.pred_len:, :]
         # output detach device
         if flag in ["valid", "test", "pred"]:
-            outputs = outputs.detach().cpu()
-            batch_y = batch_y.detach().cpu()
+            outputs = outputs.detach().cpu().numpy()
+            batch_y = batch_y.detach().cpu().numpy()
         # 输入输出逆转换
-        if reverse:
-            outputs, batch_y = self._inverse_data(data, outputs, batch_y)
+        if data.scale and reverse:
+            if self.args.features == 'MS':
+                outputs = data.inverse_transform_target(outputs)
+                batch_y = data.inverse_transform_target(
+                    self._reshape_target_column(batch_y, data.target_idx)
+                )
+            else:
+                outputs = data.inverse_transform_full(outputs)
+                batch_y = data.inverse_transform_full(batch_y)
         # 预测值/真实值提取
         f_dim = -1 if self.args.features == 'MS' else 0
         outputs = outputs[:, :, f_dim:]
         batch_y = batch_y[:, :, f_dim:]
-        if flag == "train":
+        if flag in ["train", "test"]:
             batch_y.to(self.device)
         
         return outputs, batch_y
@@ -457,45 +502,44 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 preds.append(pred)
                 trues.append(true)
                 # 预测数据可视化
-                if iters % 10 == 0:
-                    inputs = batch_x.numpy()
+                if iters % 100 == 0:
+                    inputs = batch_x.detach().cpu().numpy()
                     if test_data.scale and self.args.inverse:
-                        inputs = test_data.inverse_transform(inputs.reshape(inputs.shape[0] * inputs.shape[1], -1)).reshape(inputs.shape)
-                        # or inputs = test_data.inverse_transform(inputs.squeeze(0)).reshape(inputs.shape)
+                        inputs = test_data.inverse_transform_history(inputs)
                     true_plot = np.concatenate((inputs[0, :, -1], true[0, :, -1]), axis=0)
                     pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
-                    predict_result_visual(pred_plot, true_plot, test_results_path, iters)
-        # 测试结果保存
+                    predict_result_visual(pred_plot, true_plot, test_results_path, iters=iters)
+        # 测试结果处理
+        preds = np.concatenate(preds, axis = 0)
+        trues = np.concatenate(trues, axis = 0)
+        logger.info(f'test preds shape: {preds.shape}, trues shape: {trues.shape}')
+        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
+        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
+        logger.info(f'test preds shape: {preds.shape} tures shape: {trues.shape}')
+        stitched_preds, stitched_trues, overlap_counts = self._stitch_window_predictions(preds, trues)
+        stitched_dates = self._build_test_stitched_dates(test_data, len(stitched_preds))
+        # 测试结果收集
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        preds = np.concatenate(preds, axis = 0)  # preds = np.array(preds)
-        trues = np.concatenate(trues, axis = 0)  # trues = np.array(trues)
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        # 结果收集
-        logger.info(f"preds.reshape(1, -1): \n{preds.reshape(1, -1)}")
-        logger.info(f"trues.reshape(1, -1): \n{trues.reshape(1, -1)}")
-        logger.info(f"trues.reshape(1, -1)[0]: \n{trues.reshape(1, -1)[0]}")
-        logger.info(f"trues.reshape(1, -1)[0]: \n{len(trues.reshape(1, -1)[0])}")
-        test_results = pd.DataFrame({
-            "preds": preds.reshape(1, -1)[0],
-            "trues": trues.reshape(1, -1)[0],
-        }, index=range(len(preds.reshape(1, -1)[0])))
-        test_results.to_csv(Path(test_results_path).joinpath("test_results.csv"), index=False, encoding="utf-8")
-        logger.info(f"test_results: \n{test_results}")
-        self._test_results_save(preds.reshape(-1, 1), trues.reshape(-1, 1), setting, test_results_path)
+        self._test_results_save(
+            preds.reshape(-1, 1),
+            trues.reshape(-1, 1),
+            setting,
+            test_results_path,
+            stitched_preds=stitched_preds,
+            stitched_trues=stitched_trues,
+            overlap_counts=overlap_counts,
+            stitched_dates=stitched_dates,
+        )
         logger.info(test_results_path)
         # 测试结果可视化
         logger.info(f"{40 * '-'}")
         logger.info(f"Test visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        if self.args.features == 'M':
-            preds_flat = np.concatenate(preds, axis = 0)[:, -1]
-            trues_flat = np.concatenate(trues, axis = 0)[:, -1]
-        else:
-            preds_flat = np.concatenate(preds, axis = 0)
-            trues_flat = np.concatenate(trues, axis = 0)
+        target_dim = -1 if self.args.features in ['M', 'MS'] else 0
+        preds_flat = stitched_preds[:, target_dim]
+        trues_flat = stitched_trues[:, target_dim]
         predict_result_visual(preds_flat, trues_flat, path=test_results_path, iters=None) 
         logger.info(test_results_path)
         # log
@@ -575,15 +619,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         # 构建预测数据集
         pred_data, pred_loader = self._get_data(flag='pred')
-        # TODO
-        # batch_x, batch_y, batch_x_mark, batch_y_mark = next(iter(pred_loader))
-        # batch_x = batch_x.float().to(self.device)
-        # batch_y = batch_y.float().to(self.device)
-        # batch_x_mark = batch_x_mark.float().to(self.device)
-        # batch_y_mark = batch_y_mark.float().to(self.device)
-        # dec_zeros = torch.zeros((batch_x.shape[0], self.args.pred_len, batch_x.shape[-1]), dtype=batch_x.dtype, device=self.device)
-        # dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_zeros], dim=1).float().to(self.device)
-        
+        # 数据预处理
+        batch_x, batch_y, batch_x_mark, batch_y_mark = next(iter(pred_loader))
+        batch_x = batch_x.float().to(self.device)
+        batch_y = batch_y.float().to(self.device)
+        batch_x_mark = batch_x_mark.float().to(self.device)
+        batch_y_mark = batch_y_mark.float().to(self.device)
+        dec_zeros = torch.zeros((batch_x.shape[0], self.args.pred_len, batch_x.shape[-1]), dtype=batch_x.dtype, device=self.device)
+        dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_zeros], dim=1).float().to(self.device) 
         # 模型加载
         if load:
             logger.info(f"{40 * '-'}")
@@ -608,51 +651,53 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # 模型评估模式
         self.model.eval()
         # 模型预测
-        preds = []
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(pred_loader):
-                logger.info(f"Forecast step: {i} running...")
-                # 前向传播
-                outputs, batch_y = self._model_forward(pred_data, batch_x, batch_y, batch_x_mark, batch_y_mark, flag = "pred")
-                
-                # 输入输出逆转换
-                f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs.numpy()  # [1, pred_len, 1]
-                batch_y = batch_y.numpy()  # [1, pred_len, enc_in/dec_in]
-                inputs = batch_x.detach().cpu().numpy()[:, :, f_dim:]  # [1, seq_len, 1]
-                if pred_data.scale and self.args.inverse:
-                    if self.args.features == 'MS':
-                        outputs = pred_data.inverse_transform_target(outputs)
-                        inputs = pred_data.inverse_transform_target(inputs)
-                    else:
-                        outputs = pred_data.inverse_transform_full(outputs)
-                        inputs = pred_data.inverse_transform_full(inputs)
-                # 预测结果收集
-                preds.append(outputs)
-                trues_plot = inputs[0, :, -1]
-                preds_plot = np.concatenate((inputs[0, :, -1], outputs[0, :, -1]), axis=0)
-                # logger.info(f"debug::trues_plot: \n{trues_plot} \ntrues_plot.shape: {trues_plot.shape}")
-                # logger.info(f"debug::preds_plot: \n{preds_plot} \npreds_plot.shape: {preds_plot.shape}")
-        # 最终预测值
-        preds = np.array(preds).squeeze()
-        logger.info(f"Forecast results: preds: \n{preds} \npreds shape: {preds.shape}")
-        preds_df = pd.DataFrame({
-            "timestamp": pd.date_range(pred_data.forecast_start_time, periods=self.args.pred_len, freq=self.args.freq),
-            "predict_value": preds,
-        })
-        logger.info(f"Forecast results: preds_df: \n{preds_df} \npreds_df.shape: {preds_df.shape}")
+            if self.args.use_amp:
+                with torch.amp.autocast("cuda"):
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+            else:
+                outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+        # 预测结果提取
+        f_dim = -1 if self.args.features == 'MS' else 0
+        outputs = outputs[:, -self.args.pred_len:, :]
+        outputs = outputs[:, :, f_dim:]
+        preds = outputs.detach().cpu().numpy()[0]
+        history_values = getattr(pred_data, "scaled_history_values", batch_x.detach().cpu().numpy()[0])
+        feature_names = getattr(pred_data, "feature_names", [self.args.target])
+        history_dates = pd.to_datetime(getattr(pred_data, "history_dates", np.arange(history_values.shape[0])))
+        future_dates = pd.to_datetime(getattr(pred_data, "future_dates", np.arange(preds.shape[0])))
+        pred_columns = getattr(pred_data, "pred_columns", feature_names[f_dim:] if f_dim != 0 else feature_names)
+
+        if pred_data.scale and self.args.inverse:
+            history_values = getattr(pred_data, "raw_history_values", pred_data.inverse_transform_history(history_values))
+            if self.args.features == 'MS':
+                preds = pred_data.inverse_transform_target(preds)
+            else:
+                preds = pred_data.inverse_transform_full(preds)
+        
+        # 预测结果保存
+        if len(pred_columns) != preds.shape[-1]:
+            pred_columns = pred_columns[-preds.shape[-1]:]
+        # 历史数据表
+        history_frame = pd.DataFrame(history_values, columns=feature_names)
+        history_frame.insert(0, "date", history_dates)
+        # 预测数据表
+        forecast_frame = pd.DataFrame(preds, columns=pred_columns)
+        forecast_frame.insert(0, "date", future_dates)
         # 最终预测值保存
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        self._pred_results_save(preds, preds_df, pred_results_path)
+        self._pred_results_save(history_frame, forecast_frame, preds, pred_results_path, setting)
         logger.info(pred_results_path)
         # 预测结果可视化
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        predict_result_visual(preds_plot, trues_plot, pred_results_path, iters=None)
-        logger.info(pred_results_path)
+        history_target = history_frame[pred_columns[-1]].to_numpy()
+        forecast_target = forecast_frame[pred_columns[-1]].to_numpy()
+        forecast_target = np.concatenate((history_target, forecast_target), axis=0)
+        predict_result_visual(forecast_target, history_target, pred_results_path, iters=None)
         # log
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecasting Finished!")

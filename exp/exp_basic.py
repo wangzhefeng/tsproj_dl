@@ -11,18 +11,17 @@
 # * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
 # ***************************************************
 
-__all__ = []
-
 # python libraries
 import os
 import sys
 from pathlib import Path
-from importlib import import_module
 ROOT = str(Path.cwd())
 if ROOT not in sys.path:
     sys.path.append(ROOT)
+import importlib
 
 import torch
+
 from utils.log_util import logger
 
 # global variable
@@ -34,78 +33,42 @@ class Exp_Basic:
     def __init__(self, args):
         # 参数
         self.args = args
-        # 模型集 
-        # self.non_transformer = [
-        #     "DLinear",
-        # ]
-        self.model_dict = {
-            # ------------------------------
-            # Time Series Library models
-            # ------------------------------
-            # 'TimesNet': TimesNet,
-            'Autoformer': "models.transformer.Autoformer",
-            'Transformer': "models.transformer.Transformer",
-            'LSTMTransformer': "models.transformer.LSTMTransformer",
-            # 'Nonstationary_Transformer': Nonstationary_Transformer,
-            'DLinear': "models.mlp.DLinear",
-            # 'FEDformer': FEDformer,
-            # 'Informer': Informer,
-            # 'LightTS': LightTS,
-            # 'Reformer': Reformer,
-            # 'ETSformer': ETSformer,
-            'PatchTST': "models.transformer.PatchTST",
-            # 'Pyraformer': Pyraformer,
-            # 'MICN': MICN,
-            # 'Crossformer': Crossformer,
-            # 'FiLM': FiLM,
-            'iTransformer': "models.transformer.iTransformer",
-            # 'Koopa': Koopa,
-            # 'TiDE': TiDE,
-            # 'FreTS': FreTS,
-            # 'MambaSimple': MambaSimple,
-            'TimeKAN': "models.others.TimeKAN",
-            'TimeMixer': "models.others.TimeMixer",
-            'TSMixer': "models.mlp.TSMixer",
-            'N_HiTs': "models.mlp.N_HiTs",
-            'N_BEATS': "models.mlp.N_BEATS",
-            # 'SegRNN': SegRNN,
-            # 'TemporalFusionTransformer': TemporalFusionTransformer,
-            # "SCINet": SCINet,
-            # 'PAttn': PAttn,
-            # 'TimeXer': TimeXer,
-            # 'WPMixer': WPMixer,
-            # 'MultiPatchFormer': MultiPatchFormer
-            # ------------------------------
-            # Basic Neural Network model
-            # ------------------------------
-            # "MLP": MLP,
-            "RNN": "models.rnn.RNN",
-            "GRU": "models.rnn.GRU",
-            # "LSTM": LSTM,
-            # "BiLSTM": BiLSTM,
-            # "Attention": Attention,
-            # "CNN_Attention": CNN_Attention,
-            # "CNN_Conv1D": CNN_Conv1D,
-            # "CNN_Conv2D": CNN_Conv2D,
-            # "CNN_LSTM_Attention": CNN_LSTM_Attention,
-            # "InformerTodo": InformerTodo, 
-            # "Seq2Seq_LSTM": Seq2Seq_LSTM,
-            # "LSTM_Attention": LSTM_Attention,
-            # "LSTM_CNN": LSTM_CNN,
-            # "TCN": TCN,
-            # "Transformer": Transformer,
-            "LSTM2LSTM": "models.rnn.LSTM2LSTM",
-        }
-        if args.model == 'Mamba':
-            logger.info('Please make sure you have successfully installed mamba_ssm')
-            self.model_dict["Mamba"] = "models.rnn.Mamba"
+        # 模型集
+        model_map = self._scan_models_directory(model_type="cnn")
+        model_map.update(self._scan_models_directory(model_type="gnn"))
+        model_map.update(self._scan_models_directory(model_type="ltsfm"))
+        model_map.update(self._scan_models_directory(model_type="mlp"))
+        model_map.update(self._scan_models_directory(model_type="others"))
+        model_map.update(self._scan_models_directory(model_type="rnn"))
+        model_map.update(self._scan_models_directory(model_type="transformer"))
+        self.model_dict = LazyModelDict(model_map)
         # 设备
         self.device = self._acquire_device()
         # 模型构建
         self.model = self._build_model().to(self.device)
-
+    
+    def _scan_models_directory(self, model_type: str):
+        """
+        Automatically scan all .py files in the models folder
+        """
+        model_map = {}
+        models_dir = f"models/{model_type}"
+        # Iterate through all files in 'models' directory
+        if os.path.exists(models_dir):
+            for filename in os.listdir(models_dir):
+                # Ignore __init__.py and non-.py files
+                if filename.endswith('.py') and filename != '__init__.py':
+                    # Remove .py extension to get module name
+                    module_name = filename[:-3]
+                    # Build full import path
+                    full_path = f"{models_dir}.{module_name}"
+                    # loading dict: {'Transformer': 'models.Transformer'}
+                    model_map[module_name] = full_path
+        
+        return model_map
+    
     def get_model_module(self, model_name: str):
-        return import_module(self.model_dict[model_name])
+        return importlib.import_module(self.model_dict[model_name])
     
     def _acquire_device(self):
         # use gpu or not
@@ -134,7 +97,7 @@ class Exp_Basic:
             logger.info("\t\tUse device CPU")
 
         return device
- 
+
     def _build_model(self):
         raise NotImplementedError
         return None
@@ -155,11 +118,36 @@ class Exp_Basic:
         pass
 
 
+class LazyModelDict(dict):
+    """
+    Smart Lazy-Loading Dictionary
+    """
+    def __init__(self, model_map):
+        self.model_map = model_map
+        super().__init__()
 
+    def __getitem__(self, key):
+        if key in self:
+            return super().__getitem__(key)
+        
+        if key not in self.model_map:
+            raise NotImplementedError(f"Model [{key}] not found in 'models' directory.")
+            
+        module_path = self.model_map[key]
+        try:
+            print(f"🚀 Lazy Loading: {key} ...") 
+            module = importlib.import_module(module_path)
+        except ImportError as e:
+            print(f"❌ Error: Failed to import model [{key}]. Dependencies missing?")
+            raise e
 
-# 测试代码 main 函数
-def main():
-    pass
+        # Try to find the model class
+        if hasattr(module, 'Model'):
+            model_class = module.Model
+        elif hasattr(module, key):
+            model_class = getattr(module, key)
+        else:
+            raise AttributeError(f"Module {module_path} has no class 'Model' or '{key}'")
 
-if __name__ == "__main__":
-    main()
+        self[key] = model_class
+        return model_class

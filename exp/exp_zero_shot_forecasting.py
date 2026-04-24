@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-from exp.exp_basic_ltsfm import Exp_Basic
+from exp.exp_basic import Exp_Basic
 from data_provider.TFs_type.data_factory import data_provider
 from utils.metrics_dl import metric
 from utils.losses import mape_loss, mase_loss, smape_loss
@@ -18,6 +18,9 @@ from utils.log_util import logger
 
 import warnings
 warnings.filterwarnings('ignore')
+
+# global variable
+LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Exp_Zero_Shot_Forecast(Exp_Basic):
@@ -34,7 +37,7 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         """
         # 时间序列模型初始化
         logger.info(f"Initializing model {self.args.model}...")
-        model = self.model_dict[self.args.model](self.args).float()
+        model = self.get_model_module(self.args.model).Model(self.args).float()
         # 多 GPU 训练
         if self.args.use_gpu and self.args.use_multi_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -120,7 +123,7 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         # ------------------------------
         # 窗口级测试结果
         (window_r2, window_mse, window_rmse, window_mae, window_mape, window_mape_accuracy, window_mspe, window_dtw) = metric(
-            preds, trues, 
+            preds, trues,
             use_dtw=self.args.use_dtw
         )
         window_summary_line = (
@@ -154,7 +157,7 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
             file.write('\n')
             file.close()
         # ------------------------------
-        # 测试集上的预测值、真实值 
+        # 测试集上的预测值、真实值
         # ------------------------------
         # 无缝合的测试集上的预测值、真实值
         flat_results = pd.DataFrame({
@@ -275,16 +278,14 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
                     pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
                     predict_result_visual(pred_plot, true_plot, test_results_path, iters=iters)
         # 测试结果处理
-        preds = np.concatenate(preds, axis=0)
-        trues = np.concatenate(trues, axis=0)
+        preds = np.concatenate(preds, axis = 0)
+        trues = np.concatenate(trues, axis = 0)
         logger.info(f'test preds shape: {preds.shape}, trues shape: {trues.shape}')
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         logger.info(f'test preds shape: {preds.shape} tures shape: {trues.shape}')
-        
         stitched_preds, stitched_trues, overlap_counts = self._stitch_window_predictions(preds, trues)
         stitched_dates = self._build_test_stitched_dates(test_data, len(stitched_preds))
-        
         # 测试结果收集
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
@@ -300,7 +301,6 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
             stitched_dates=stitched_dates,
         )
         logger.info(test_results_path)
-        
         # 测试结果可视化
         logger.info(f"{40 * '-'}")
         logger.info(f"Test visual results have been saved in path:")
@@ -380,9 +380,14 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
 
     def forecast(self, setting):
         """
-        模型预测（推理）
+        模型预测
+        https://snu77.blog.csdn.net/article/details/132881996
+        https://github.com/thuml/Autoformer/blob/main/exp/exp_main.py#L241
+        https://github.com/thuml/Autoformer/blob/main/predict.ipynb
         """
+        # 构建预测数据集
         pred_data, pred_loader = self._get_data(flag='pred')
+        # 数据预处理
         batch_x, batch_y, batch_x_mark, batch_y_mark = next(iter(pred_loader))
         batch_x = batch_x.float().to(self.device)
         batch_y = batch_y.float().to(self.device)
@@ -402,6 +407,7 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         # 模型评估模式
         self.model.eval()
+        # 模型预测
         with torch.no_grad():
             if self.args.use_amp:
                 with torch.amp.autocast("cuda"):
@@ -431,15 +437,15 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
             pred_columns = pred_columns[-preds.shape[-1]:]
         # 历史数据表
         history_frame = pd.DataFrame(history_values, columns=feature_names)
-        history_frame.insert(0, 'date', history_dates)
+        history_frame.insert(0, "date", history_dates)
         # 预测数据表
         forecast_frame = pd.DataFrame(preds, columns=pred_columns)
-        forecast_frame.insert(0, 'date', future_dates)
+        forecast_frame.insert(0, "date", future_dates)
         # 最终预测值保存
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        self._pred_results_save(history_frame, forecast_frame,  preds, pred_results_path, setting)
+        self._pred_results_save(history_frame, forecast_frame, preds, pred_results_path, setting)
         logger.info(pred_results_path)
         # 预测结果可视化
         logger.info(f"{40 * '-'}")
