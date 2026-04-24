@@ -117,6 +117,11 @@
 | ID | Status | Owner | Targets | Acceptance |
 | --- | --- | --- | --- | --- |
 | EXP-001 | Doing | TBD | `exp/exp_forecasting_rnns.py`, `exp/exp_short_term_forecasting.py` | 已完成主要工具接口对齐；下一步需明确旧实验分支是继续维护还是转入暂缓区 |
+| EXP-002 | Done | Codex | `exp/exp_basic.py`, `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_factory.py`, `tests/` | `PatchTST.sh` 已完成 ETTh1 train/valid/test smoke；相关 unittest 通过 |
+| EXP-003 | Done | Codex | `data_provider/TFs_type/data_factory.py`, `tests/test_tfs_data_provider.py` | 数据集 flag 仅使用 `valid`，不再兼容 `val` |
+| EXP-004 | Done | Codex | `data_provider/TFs_type/data_loader.py`, `exp/exp_long_term_forecasting.py`, `tests/` | PatchTST 特征全通道与目标单通道转换策略均有测试覆盖；train/valid/test/forecast smoke 通过 |
+| EXP-005 | Done | Codex | `exp/exp_long_term_forecasting.py`, `tests/test_transformer_family.py` | MPS 训练时 valid loss 不再把 device tensor 交给 NumPy；PatchTST training-only smoke 通过 |
+| EXP-006 | Done | Codex | `data_provider/TFs_type/data_loader.py`, `exp/exp_long_term_forecasting.py`, `scripts/ETTh1_script/PatchTST_*.sh` | 训练 scaler 随 checkpoint 保存，forecast 优先复用训练 scaler；PatchTST M/MS/S 脚本参数与策略一致；三类脚本 smoke 均通过 |
 
 任务更新规则：
 

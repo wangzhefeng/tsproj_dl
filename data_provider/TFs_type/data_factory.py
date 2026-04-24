@@ -33,35 +33,40 @@ def data_provider(args, flag):
     """
     数据集构造
     """
+    canonical_flag = flag.lower()
     # 是否对时间戳进行编码
     timeenc = 0 if args.embed != "timeF" else 1
     # 区别在 test/pred 和 train/valid 任务下是否进行 shuffle 数据
-    shuffle_flag = False if flag.lower() in ["test", "pred"] else True
+    shuffle_flag = False if canonical_flag in ["test", "pred"] else True
     # 是否丢弃最后一个 batch
     drop_last = False
-    num_workers = 0 if flag.lower() == "pred" else args.num_workers
+    num_workers = 0 if canonical_flag == "pred" else args.num_workers
     # 数据集参数
     if args.data == "m4":
         from data_provider.TFs_type.data_loader_m4 import Dataset_M4
-        if flag.lower() in ["train", "valid"]:
+        if canonical_flag in ["train", "valid"]:
             batch_size = args.batch_size
             Data = Dataset_M4
-        elif flag.lower() == "test":
+        elif canonical_flag == "test":
             batch_size = 1
             Data = Dataset_M4
-        elif flag.lower() == "pred":
+        elif canonical_flag == "pred":
             batch_size = 1
             Data = Dataset_M4
+        else:
+            raise ValueError(f"unsupported data flag: {flag}")
     else:
-        if flag.lower() in ["train", "valid"]:
+        if canonical_flag in ["train", "valid"]:
             batch_size = args.batch_size
             Data = Dataset_Train
-        elif flag.lower() == "test":
+        elif canonical_flag == "test":
             batch_size = 1
             Data = Dataset_Train
-        elif flag.lower() == "pred":
+        elif canonical_flag == "pred":
             batch_size = 1
             Data = Dataset_Pred
+        else:
+            raise ValueError(f"unsupported data flag: {flag}")
     # 构建 Dataset 和 DataLoader
     if args.task_name == 'anomaly_detection':
         drop_last = False
@@ -69,9 +74,9 @@ def data_provider(args, flag):
             args = args,
             root_path=args.root_path,
             win_size=args.seq_len,
-            flag=flag,
+            flag=canonical_flag,
         )
-        logger.info(f"{flag}: {len(data_set)}")
+        logger.info(f"{canonical_flag}: {len(data_set)}")
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
@@ -85,9 +90,9 @@ def data_provider(args, flag):
         data_set = Data(
             args = args,
             root_path = args.root_path,
-            flag = flag,
+            flag = canonical_flag,
         )
-        logger.info(f"{flag}: {len(data_set)}")
+        logger.info(f"{canonical_flag}: {len(data_set)}")
         data_loader = DataLoader(
             data_set,
             batch_size = batch_size,
@@ -100,12 +105,12 @@ def data_provider(args, flag):
     else:
         if args.data == "m4":
             drop_last = False
-        
+
         data_set = Data(
             args = args,
             root_path = args.root_path,
             data_path = args.data_path,
-            flag = flag,
+            flag = canonical_flag,
             size = [args.seq_len, args.label_len, args.pred_len],
             features = args.features,
             target = args.target,
@@ -117,7 +122,7 @@ def data_provider(args, flag):
             inverse = args.inverse,
             testing_step = args.testing_step,
         )
-        logger.info(f"{flag}: {len(data_set)}")
+        logger.info(f"{canonical_flag}: {len(data_set)}")
         data_loader = DataLoader(
             data_set,
             batch_size = batch_size,

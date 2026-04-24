@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
+# export CUDA_VISIBLE_DEVICES=0
 export LOG_NAME=patchtst-etth1
 
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
@@ -13,13 +13,13 @@ model_name=PatchTST
     --is_training 1 \
     --is_testing 1 \
     --testing_step 24 \
-    --is_forecasting 0 \
+    --is_forecasting 1 \
     --model_id etth1_24_12_24 \
     --model $model_name \
     --root_path ./dataset/ETT-small \
     --data_path ETTh1.csv \
     --data ETTh1 \
-    --features M \
+    --features S \
     --target OT \
     --time date \
     --checkpoints ./results/pretrained_models/ \
@@ -36,9 +36,9 @@ model_name=PatchTST
     --embed_type 0 \
     --d_model 16 \
     --d_ff 32 \
-    --enc_in 7 \
-    --dec_in 7 \
-    --c_out 7 \
+    --enc_in 1 \
+    --dec_in 1 \
+    --c_out 1 \
     --e_layers 2 \
     --d_layers 1 \
     --factor 3 \
@@ -47,7 +47,7 @@ model_name=PatchTST
     --padding 0 \
     --num_workers 0 \
     --itr 1 \
-    --train_epochs 1 \
+    --train_epochs 10 \
     --batch_size 8 \
     --loss MSE \
     --activation gelu \
@@ -55,8 +55,8 @@ model_name=PatchTST
     --learning_rate 1e-4 \
     --patience 7 \
     --lradj type1 \
-    --scale 1 \
-    --inverse 1 \
+    --scale 0 \
+    --inverse 0 \
     --use_gpu 1 \
     --gpu_type 'mps' \
     --use_multi_gpu 0 \

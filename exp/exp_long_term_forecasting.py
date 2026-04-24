@@ -41,7 +41,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         # 时间序列模型初始化
         logger.info(f"Initializing model {self.args.model}...")
-        model = self.get_model_module(self.args.model).Model(self.args).float()
+        model = self.get_model_class(self.args.model)(self.args).float()
         # 多 GPU 训练
         if self.args.use_gpu and self.args.use_multi_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -95,6 +95,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         model_checkpoint_path = model_path.joinpath("checkpoint.pth")
         
         return model_checkpoint_path
+
+    def _get_scaler_path(self, setting):
+        """
+        数据转换器保存路径
+        """
+        scaler_path = Path(self.args.checkpoints).joinpath(setting, "scalers.pkl")
+
+        return scaler_path
 
     def _get_test_results_path(self, setting):
         """
@@ -225,8 +233,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # ---------------------
         def _run_model():
             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-            outputs = outputs[0] if self.args.output_attention and isinstance(outputs, (tuple, list)) else outputs
-            return outputs
+            if self.args.output_attention and isinstance(outputs, (tuple, list)):
+                return outputs[0]
+            else:
+                return outputs
         if self.args.use_amp:
             with torch.amp.autocast("cuda"):
                 outputs = _run_model()
@@ -237,28 +247,29 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # pred and true 提取
         outputs = outputs[:, -self.args.pred_len:, :]
         batch_y = batch_y[:, -self.args.pred_len:, :]
+        if self.args.features == 'MS':
+            outputs = self._select_target_column(data, outputs)
+            batch_y = self._select_target_column(data, batch_y)
         # output detach device
-        if flag in ["valid", "test", "pred"]:
+        if flag in ["test", "pred"]:
             outputs = outputs.detach().cpu().numpy()
             batch_y = batch_y.detach().cpu().numpy()
         # 输入输出逆转换
         if data.scale and reverse:
             if self.args.features == 'MS':
                 outputs = data.inverse_transform_target(outputs)
-                batch_y = data.inverse_transform_target(
-                    self._reshape_target_column(batch_y, data.target_idx)
-                )
+                batch_y = data.inverse_transform_target(batch_y)
             else:
                 outputs = data.inverse_transform_full(outputs)
                 batch_y = data.inverse_transform_full(batch_y)
-        # 预测值/真实值提取
-        f_dim = -1 if self.args.features == 'MS' else 0
-        outputs = outputs[:, :, f_dim:]
-        batch_y = batch_y[:, :, f_dim:]
-        if flag in ["train", "test"]:
-            batch_y.to(self.device)
-        
         return outputs, batch_y
+
+    @staticmethod
+    def _select_target_column(data, values):
+        if values.shape[-1] == 1:
+            return values
+        target_idx = getattr(data, "target_idx", values.shape[-1] - 1)
+        return values[..., target_idx:target_idx + 1]
 
     def _inverse_data(self, data, outputs, batch_y):
         """
@@ -293,6 +304,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         model_checkpoint_path = self._get_model_path(setting)
         logger.info(model_checkpoint_path)
+        train_data.save_scalers(model_checkpoint_path.parent)
         # 测试结果保存地址
         logger.info(f"{40 * '-'}")
         logger.info(f"Train results will be saved in path:")
@@ -446,7 +458,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 if outputs is None and batch_y is None: break
                 # 计算/保存验证损失
                 loss = criterion(outputs, batch_y)
-                vali_loss.append(loss)
+                vali_loss.append(loss.item())
         # 计算验证集上所有 batch 的平均验证损失
         vali_loss = np.average(vali_loss)
         # 计算模型输出
@@ -617,6 +629,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         https://github.com/thuml/Autoformer/blob/main/exp/exp_main.py#L241
         https://github.com/thuml/Autoformer/blob/main/predict.ipynb
         """
+        self.args.scaler_path = str(self._get_scaler_path(setting))
         # 构建预测数据集
         pred_data, pred_loader = self._get_data(flag='pred')
         # 数据预处理
@@ -658,15 +671,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             else:
                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
         # 预测结果提取
-        f_dim = -1 if self.args.features == 'MS' else 0
         outputs = outputs[:, -self.args.pred_len:, :]
-        outputs = outputs[:, :, f_dim:]
+        if self.args.features == 'MS':
+            outputs = self._select_target_column(pred_data, outputs)
         preds = outputs.detach().cpu().numpy()[0]
         history_values = getattr(pred_data, "scaled_history_values", batch_x.detach().cpu().numpy()[0])
         feature_names = getattr(pred_data, "feature_names", [self.args.target])
         history_dates = pd.to_datetime(getattr(pred_data, "history_dates", np.arange(history_values.shape[0])))
         future_dates = pd.to_datetime(getattr(pred_data, "future_dates", np.arange(preds.shape[0])))
-        pred_columns = getattr(pred_data, "pred_columns", feature_names[f_dim:] if f_dim != 0 else feature_names)
+        pred_columns = getattr(pred_data, "pred_columns", [self.args.target] if self.args.features == 'MS' else feature_names)
 
         if pred_data.scale and self.args.inverse:
             history_values = getattr(pred_data, "raw_history_values", pred_data.inverse_transform_history(history_values))

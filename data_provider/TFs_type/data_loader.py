@@ -20,6 +20,8 @@ from pathlib import Path
 ROOT = str(Path.cwd())
 if ROOT not in sys.path:
     sys.path.append(ROOT)
+import json
+import pickle
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -65,6 +67,64 @@ def _reorder_dataframe(df_raw, time_col, target_col):
     cols.remove(target_col)
     cols.remove(time_col)
     return df_raw[[time_col] + cols + [target_col]]
+
+
+def _ensure_single_target_channel(data):
+    if np.asarray(data).shape[-1] != 1:
+        raise ValueError("target inverse transform expects data with exactly one target channel")
+
+
+def _scaler_artifact_path(path):
+    path = Path(path)
+    if path.suffix:
+        return path
+    return path.joinpath("scalers.pkl")
+
+
+def _metadata_artifact_path(path):
+    path = Path(path)
+    if path.suffix:
+        return path.with_name("scaler_metadata.json")
+    return path.joinpath("scaler_metadata.json")
+
+
+def _dump_scaler_artifacts(path, full_scaler, target_scaler, feature_names, target, target_idx, features):
+    scaler_path = _scaler_artifact_path(path)
+    metadata_path = _metadata_artifact_path(path)
+    scaler_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(scaler_path, "wb") as file:
+        pickle.dump(
+            {
+                "full_scaler": full_scaler,
+                "target_scaler": target_scaler,
+            },
+            file,
+        )
+    with open(metadata_path, "w", encoding="utf-8") as file:
+        json.dump(
+            {
+                "feature_names": feature_names,
+                "target": target,
+                "target_idx": target_idx,
+                "features": features,
+            },
+            file,
+            ensure_ascii=False,
+            indent=2,
+        )
+    return scaler_path
+
+
+def _load_scaler_artifacts(path):
+    scaler_path = _scaler_artifact_path(path)
+    metadata_path = _metadata_artifact_path(path)
+    with open(scaler_path, "rb") as file:
+        scalers = pickle.load(file)
+    metadata = {}
+    if metadata_path.exists():
+        with open(metadata_path, "r", encoding="utf-8") as file:
+            metadata = json.load(file)
+    return scalers, metadata
 
 
 class Dataset_Train(Dataset):
@@ -218,6 +278,7 @@ class Dataset_Train(Dataset):
         return restored.reshape(original_shape)
 
     def inverse_transform_target(self, data):
+        _ensure_single_target_channel(data)
         if not self.scale:
             return data
         original_shape = data.shape
@@ -226,6 +287,21 @@ class Dataset_Train(Dataset):
 
     def inverse_transform_history(self, data):
         return self.inverse_transform_full(data)
+
+    def save_scalers(self, path):
+        if not self.scale:
+            return None
+        scaler_path = _dump_scaler_artifacts(
+            path,
+            self.full_scaler,
+            self.target_scaler,
+            self.feature_names,
+            self.target,
+            self.target_idx,
+            self.features,
+        )
+        logger.info(f"Scaler artifacts have been saved in path: {scaler_path}")
+        return scaler_path
 
 
 class Dataset_Pred(Dataset):
@@ -303,8 +379,25 @@ class Dataset_Pred(Dataset):
         self.full_scaler = StandardScaler()
         self.target_scaler = StandardScaler()
         if self.scale:
-            self.full_scaler.fit(df_data.values)
-            self.target_scaler.fit(df_data[[self.target]].values)
+            scaler_path = getattr(self.args, "scaler_path", None)
+            if scaler_path and _scaler_artifact_path(scaler_path).exists():
+                scalers, metadata = _load_scaler_artifacts(scaler_path)
+                self.full_scaler = scalers["full_scaler"]
+                self.target_scaler = scalers["target_scaler"]
+                expected_features = metadata.get("feature_names")
+                if expected_features and expected_features != self.feature_names:
+                    raise ValueError(
+                        f"scaler feature_names mismatch: expected {expected_features}, got {self.feature_names}"
+                    )
+                expected_target = metadata.get("target")
+                if expected_target and expected_target != self.target:
+                    raise ValueError(f"scaler target mismatch: expected {expected_target}, got {self.target}")
+                logger.info(f"Scaler artifacts have been loaded from path: {_scaler_artifact_path(scaler_path)}")
+            else:
+                if scaler_path:
+                    logger.info(f"Scaler artifacts not found in path: {_scaler_artifact_path(scaler_path)}. Fit scalers with current prediction data.")
+                self.full_scaler.fit(df_data.values)
+                self.target_scaler.fit(df_data[[self.target]].values)
             data = self.full_scaler.transform(df_data.values)
         else:
             data = df_data.values
@@ -360,6 +453,7 @@ class Dataset_Pred(Dataset):
         return restored.reshape(original_shape)
 
     def inverse_transform_target(self, data):
+        _ensure_single_target_channel(data)
         if not self.scale:
             return data
         original_shape = data.shape
