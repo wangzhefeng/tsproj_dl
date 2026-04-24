@@ -6,6 +6,7 @@ import torch
 from models.transformer.LSTMTransformer import Model as LSTMTransformerModel
 from models.transformer.Transformer import Model as TransformerModel
 from exp.exp_basic import Exp_Basic
+from exp.exp_long_term_forecasting import _unwrap_model_outputs
 
 
 def build_args(embed_type=0, rev=True, output_attention=False):
@@ -55,9 +56,18 @@ class TransformerFamilyTestCase(unittest.TestCase):
 
     def test_transformer_with_output_attention(self):
         model = TransformerModel(build_args(embed_type=0, rev=True, output_attention=True))
-        output, attns = model(self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec)
+        output = model(self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec)
         self.assertEqual(output.shape, (2, 24, 7))
-        self.assertIsInstance(attns, list)
+
+    def test_unwrap_model_outputs_keeps_tensor_when_attention_enabled(self):
+        outputs = torch.randn(2, 24, 7)
+        unwrapped = _unwrap_model_outputs(outputs, output_attention=True)
+        self.assertTrue(torch.equal(unwrapped, outputs))
+
+    def test_unwrap_model_outputs_extracts_attention_tuple(self):
+        outputs = (torch.randn(2, 24, 7), [torch.randn(2, 1, 24, 24)])
+        unwrapped = _unwrap_model_outputs(outputs, output_attention=True)
+        self.assertEqual(unwrapped.shape, (2, 24, 7))
 
     def test_lstm_transformer_shape(self):
         model = LSTMTransformerModel(build_args())

@@ -37,6 +37,12 @@ from utils.log_util import logger
 LOGGING_LABEL = Path(__file__).name[:-3]
 
 
+def _unwrap_model_outputs(outputs, output_attention):
+    if output_attention and isinstance(outputs, (tuple, list)):
+        return outputs[0]
+    return outputs
+
+
 class Exp_Long_Term_Forecast(Exp_Basic):
 
     def __init__(self, args):
@@ -190,8 +196,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # ---------------------
         def _run_model():
             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-            outputs = outputs[0] if self.args.output_attention else outputs
-            return outputs
+            return _unwrap_model_outputs(outputs, self.args.output_attention)
         if self.args.use_amp:
             with torch.amp.autocast("cuda"):
                 outputs = _run_model()
@@ -554,21 +559,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 batch_y = batch_y.numpy()  # [1, pred_len, enc_in/dec_in]
                 inputs = batch_x.detach().cpu().numpy()[:, :, f_dim:]  # [1, seq_len, 1]
                 if pred_data.scale and self.args.inverse:
-                    # TODO 数据逆转换 v1: output 最后一个维度转换为与 batch_y 一致: # [1, pred_len, enc_in/dec_in]
-                    # if outputs.shape[-1] != batch_y.shape[-1]:
-                    #     outputs = np.tile(outputs, [1, 1, int(batch_y.shape[-1] / outputs.shape[-1])])
-                    # inverse transform
-                    outputs = pred_data \
-                        .inverse_transform(outputs.reshape(outputs.shape[0] * outputs.shape[1], -1)) \
-                        .reshape(outputs.shape)
-                    # # TODO 数据逆转换 v1: 预测值提取
-                    # f_dim = -1 if self.args.features == 'MS' else 0
-                    # outputs = outputs[:, :, f_dim:]
-                    # 预测数据可视化数据处理
-                    inputs = pred_data \
-                        .inverse_transform(inputs.reshape(inputs.shape[0] * inputs.shape[1], -1)) \
-                        .reshape(inputs.shape)
-                    # logger.info(f"debug::outputs: \n{outputs} \noutputs.shape: {outputs.shape}")
+                    if self.args.features == 'MS':
+                        outputs = pred_data.inverse_transform_target(outputs)
+                        inputs = pred_data.inverse_transform_target(inputs)
+                    else:
+                        outputs = pred_data.inverse_transform_full(outputs)
+                        inputs = pred_data.inverse_transform_full(inputs)
                 # 预测结果收集
                 preds.append(outputs)
                 trues_plot = inputs[0, :, -1]

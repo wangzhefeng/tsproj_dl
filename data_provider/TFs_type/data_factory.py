@@ -43,7 +43,7 @@ def data_provider(args, flag):
     # 数据集参数
     if args.data == "m4":
         from data_provider.TFs_type.data_loader_m4 import Dataset_M4
-        if flag.lower() in ["train", "valid", "val"]:
+        if flag.lower() in ["train", "valid"]:
             batch_size = args.batch_size
             Data = Dataset_M4
         elif flag.lower() == "test":
@@ -53,7 +53,7 @@ def data_provider(args, flag):
             batch_size = 1
             Data = Dataset_M4
     else:
-        if flag.lower() in ["train", "valid", "val"]:
+        if flag.lower() in ["train", "valid"]:
             batch_size = args.batch_size
             Data = Dataset_Train
         elif flag.lower() == "test":
