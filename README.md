@@ -105,7 +105,7 @@ python run_dl.py \
 - `logs/`：运行日志
 - `results/pretrained_models/`：默认模型权重输出目录
 - `results/test_results/`：默认测试结果与可视化输出目录
-- `results/predict_results/`：默认预测结果输出目录
+- `results/forecast_results/`：默认预测结果输出目录
 
 说明：
 

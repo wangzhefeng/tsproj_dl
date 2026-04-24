@@ -27,7 +27,7 @@ model_name=Autoformer
     --time date \
     --checkpoints ./results/pretrained_models/ \
     --test_results ./results/test_results/ \
-    --predict_results ./results/predict_results/ \
+    --forecast_results ./results/forecast_results/ \
     --freq 15min \
     --embed timeF \
     --seq_len 96 \

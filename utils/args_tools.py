@@ -64,7 +64,7 @@ def print_args_ts(args):
     logger.info(f'  {"Target:":<25}{args.target:<25}{"Freq:":<25}{args.freq:<25}')
     logger.info(f'  {"Checkpoints:":<25}{args.checkpoints:<25}')
     logger.info(f'  {"Test results:":<25}{args.test_results:<25}')
-    logger.info(f'  {"Predict results:":<25}{args.predict_results:<25}')
+    logger.info(f'  {"Predict results:":<25}{args.forecast_results:<25}')
     logger.info("")
     # ------------------------------
     # task

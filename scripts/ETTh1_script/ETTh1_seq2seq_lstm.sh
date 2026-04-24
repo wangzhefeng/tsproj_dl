@@ -30,7 +30,7 @@ model_name=LSTM2LSTM
     --rolling_data_path ETTh1.csv \
     --checkpoints ./results/pretrained_models/ \
     --test_results ./results/test_results/ \
-    --predict_results ./results/predict_results/ \
+    --forecast_results ./results/forecast_results/ \
     --freq h \
     --embed timeF \
     --seq_len 64 \

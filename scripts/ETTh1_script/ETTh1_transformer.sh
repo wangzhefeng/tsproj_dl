@@ -24,7 +24,7 @@ model_name=Transformer
     --time date \
     --checkpoints ./results/pretrained_models/ \
     --test_results ./results/test_results/ \
-    --predict_results ./results/predict_results/ \
+    --forecast_results ./results/forecast_results/ \
     --freq 1h \
     --embed timeF \
     --seq_len 24 \

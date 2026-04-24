@@ -12,20 +12,13 @@
 # ***************************************************
 
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
 from typing import Union, List
 
 import numpy as np
 from sklearn.metrics import r2_score
 
 from utils.dtw_metric import accelerated_dtw
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
+from utils.log_util import logger
 
 
 def RSE(pred, true):
@@ -37,6 +30,7 @@ def CORR(pred, true):
     d = np.sqrt(((true - true.mean(0)) ** 2 * (pred - pred.mean(0)) ** 2).sum(0))
     
     return (u / d).mean(-1)
+
 
 def R_square(pred, true):
     return float(r2_score(true, pred))
@@ -82,22 +76,32 @@ def MSPE(pred, true):
     return np.mean(np.square((true - pred) / true))
 
 
-def DTW(preds, trues):
-    dtw_list = []
-    manhattan_distance = lambda x, y: np.abs(x - y)
-    for i in range(preds.shape[0]):
-        x = preds[i].reshape(-1,1)
-        y = trues[i].reshape(-1,1)
-        if i % 100 == 0:
-            print("calculating dtw iter:", i)
-        d, _, _, _ = accelerated_dtw(x, y, dist=manhattan_distance)
-        dtw_list.append(d)
-    dtw = np.array(dtw_list).mean()
+def DTW(preds, trues, use_dtw=False):
+    if use_dtw:
+        dtw_list = []
+        manhattan_distance = lambda x, y: np.abs(x - y)
+        for i in range(preds.shape[0]):
+            x = preds[i].reshape(-1, 1)
+            y = trues[i].reshape(-1, 1)
+            if i % 100 == 0:
+                logger.info(f"calculating dtw iter: {i}")
+            d, _, _, _ = accelerated_dtw(x, y, dist=manhattan_distance)
+            dtw_list.append(d)
+        dtw = np.array(dtw_list).mean()
+    else:
+        dtw = "Not calculated"
     
     return dtw
 
 
-def metric(pred, true):
+def cal_accuracy(y_pred, y_true):
+    """
+    计算准确率
+    """
+    return np.mean(y_pred == y_true)
+
+
+def metric(pred, true, use_dtw=False):
     # rse = RSE(pred, true)
     # corr = CORR(pred, true)
     r2 = R_square(pred, true)
@@ -107,16 +111,13 @@ def metric(pred, true):
     mape = MAPE(pred, true)
     accuracy = Accuracy(pred, true)
     mspe = MSPE(pred, true)
-    # dtw = DTW(pred, true)
+    if use_dtw:
+        dtw = DTW(pred, true, use_dtw)
+        return (r2, mse, rmse, mae, mape, accuracy, mspe, dtw)
+    else:
+        return (r2, mse, rmse, mae, mape, accuracy, mspe, "Not calculated")
 
-    return r2, mse, rmse, mae, mape, accuracy, mspe
 
-
-def cal_accuracy(y_pred, y_true):
-    """
-    计算准确率
-    """
-    return np.mean(y_pred == y_true)
 
 
 

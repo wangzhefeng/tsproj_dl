@@ -43,12 +43,12 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         
         return model
 
-    def _get_data(self, flag):
+    def _get_data(self, flag: str):
         """
         数据集构建
         """
         data_set, data_loader = data_provider(self.args, flag)
-
+        
         return data_set, data_loader
 
     def _select_criterion(self):
@@ -199,7 +199,7 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         模型测试
         """
         # 数据集构建
-        test_data, test_loader = self._get_data(flag='test')
+        test_data, test_loader = self._get_data(flag="test")
         # 测试结果保存地址
         logger.info(f"{40 * '-'}")
         logger.info(f"Test results will be saved in path:")
@@ -217,11 +217,10 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         self.model.eval()
         # 测试结果收集
         preds, trues = [], []
-        preds_flat, trues_flat = [], [] 
+        preds_flat, trues_flat = [], []
         with torch.no_grad():
             for iters, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 logger.info(f"Test step: {iters} running...")
-                
                 # 前向传播
                 # 数据预处理
                 # ---------------------
@@ -267,15 +266,14 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
                 true = batch_y
                 preds.append(pred)
                 trues.append(true)
-
                 # 预测数据可视化
-                # if iters % 100 == 0:
-                #     inputs = batch_x.detach().cpu().numpy()
-                #     if test_data.scale and self.args.inverse:
-                #         inputs = test_data.inverse_transform_history(inputs)
-                #     true_plot = np.concatenate((inputs[0, :, -1], true[0, :, -1]), axis=0)
-                #     pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
-                #     predict_result_visual(pred_plot, true_plot, test_results_path, iters=iters)
+                if iters % 100 == 0:
+                    inputs = batch_x.detach().cpu().numpy()
+                    if test_data.scale and self.args.inverse:
+                        inputs = test_data.inverse_transform_history(inputs)
+                    true_plot = np.concatenate((inputs[0, :, -1], true[0, :, -1]), axis=0)
+                    pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
+                    predict_result_visual(pred_plot, true_plot, test_results_path, iters=iters)
         # 测试结果处理
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
@@ -312,14 +310,13 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         trues_flat = stitched_trues[:, target_dim]
         predict_result_visual(preds_flat, trues_flat, path=test_results_path, iters=None) 
         logger.info(test_results_path)
-        
         # log
         logger.info(f"{40 * '-'}")
         logger.info(f"Testing Finished!")
         logger.info(f"{40 * '-'}")
 
         return
-
+    
     @staticmethod
     def _stitch_window_predictions(preds: np.ndarray, trues: np.ndarray):
         """

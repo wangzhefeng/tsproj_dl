@@ -20,7 +20,7 @@ model_name=LSTM
     --pred_method direct_multi_step \
     --checkpoints ./results/pretrained_models/ \
     --test_results ./results/test_results/ \
-    --predict_results ./results/predict_results/ \
+    --forecast_results ./results/forecast_results/ \
     --freq d \
     --embed timeF \
     --seq_len 20 \

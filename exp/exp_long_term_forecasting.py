@@ -1,19 +1,6 @@
-# -*- coding: utf-8 -*-
-
-# ***************************************************
-# * File        : exp_long_term_forecasting.py
-# * Author      : Zhefeng Wang
-# * Email       : zfwang7@gmail.com
-# * Date        : 2025-01-13
-# * Version     : 1.0.011321
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
 import sys
 from pathlib import Path
-ROOT = str(Path.cwd()); 
+ROOT = str(Path.cwd())
 if ROOT not in sys.path: sys.path.append(ROOT)
 import time
 
@@ -24,9 +11,9 @@ import torch.nn as nn
 
 from exp.exp_basic import Exp_Basic
 from data_provider.TFs_type.data_factory import data_provider
+from utils.metrics_dl import metric
 from utils.model_tools import adjust_learning_rate, EarlyStopping
 from utils.losses import mape_loss, mase_loss, smape_loss
-from utils.metrics_dl import metric, DTW
 from utils.plot_results import predict_result_visual
 from utils.plot_losses import plot_losses
 from utils.model_memory import model_memory_size
@@ -35,12 +22,6 @@ from utils.log_util import logger
 
 # global variable
 LOGGING_LABEL = Path(__file__).name[:-3]
-
-
-def _unwrap_model_outputs(outputs, output_attention):
-    if output_attention and isinstance(outputs, (tuple, list)):
-        return outputs[0]
-    return outputs
 
 
 class Exp_Long_Term_Forecast(Exp_Basic):
@@ -63,7 +44,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
         # 打印模型参数量
         model_memory_size(model, verbose=True)
-
+        
         return model
 
     def _get_data(self, flag: str):
@@ -88,11 +69,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             return smape_loss()
         elif self.args.loss == "L1":
             return nn.L1Loss()
-
+    
     def _select_optimizer(self):
         """
         优化器
-        """ 
+        """
         if self.args.optimizer.lower() == "adam":
             optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
         elif self.args.optimizer.lower() == "adamw":
@@ -102,7 +83,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
     
     def _get_model_path(self, setting):
         """
-        模型保存路径
+        模型保存路径，如果进行模型训练任务，则需要保存模型
         """
         # 模型保存路径
         model_path = Path(self.args.checkpoints).joinpath(setting)
@@ -125,7 +106,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         结果保存路径
         """
-        results_path = Path(self.args.predict_results).joinpath(setting)
+        results_path = Path(self.args.forecast_results).joinpath(setting)
         results_path.mkdir(parents=True, exist_ok=True)
         
         return results_path
@@ -153,14 +134,24 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         np.save(Path(path).joinpath('preds.npy'), preds)
         np.save(Path(path).joinpath('trues.npy'), trues)
     
-    def _pred_results_save(self, preds, preds_df, path):
+    def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None):
         """
         预测结果保存
         """
         if preds is not None:
             np.save(Path(path).joinpath("prediction.npy"), preds) 
+
+        if trues_df is not None:
+            trues_df.to_csv(path.joinpath('history.csv'), index=False, encoding="utf_8_sig")
+        
         if preds_df is not None:
-            preds_df.to_csv(Path(path).joinpath("prediction.csv"), encoding="utf_8_sig", index=False)
+            preds_df.to_csv(path.joinpath('forecast.csv'), index=False, encoding="utf_8_sig")
+        
+        with open(path.joinpath('summary.txt'), 'w', encoding='utf-8') as summary_file:
+            summary_file.write(setting + '\n')
+            summary_file.write(f'prediction only: no ground truth available\n')
+            summary_file.write(f'history_points:{len(trues_df)}, forecast_points:{len(preds_df)}\n')
+            summary_file.write(f'forecast_target:{preds_df.columns[-1]}\n')
     
     def _model_forward(self, data, batch_x, batch_y, batch_x_mark, batch_y_mark, flag, reverse=False):
         """
@@ -184,19 +175,19 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 logger.info(f"Train Stop::Data batch_y.shape[1] not equal to (label_len + pred_len).")
                 return None, None
             elif flag == "pred":
-                dec_inp = torch.zeros((batch_y.shape[0], self.args.pred_len, batch_y.shape[2])).float().to(batch_y.device)
+                dec_inp = torch.zeros((batch_y.shape[0], self.args.pred_len, batch_y.shape[2]), dtype=batch_x.dtype, device=self.device)
         else:
             dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
         dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
         
         if self.args.down_sampling_layers != 0:
             dec_inp = None
-        
         # encoder-decoder
         # ---------------------
         def _run_model():
             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-            return _unwrap_model_outputs(outputs, self.args.output_attention)
+            outputs = outputs[0] if self.args.output_attention and isinstance(outputs, (tuple, list)) else outputs
+            return outputs
         if self.args.use_amp:
             with torch.amp.autocast("cuda"):
                 outputs = _run_model()
@@ -424,7 +415,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         模型测试
         """
         # 数据集构建
-        test_data, test_loader = self._get_data(flag="test") 
+        test_data, test_loader = self._get_data(flag="test")
         # 模型加载
         if load:
             logger.info(f"{40 * '-'}")
@@ -438,7 +429,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"Test results will be saved in path:")
         logger.info(f"{40 * '-'}")
         test_results_path = self._get_test_results_path(setting) 
-        logger.info(test_results_path) 
+        logger.info(test_results_path)
         # 模型开始测试
         logger.info(f"{40 * '-'}")
         logger.info(f"Model start testing...")
@@ -471,9 +462,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     if test_data.scale and self.args.inverse:
                         inputs = test_data.inverse_transform(inputs.reshape(inputs.shape[0] * inputs.shape[1], -1)).reshape(inputs.shape)
                         # or inputs = test_data.inverse_transform(inputs.squeeze(0)).reshape(inputs.shape)
-                    pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
                     true_plot = np.concatenate((inputs[0, :, -1], true[0, :, -1]), axis=0)
-                    predict_result_visual(pred_plot, true_plot, path=Path(test_results_path).joinpath(f'{str(iters)}.pdf')) 
+                    pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
+                    predict_result_visual(pred_plot, true_plot, test_results_path, iters)
         # 测试结果保存
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
@@ -505,7 +496,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         else:
             preds_flat = np.concatenate(preds, axis = 0)
             trues_flat = np.concatenate(trues, axis = 0)
-        predict_result_visual(preds_flat, trues_flat, path=Path(test_results_path).joinpath("test_prediction.png")) 
+        predict_result_visual(preds_flat, trues_flat, path=test_results_path, iters=None) 
         logger.info(test_results_path)
         # log
         logger.info(f"{40 * '-'}")
@@ -513,6 +504,67 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
 
         return
+    
+    @staticmethod
+    def _stitch_window_predictions(preds: np.ndarray, trues: np.ndarray):
+        """
+        将滑动窗口预测结果还原成时间轴上的连续序列。
+
+        当前统一数据层的 test loader 默认使用 stride=1，
+        直接 reshape/concatenate 会把重叠窗口重复拼接，导致时间顺序失真。
+        这里按时间位置对所有重叠预测取均值，恢复真实时间轴。
+        """
+        num_windows, pred_len, channels = preds.shape
+        stitched_len = num_windows + pred_len - 1
+
+        pred_sum = np.zeros((stitched_len, channels), dtype=np.float64)
+        true_sum = np.zeros((stitched_len, channels), dtype=np.float64)
+        counts = np.zeros((stitched_len, 1), dtype=np.int64)
+
+        for window_idx in range(num_windows):
+            start = window_idx
+            end = window_idx + pred_len
+            pred_sum[start:end] += preds[window_idx]
+            true_sum[start:end] += trues[window_idx]
+            counts[start:end] += 1
+
+        counts_safe = np.where(counts == 0, 1, counts)
+        stitched_preds = pred_sum / counts_safe
+        stitched_trues = true_sum / counts_safe
+
+        return stitched_preds.astype(np.float32), stitched_trues.astype(np.float32), counts.squeeze(-1)
+
+    @staticmethod
+    def _build_stitched_results_frame(stitched_preds: np.ndarray, stitched_trues: np.ndarray, overlap_counts=None, stitched_dates=None):
+        rows = {"step": np.arange(len(stitched_preds))}
+        if stitched_dates is not None:
+            rows["date"] = stitched_dates.astype(str)
+        if overlap_counts is not None:
+            rows["overlap_count"] = overlap_counts
+
+        if stitched_preds.shape[1] == 1:
+            rows["preds"] = stitched_preds[:, 0]
+            rows["trues"] = stitched_trues[:, 0]
+        else:
+            for channel_idx in range(stitched_preds.shape[1]):
+                rows[f"preds_{channel_idx}"] = stitched_preds[:, channel_idx]
+                rows[f"trues_{channel_idx}"] = stitched_trues[:, channel_idx]
+
+        return pd.DataFrame(rows)
+
+    def _build_test_stitched_dates(self, test_data, stitched_len: int):
+        """
+        构建测试集重建时间轴。
+        """
+        segment_dates = getattr(test_data, "segment_dates", None)
+        if segment_dates is None:
+            return None
+        stitched_dates = pd.Series(segment_dates).iloc[test_data.seq_len:test_data.seq_len + stitched_len].reset_index(drop=True)
+
+        if len(stitched_dates) != stitched_len:
+            return None
+
+        return stitched_dates.to_numpy()
 
     def forecast(self, setting, load: bool=True):
         """
@@ -523,6 +575,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         # 构建预测数据集
         pred_data, pred_loader = self._get_data(flag='pred')
+        # TODO
+        # batch_x, batch_y, batch_x_mark, batch_y_mark = next(iter(pred_loader))
+        # batch_x = batch_x.float().to(self.device)
+        # batch_y = batch_y.float().to(self.device)
+        # batch_x_mark = batch_x_mark.float().to(self.device)
+        # batch_y_mark = batch_y_mark.float().to(self.device)
+        # dec_zeros = torch.zeros((batch_x.shape[0], self.args.pred_len, batch_x.shape[-1]), dtype=batch_x.dtype, device=self.device)
+        # dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_zeros], dim=1).float().to(self.device)
+        
         # 模型加载
         if load:
             logger.info(f"{40 * '-'}")
@@ -553,6 +614,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 logger.info(f"Forecast step: {i} running...")
                 # 前向传播
                 outputs, batch_y = self._model_forward(pred_data, batch_x, batch_y, batch_x_mark, batch_y_mark, flag = "pred")
+                
                 # 输入输出逆转换
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs.numpy()  # [1, pred_len, 1]
@@ -589,21 +651,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        plot_path = Path(pred_results_path).joinpath('forecasting_prediction.png')
-        predict_result_visual(preds_plot, trues_plot, plot_path)
-        logger.info(plot_path)
+        predict_result_visual(preds_plot, trues_plot, pred_results_path, iters=None)
+        logger.info(pred_results_path)
         # log
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecasting Finished!")
         logger.info(f"{40 * '-'}")
-
-        return preds, preds_df
-
-
-
-
-def main():
-    pass
-
-if __name__ == '__main__':
-    main()
+        
+        return

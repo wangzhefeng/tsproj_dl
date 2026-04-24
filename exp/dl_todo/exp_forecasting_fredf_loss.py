@@ -134,7 +134,7 @@ class Exp_Forecast(Exp_Basic):
         """
         结果保存路径
         """
-        results_path = os.path.join(self.args.predict_results, setting)
+        results_path = os.path.join(self.args.forecast_results, setting)
         os.makedirs(results_path, exist_ok=True)
         
         return results_path 

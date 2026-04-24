@@ -46,10 +46,10 @@ def _set_output_dirs(args):
     else:
         args.test_results = _normalize_output_dir(args.test_results)
 
-    if not args.predict_results:
-        args.predict_results = f"{results_root}predict_results/"
+    if not args.forecast_results:
+        args.forecast_results = f"{results_root}forecast_results/"
     else:
-        args.predict_results = _normalize_output_dir(args.predict_results)
+        args.forecast_results = _normalize_output_dir(args.forecast_results)
 
     return args
 
@@ -83,7 +83,7 @@ def args_parse():
     parser.add_argument('--results_root', type=str, default='./results/', help='base output directory for checkpoints and result artifacts')
     parser.add_argument('--checkpoints', type=str, default=None, help='checkpoint directory, defaults to <results_root>/pretrained_models/')
     parser.add_argument('--test_results', type=str, default=None, help='test result directory, defaults to <results_root>/test_results/')
-    parser.add_argument('--predict_results', type=str, default=None, help='forecast result directory, defaults to <results_root>/predict_results/') 
+    parser.add_argument('--forecast_results', type=str, default=None, help='forecast result directory, defaults to <results_root>/forecast_results/') 
     # forecasting task
     parser.add_argument('--seq_len', type=int, required=True, default=72, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=12, help='start token length')

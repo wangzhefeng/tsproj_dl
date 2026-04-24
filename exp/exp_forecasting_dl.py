@@ -132,7 +132,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         结果保存路径
         """
-        results_path = Path(self.args.predict_results).joinpath(setting)
+        results_path = Path(self.args.forecast_results).joinpath(setting)
         results_path.mkdir(parents=True, exist_ok=True)
         
         return results_path 
