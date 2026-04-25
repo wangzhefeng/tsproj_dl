@@ -104,12 +104,11 @@ class M4Summary:
         grouped_naive2_smapes = self.summarize_groups(naive2_smapes)
         grouped_smapes = self.summarize_groups(grouped_smapes)
         grouped_mapes = self.summarize_groups(grouped_mapes)
-        
         for k in grouped_model_mases.keys():
             grouped_owa[k] = (
-                (grouped_model_mases[k] / grouped_naive2_mases[k] + \
-                grouped_smapes[k] / grouped_naive2_smapes[k]) / 2
-            )
+                grouped_model_mases[k] / grouped_naive2_mases[k] + \
+                grouped_smapes[k] / grouped_naive2_smapes[k]
+            ) / 2
 
         return (
             round_all(grouped_smapes),

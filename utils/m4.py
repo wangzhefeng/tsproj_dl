@@ -19,12 +19,38 @@ M4 Dataset
 import os
 import sys
 import logging
-from urllib import request
+import pathlib
+from glob import glob
+from collections import OrderedDict
 from dataclasses import dataclass
 
+import patoolib
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
-import pathlib
+from urllib import request
+from huggingface_hub import hf_hub_download
+
+HUGGINGFACE_REPO = "thuml/Time-Series-Library"
+
+def _ensure_m4_triplet(root_dir="./dataset/m4", repo_id=HUGGINGFACE_REPO):
+    root_dir = os.path.abspath(root_dir)
+    os.makedirs(root_dir, exist_ok=True)
+    files = {
+        "M4-info.csv":  "m4/M4-info.csv",
+        "training.npz": "m4/training.npz",
+        "test.npz":     "m4/test.npz",
+    }
+    for name, remote in files.items():
+        dst = os.path.join(root_dir, name)
+        if not os.path.exists(dst):
+            path = hf_hub_download(
+                repo_id=repo_id,
+                filename=remote,
+                repo_type="dataset",
+                local_dir="./dataset",
+                local_dir_use_symlinks=False
+            )
 
 
 def url_file_name(url: str) -> str:
