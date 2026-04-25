@@ -1,21 +1,21 @@
 export CUDA_VISIBLE_DEVICES=0
 
-model_id=ETTh1_LSTM_todo_smoke
-model_name=LSTM_todo
-export LOG_NAME=$model_id
+model_id=ETTh1_GRU_todo_smoke
+model_name=GRU_todo
+export LOG_NAME=${model_id}_forecast
 
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
 mkdir -p "$MPLCONFIGDIR"
 
 "${PYTHON_BIN:-./.venv/bin/python}" -u run.py \
     --task_name long_term_forecast \
-    --des 'Exp LSTM_todo ETTh1 smoke' \
-    --is_training 1 \
-    --is_testing 1 \
+    --des 'Exp GRU_todo ETTh1 forecast smoke' \
+    --is_training 0 \
+    --is_testing 0 \
     --train_step 4 \
     --valid_step 4 \
     --testing_step 24 \
-    --is_forecasting 0 \
+    --is_forecasting 1 \
     --model_id "$model_id" \
     --model "$model_name" \
     --root_path ./dataset/ETT-small \

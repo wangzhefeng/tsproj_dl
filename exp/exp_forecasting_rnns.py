@@ -1,24 +1,11 @@
-# -*- coding: utf-8 -*-
-
-# ***************************************************
-# * File        : exp_forecasting.py
-# * Author      : Zhefeng Wang
-# * Email       : wangzhefengr@163.com
-# * Date        : 2023-05-27
-# * Version     : 0.1.052710
-# * Description : description
-# * Link        : link
-# * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
-# ***************************************************
-
-# python libraries
 import sys
 from pathlib import Path
 ROOT = str(Path.cwd())
 if ROOT not in sys.path:
     sys.path.append(ROOT)
+import json
+import subprocess
 import time
-from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -27,23 +14,19 @@ import torch.nn as nn
 
 from exp.exp_basic import Exp_Basic
 # data pipeline
-# from data_provider.todo.data_factory_dl_1 import data_provider
 from data_provider.RNNs_type.data_factory import data_provider
 # model training
 from utils.model_tools import adjust_learning_rate, EarlyStopping
 # loss
 from utils.losses import mape_loss, mase_loss, smape_loss
 # metrics
-from utils.metrics_dl import metric, DTW
+from utils.metrics_dl import metric
 from utils.plot_results import predict_result_visual
 from utils.plot_losses import plot_losses
 # log
 from utils.model_memory import model_memory_size
 from utils.timestamp_utils import from_unix_time
 from utils.log_util import logger
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Exp_Long_Term_Forecast(Exp_Basic):
@@ -63,9 +46,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         model = self.get_model_module(self.args.model).Model(self.args)
         # 多 GPU 训练
         if self.args.use_gpu and self.args.use_multi_gpu:
-            model = nn.DataParallel(model, device_ids = self.args.devices)
+            model = nn.DataParallel(model, device_ids=self.args.device_ids)
         # 打印模型参数量
-        total_memory_gb = model_memory_size(model, verbose=True)
+        model_memory_size(model, verbose=True)
         
         return model
     
@@ -89,7 +72,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             return mase_loss()
         elif self.args.loss == "SMAPE":
             return smape_loss()
-
+        elif self.args.loss == "L1":
+            return nn.L1Loss()
+        raise ValueError(f"Unsupported loss: {self.args.loss}")
+    
     def _select_optimizer(self):
         """
         优化器
@@ -104,23 +90,29 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 self.model.parameters(), 
                 lr = self.args.learning_rate,
             )
+        else:
+            raise ValueError(f"Unsupported optimizer: {self.args.optimizer}")
         
         return optimizer
-
+    
     @staticmethod
     def _align_prediction_target(outputs, targets):
         """
         Align RNN outputs and labels before loss calculation.
         """
+        if outputs.ndim == 2 and targets.ndim == 3 and targets.shape[-1] == 1:
+            targets = targets.reshape(outputs.shape)
         if outputs.shape == targets.shape:
             return outputs, targets
-        if outputs.ndim == 2 and targets.ndim == 3 and targets.shape[1] == 1:
-            return outputs, targets.reshape(outputs.shape)
-        return outputs, targets
+        if outputs.ndim == 3 and targets.ndim == 2 and outputs.shape[-1] == 1:
+            targets = targets.unsqueeze(-1)
+        if outputs.shape == targets.shape:
+            return outputs, targets
+        raise ValueError(f"Prediction/target shape mismatch: outputs={tuple(outputs.shape)}, targets={tuple(targets.shape)}")
     
     def _get_model_path(self, setting):
         """
-        模型保存路径
+        模型保存路径，如果进行模型训练任务，则需要保存模型
         """
         # 模型保存路径
         model_path = Path(self.args.checkpoints).joinpath(setting)
@@ -129,6 +121,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         model_checkpoint_path = model_path.joinpath("checkpoint.pth")
         
         return model_checkpoint_path
+
+    def _get_scaler_path(self, setting):
+        """
+        数据转换器保存路径
+        """
+        scaler_path = Path(self.args.checkpoints).joinpath(setting, "scalers.pkl")
+
+        return scaler_path
 
     def _get_test_results_path(self, setting):
         """
@@ -146,110 +146,255 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         results_path = Path(self.args.forecast_results).joinpath(setting)
         results_path.mkdir(parents=True, exist_ok=True)
         
-        return results_path 
+        return results_path
 
-    def _test_results_save(self, preds, trues, setting, path):
+    def _test_results_save(self, preds, trues, setting, path,
+                           stitched_preds=None,
+                           stitched_trues=None,
+                           overlap_counts=None,
+                           stitched_dates=None,
+                           target_dim=None):
         """
         测试结果保存
         """
-        # 计算测试结果评价指标
-        r2, mse, rmse, mae, mape, mape_accuracy, mspe, dtw = metric(
-            preds,
-            trues,
+        # ------------------------------
+        # 计算窗口级测试结果评价指标
+        # ------------------------------
+        # 窗口级测试结果
+        window_r2, window_mse, window_rmse, window_mae, window_mape, window_mape_accuracy, window_mspe, window_dtw = metric(
+            preds.reshape(-1, preds.shape[-1]),
+            trues.reshape(-1, trues.shape[-1]),
             use_dtw=self.args.use_dtw,
         )
-        logger.info(
-            f"Test results: r2:{r2:.4f} mse:{mse:.4f} rmse:{rmse:.4f} "
-            f"mae:{mae:.4f} mape:{mape:.4f} mape accuracy:{mape_accuracy:.4f} "
-            f"mspe:{mspe:.4f} dtw:{dtw}"
+        window_summary_line = (
+            f"Window metrics: r2:{window_r2:.4f}, mse:{window_mse:.4f}, rmse:{window_rmse:.4f}, "
+            f"mae:{window_mae:.4f}, mape:{window_mape:.4f}, mape accuracy:{window_mape_accuracy:.4f}, "
+            f"mspe:{window_mspe:.4f}, dtw:{window_dtw}"
         )
-        # result1 保存
-        with open(Path(path).joinpath("result_forecast.txt"), 'a', encoding="utf-8") as file:
-            file.write(setting + "  \n")
-            file.write(
-                f"r2:{r2}, mse:{mse}, rmse:{rmse}, mae:{mae}, mape:{mape}, "
-                f"mape accuracy:{mape_accuracy}, mspe:{mspe}, dtw:{dtw}"
+        logger.info(window_summary_line)
+        # 真实时间轴级测试结果
+        timeline_summary_line = None
+        if stitched_preds is not None and stitched_trues is not None:
+            (timeline_r2, timeline_mse, timeline_rmse, timeline_mae, timeline_mape, timeline_mape_accuracy, timeline_mspe, timeline_dtw) = metric(
+                stitched_preds.reshape(-1, stitched_preds.shape[-1]),
+                stitched_trues.reshape(-1, stitched_trues.shape[-1]),
+                use_dtw=self.args.use_dtw,
             )
+            timeline_summary_line = (
+                f"Timeline metrics: r2:{timeline_r2:.4f}, mse:{timeline_mse:.4f}, rmse:{timeline_rmse:.4f}, "
+                f"mae:{timeline_mae:.4f}, mape:{timeline_mape:.4f}, "
+                f"mape accuracy:{timeline_mape_accuracy:.4f}, mspe:{timeline_mspe:.4f}, dtw:{timeline_dtw}"
+            )
+            logger.info(timeline_summary_line)
+
+        target_summary_line = None
+        if target_dim is not None and preds.shape[-1] > 1:
+            target_idx = target_dim if target_dim >= 0 else preds.shape[-1] + target_dim
+            target_preds = preds[..., target_idx:target_idx + 1].reshape(-1, 1)
+            target_trues = trues[..., target_idx:target_idx + 1].reshape(-1, 1)
+            target_r2, target_mse, target_rmse, target_mae, target_mape, target_mape_accuracy, target_mspe, target_dtw = metric(
+                target_preds,
+                target_trues,
+                use_dtw=self.args.use_dtw,
+            )
+            target_summary_line = (
+                f"Target metrics: r2:{target_r2:.4f}, mse:{target_mse:.4f}, rmse:{target_rmse:.4f}, "
+                f"mae:{target_mae:.4f}, mape:{target_mape:.4f}, "
+                f"mape accuracy:{target_mape_accuracy:.4f}, mspe:{target_mspe:.4f}, dtw:{target_dtw}"
+            )
+            logger.info(target_summary_line)
+
+        with open(Path(path).joinpath("result_forecast.txt"), "w", encoding="utf-8") as file:
+            file.write(setting + "  \n")
+            file.write(window_summary_line)
             file.write('\n')
+            if timeline_summary_line is not None:
+                file.write(timeline_summary_line)
+                file.write('\n')
+            if target_summary_line is not None:
+                file.write(target_summary_line)
+                file.write('\n')
             file.write('\n')
-        # result2 保存
-        np.save(
-            Path(path).joinpath('metrics.npy'), 
-            np.array([r2, mae, mse, rmse, mape, mape_accuracy, mspe, dtw], dtype=object)
-        )
-        np.save(Path(path).joinpath('preds.npy'), preds)
-        np.save(Path(path).joinpath('trues.npy'), trues)
+            file.close()
+        # ------------------------------
+        # 测试集上的预测值、真实值
+        # ------------------------------
+        # 无缝合的测试集上的预测值、真实值
+        flat_results = pd.DataFrame({"preds": preds.reshape(-1), "trues": trues.reshape(-1)})
+        flat_results.to_csv(Path(path).joinpath("test_results_windows.csv"), index=False, encoding="utf-8")
+        # 缝合的测试集上的预测值、真实值
+        if stitched_preds is not None and stitched_trues is not None:
+            test_results = self._build_stitched_results_frame(stitched_preds, stitched_trues, overlap_counts, stitched_dates)
+        else:
+            test_results = flat_results.copy()
+            test_results.insert(0, "step", np.arange(len(test_results)))
+        test_results.to_csv(Path(path).joinpath("test_results.csv"), index=False, encoding="utf-8")
+        logger.info(f"test_results: \n{test_results.head()}")
+        np.save(path.joinpath('metrics.npy'), np.array([
+            window_r2, window_mae, window_mse, window_rmse, window_mape, window_mape_accuracy, window_mspe, window_dtw
+        ], dtype=object))
+        np.save(path.joinpath('preds.npy'), preds)
+        np.save(path.joinpath('trues.npy'), trues)
     
-    def _pred_results_save(self, preds, preds_df, path):
+    @staticmethod
+    def _git_revision():
+        try:
+            return subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=ROOT,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        except Exception:
+            return "unknown"
+
+    @staticmethod
+    def _require_file(path, description):
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"required {description} not found: {path}")
+        return path
+
+    def _build_forecast_metadata(
+        self,
+        setting,
+        pred_data,
+        history_frame,
+        forecast_frame,
+        checkpoint_path,
+        scaler_path,
+        scaler_loaded_from_artifact,
+        elapsed_seconds,
+    ):
+        return {
+            "setting": setting,
+            "model": getattr(self.args, "model", None),
+            "model_id": getattr(self.args, "model_id", None),
+            "task_name": getattr(self.args, "task_name", None),
+            "features": getattr(self.args, "features", None),
+            "target": getattr(self.args, "target", None),
+            "feature_names": getattr(pred_data, "feature_names", []),
+            "prediction_columns": list(forecast_frame.columns[1:]),
+            "seq_len": getattr(self.args, "seq_len", None),
+            "pred_len": getattr(self.args, "pred_len", None),
+            "pred_method": getattr(self.args, "pred_method", None),
+            "freq": getattr(self.args, "freq", None),
+            "scale": bool(getattr(self.args, "scale", 0)),
+            "inverse": bool(getattr(self.args, "inverse", 0)),
+            "checkpoint_path": str(Path(checkpoint_path).resolve()) if checkpoint_path else None,
+            "scaler_path": str(Path(scaler_path).resolve()) if scaler_path else None,
+            "scaler_loaded_from_artifact": bool(scaler_loaded_from_artifact),
+            "history_start": str(history_frame["date"].iloc[0]),
+            "history_end": str(history_frame["date"].iloc[-1]),
+            "forecast_start": str(forecast_frame["date"].iloc[0]),
+            "forecast_end": str(forecast_frame["date"].iloc[-1]),
+            "history_points": len(history_frame),
+            "forecast_points": len(forecast_frame),
+            "device": str(self.device),
+            "elapsed_seconds": float(elapsed_seconds),
+            "git_commit": self._git_revision(),
+        }
+
+    def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None, metadata=None):
         """
         预测结果保存
         """
+        path = Path(path)
         if preds is not None:
-            np.save(Path(path).joinpath("prediction.npy"), preds) 
+            np.save(path.joinpath("prediction.npy"), preds) 
+        if trues_df is not None:
+            trues_df.to_csv(path.joinpath("history.csv"), index=False, encoding="utf_8_sig")
         if preds_df is not None:
-            preds_df.to_csv(Path(path).joinpath("prediction.csv"), encoding="utf_8_sig", index=False)
+            preds_df.to_csv(path.joinpath("forecast.csv"), index=False, encoding="utf_8_sig")
+        if metadata is None:
+            metadata = {}
+        with open(path.joinpath("metadata.json"), "w", encoding="utf-8") as metadata_file:
+            json.dump(metadata, metadata_file, ensure_ascii=False, indent=2)
+        with open(path.joinpath("summary.txt"), "w", encoding="utf-8") as summary_file:
+            summary_file.write((setting or "") + "\n")
+            summary_file.write(f"prediction only: no ground truth available\n")
+            summary_file.write(f"history_points:{len(trues_df)}, forecast_points:{len(preds_df)}\n")
+            summary_file.write(f"forecast_target:{preds_df.columns[-1]}\n")
+            if metadata:
+                summary_file.write(f"checkpoint_path:{metadata.get('checkpoint_path')}\n")
+                summary_file.write(f"scaler_path:{metadata.get('scaler_path')}\n")
+                summary_file.write(f"scaler_loaded_from_artifact:{metadata.get('scaler_loaded_from_artifact')}\n")
+                summary_file.write(f"history_range:{metadata.get('history_start')} -> {metadata.get('history_end')}\n")
+                summary_file.write(f"forecast_range:{metadata.get('forecast_start')} -> {metadata.get('forecast_end')}\n")
+                summary_file.write(f"device:{metadata.get('device')}\n")
+    
+    @staticmethod
+    def _select_target_column(data, values):
+        if values.shape[-1] == 1:
+            return values
+        target_idx = getattr(data, "target_idx", values.shape[-1] - 1)
+        return values[..., target_idx:target_idx + 1]
 
-    def save_model(self, weights: bool=False):
+    def _model_forward(self, data, batch_x, batch_y=None, flag="train", reverse=False):
         """
-        模型保存
+        RNN 前向传播与输出/目标统一处理。
         """
-        logger.info(f'Model saved in {self.args.checkpoints}')
-        if weights:
-            # model weights
-            torch.save(self.model.state_dict(), self.args.checkpoints)
+        # 数据预处理
+        # ---------------------
+        batch_x = batch_x.float().to(self.device)
+        if batch_y is not None:
+            batch_y = batch_y.float().to(self.device)
+
+        pred_method = getattr(self.args, "pred_method", "direct_multi_step")
+        if pred_method == "seq2seq_multi_step":
+            raise NotImplementedError("seq2seq_multi_step forecast is not implemented for RNN todo models yet.")
+
+        def _run_model():
+            if flag == "pred" and pred_method == "recursive_multi_step":
+                return self._forecast_recursive_tensor(batch_x)
+            return self.model(batch_x)
+
+        if self.args.use_amp and self.device.type == "cuda":
+            with torch.amp.autocast("cuda"):
+                outputs = _run_model()
         else:
-            # whole model
-            torch.save(self.model, self.args.checkpoints)
+            outputs = _run_model()
 
-    def load_model(self, weights: str=False):
-        """
-        模型加载
-        """
-        logger.info(f'Model Loading model from {self.args.checkpoints}')
-        if weights:
-            # model weights
-            self.model = self.get_model_module(self.args.model).Model(self.args)
-            self.model.load_state_dict(torch.load(self.args.checkpoints))
-        else:
-            # whole model
-            self.model = torch.load(self.args.checkpoints)
-        self.model.eval()
+        if outputs.ndim == 2:
+            outputs = outputs.unsqueeze(-1)
+        outputs = outputs[:, -self.args.pred_len:, :]
+        if batch_y is not None:
+            batch_y = batch_y[:, -self.args.pred_len:, :]
+            outputs, batch_y = self._align_prediction_target(outputs, batch_y)
 
-    # TODO
-    # def _inverse_data(self, data, outputs, batch_y):
-    #     """
-    #     输入输出逆转换
-    #     """
-    #     if data.scale and self.args.inverse:
-    #         outputs = data.inverse_target(outputs)
-    #         batch_y = data.inverse_target(batch_y)
-    #     logger.info(f"debug::outputs: \n{outputs} \noutputs.shape: {outputs.shape}")
-    #     logger.info(f"debug::batch_y: \n{batch_y} \nbatch_y.shape: {batch_y.shape}")
-        
-    #     return outputs, batch_y
+        if self.args.features == "MS":
+            outputs = self._select_target_column(data, outputs)
+            if batch_y is not None:
+                batch_y = self._select_target_column(data, batch_y)
 
-    def _inverse_data(self, data, outputs, batch_y):
-        """
-        输入输出逆转换
-        """
-        if data.scale and self.args.inverse:
-            outputs = outputs.numpy()
-            batch_y = batch_y.numpy()
-            # 数据逆转换 output 最后一个维度转换为与 batch_y 一致: [1, pred_len, enc_in/dec_in]
-            if outputs.shape[-1] != batch_y.shape[-1]:
-                outputs = np.tile(outputs, [1, 1, int(batch_y.shape[-1] / outputs.shape[-1])])
-            # inverse transform
-            shape = outputs.shape  # [batch, pred_len, enc_in/dec_in]
-            outputs = data.inverse_transform(outputs.reshape(shape[0] * shape[1], -1)).reshape(shape)
-            batch_y = data.inverse_transform(batch_y.reshape(shape[0] * shape[1], -1)).reshape(shape)
-            # or
-            # outputs = data.inverse_transform(outputs.squeeze(0)).reshape(shape)
-            # batch_y = data.inverse_transform(batch_y.squeeze(0)).reshape(shape)
-        # logger.info(f"debug::outputs: \n{outputs} \noutputs.shape: {outputs.shape}")
-        # logger.info(f"debug::batch_y: \n{batch_y} \nbatch_y.shape: {batch_y.shape}")
-        
+        if flag in ["test", "pred"]:
+            outputs = outputs.detach().cpu().numpy()
+            if batch_y is not None:
+                batch_y = batch_y.detach().cpu().numpy()
+            if data.scale and reverse:
+                outputs = data.inverse_transform(outputs)
+                if batch_y is not None:
+                    batch_y = data.inverse_transform(batch_y)
         return outputs, batch_y
 
+    def _forecast_recursive_tensor(self, batch_x):
+        current = batch_x.clone()
+        preds = []
+        for _ in range(self.args.pred_len):
+            step_output = self.model(current)
+            if step_output.ndim == 2:
+                step_output = step_output.unsqueeze(1)
+            step_pred = step_output[:, -1:, :]
+            preds.append(step_pred)
+
+            next_row = current[:, -1:, :].clone()
+            if self.args.features in ["S", "MS"]:
+                next_row[:, :, -1:] = step_pred[:, :, -1:]
+            else:
+                next_row = step_pred
+            current = torch.cat([current[:, 1:, :], next_row], dim=1)
+        return torch.cat(preds, dim=1)
+    
     def train(self, setting):
         """
         模型训练
@@ -263,6 +408,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         model_checkpoint_path = self._get_model_path(setting)
         logger.info(model_checkpoint_path)
+        train_data.save_scalers(model_checkpoint_path.parent)
         # 测试结果保存地址
         logger.info(f"{40 * '-'}")
         logger.info(f"Train results will be saved in path:")
@@ -278,7 +424,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"Train start time: {from_unix_time(train_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
         # 训练窗口数
         train_steps = len(train_loader)
-        logger.info(f"Train steps: {train_steps}") 
+        logger.info(f"Train steps: {train_steps}")
         # 模型优化器
         optimizer = self._select_optimizer()
         logger.info(f"Train optimizer has builded...")
@@ -297,45 +443,30 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         for epoch in range(self.args.train_epochs):
             # time: epoch 训练开始时间
             epoch_start_time = time.time()
-            logger.info(f"Epoch: {epoch+1} \tstart time: {from_unix_time(epoch_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.info(f"Epoch: {epoch+1}, \tstart time: {from_unix_time(epoch_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
             # epoch 训练结果收集
             iter_count = 0
             train_loss = []
             # 模型训练模式
             self.model.train()
             for i, data_batch in enumerate(train_loader):
-                # logger.info(f"Train step: {i} running...")
                 # 当前 epoch 的迭代次数记录
                 iter_count += 1
                 # 模型优化器梯度归零
                 optimizer.zero_grad()
-                # 取出数据
-                x_train, y_train = data_batch
-                x_train = x_train.float().to(self.device)
-                y_train = y_train.float().to(self.device)
-                # logger.info(f"debug::x_train: \n{x_train}, \nx_train.shape: {x_train.shape}")
-                # logger.info(f"debug::y_train: \n{y_train}, \ny_train.shape: {y_train.shape}")
-                
                 # 前向传播
-                outputs = self.model(x_train)
-                # logger.info(f"debug::outputs: \n{outputs}, \noutputs.shape: {outputs.shape}")
-                
-                # TODO 输入输出逆转换
-                # outputs, y_train = self._inverse_data(train_data, outputs, y_train)
-                # TODO 预测值/真实值提取
-                # f_dim = -1 if self.args.features == 'MS' else 0
-                # outputs = outputs[:, :, f_dim:].to(self.device)
-                # y_train = y_train[:, :, f_dim:].to(self.device)
-                # logger.info(f"debug::outputs: \n{outputs}, \noutputs.shape: {outputs.shape}")
-                # logger.info(f"debug::batch_y: \n{batch_y}, \nbatch_y.shape: {batch_y.shape}")
-                
+                x_train, y_train = data_batch
+                outputs, y_train = self._model_forward(
+                    train_data,
+                    x_train, y_train, 
+                    flag="train", reverse=False,
+                )
                 # 计算训练损失
-                outputs, y_train = self._align_prediction_target(outputs, y_train)
                 loss = criterion(outputs, y_train)
                 train_loss.append(loss.item())
-                # logger.info(f"debug::train step: {i}, train loss: {loss}")
                 # 当前 epoch-batch 下每 100 个 batch 的训练速度、误差损失
                 if (i + 1) % 10 == 0:
+                    # 训练速度和时间
                     speed = (time.time() - train_start_time) / iter_count
                     left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
                     logger.info(f'Epoch: {epoch + 1}, \tBatch: {i + 1} | train loss: {loss.item():.7f}, \tSpeed: {speed:.4f}s/batch; left time: {left_time:.4f}s')
@@ -352,8 +483,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             logger.info(f"Epoch: {epoch + 1}, \tCost time: {time.time() - epoch_start_time}")
             # 模型验证
             train_loss = np.average(train_loss)
-            vali_loss = self.valid(vali_loader, criterion)
-            logger.info(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, Vali Loss: {vali_loss:.7f}")
+            vali_loss = self.valid(vali_data, vali_loader, criterion)
+            logger.info(f"Epoch: {epoch + 1}, \tSteps: {train_steps} | Train Loss: {train_loss:.7f}, Vali Loss: {vali_loss:.7f}")
             # 训练/验证损失收集
             train_losses.append(train_loss)
             vali_losses.append(vali_loss)
@@ -371,21 +502,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 break
             # 学习率调整
             adjust_learning_rate(optimizer, None, epoch + 1, self.args)
-        # -----------------------------
-        # 模型加载
-        # ------------------------------
         logger.info(f"{40 * '-'}")
         logger.info(f"Training Finished!")
         logger.info(f"{40 * '-'}")
-        # plot losses
+        # plot train and valid losses
         logger.info("Plot and save train/valid losses...")
-        plot_losses(
-            train_epochs=self.args.train_epochs,
-            train_losses=train_losses, 
-            valid_losses=vali_losses, 
-            label="loss",
-            results_path=test_results_path
-        )
+        plot_losses(self.args.train_epochs, train_losses, vali_losses, "loss", test_results_path)
         # load model
         logger.info("Loading best model...")
         self.model.load_state_dict(torch.load(model_checkpoint_path)["model"])
@@ -393,7 +515,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info("Return training results...")
         return self.model
 
-    def valid(self, vali_loader, criterion):
+    def valid(self, vali_data, vali_loader, criterion):
         """
         模型验证
         """
@@ -410,15 +532,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             for i, data_batch in enumerate(vali_loader):
                 # logger.info(f"Vali step: {i} running...")
                 x_vali, y_vali = data_batch
-                x_vali = x_vali.float().to(self.device)
-                y_vali = y_vali.float()
-                # 前向传播
-                outputs = self.model(x_vali)
+                outputs, y_vali = self._model_forward(
+                    vali_data, 
+                    x_vali, y_vali, 
+                    flag="valid", reverse=False
+                )
                 # 计算/保存验证损失
-                outputs, y_vali = self._align_prediction_target(outputs.detach().cpu(), y_vali)
                 loss = criterion(outputs, y_vali)
                 vali_loss.append(loss.item())
-                # logger.info(f"Valid step: {i}, valid loss: {loss}")
         # 计算验证集上所有 batch 的平均验证损失
         vali_loss = np.average(vali_loss)
         logger.info(f"debug::vali_loss: {vali_loss}")
@@ -428,110 +549,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"Validating Finished!")
         return vali_loss
 
-    def test_dl1(self, setting, load: bool=False):
-        """
-        模型测试
-        """
-        # 数据集构建
-        test_data, test_loader = self._get_data(flag="test") 
-        # 模型加载
-        if load:
-            logger.info(f"{40 * '-'}")
-            logger.info("Pretrained model has loaded from:")
-            logger.info(f"{40 * '-'}")
-            model_checkpoint_path = self._get_model_path(setting)
-            self.model.load_state_dict(torch.load(model_checkpoint_path)["model"]) 
-            logger.info(model_checkpoint_path)
-        # 测试结果保存地址
-        logger.info(f"{40 * '-'}")
-        logger.info(f"Test results will be saved in path:")
-        logger.info(f"{40 * '-'}")
-        test_results_path = self._get_test_results_path(setting) 
-        logger.info(test_results_path) 
-        # 模型开始测试
-        logger.info(f"{40 * '-'}")
-        logger.info(f"Model start testing...")
-        logger.info(f"{40 * '-'}")
-        # 模型测试次数
-        test_steps = len(test_loader)
-        logger.info(f"Test steps: {test_steps}")
-        # 模型评估模式
-        self.model.eval()
-        # 测试结果收集
-        preds, trues = [], []
-        preds_flat, trues_flat = [], []
-        with torch.no_grad():
-            for i, data_batch in enumerate(test_loader):
-                logger.info(f"test step: {i}")
-                x_test, y_test = data_batch
-                # 前向传播
-                outputs = self.model(x_test)
-                # TODO 输入输出逆转换
-                # outputs, y_test = self._inverse_data(test_data, outputs, y_test)
-                # TODO 预测值/真实值提取
-                # f_dim = -1 if self.args.features == 'MS' else 0
-                # outputs = outputs[:, :, f_dim:]
-                # y_test = y_test[:, :, f_dim:]
-                # logger.info(f"debug::pred: \n{pred} \npred shape: {pred.shape}")
-                # logger.info(f"debug::true: \n{true} \ntrue shape: {true.shape}")
-                # 验证结果收集
-                pred = outputs
-                true = y_test
-                preds.append(pred)
-                trues.append(true)
-                # TODO test batch_size > 1
-                # if test_loader.batch_size > 1:
-                #     for batch_idx in range(self.args.batch_size):
-                #         preds_flat.append(pred[batch_idx, :, -1].tolist())
-                #         trues_flat.append(true[batch_idx, :, -1].tolist())
-                #     logger.info(f"debug::preds_flat: \n{preds_flat} \npreds_flat length: {len(preds_flat)}")
-                #     logger.info(f"debug::trues_flat: \n{trues_flat} \ntrues_flat length: {len(trues_flat)}")
-                # 预测数据可视化
-                if i % 5 == 0:
-                    inputs = x_test.detach().cpu().numpy()
-                    if test_data.scale and self.args.inverse:
-                        shape = inputs.shape
-                        inputs = test_data.inverse_transform(inputs.reshape(shape[0] * shape[1], -1)).reshape(shape)
-                        # or
-                        # inputs = test_data.inverse_transform(inputs.squeeze(0)).reshape(shape)
-                    pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
-                    true_plot = np.concatenate((inputs[0, :, -1], true[0, :, -1]), axis=0)
-                    predict_result_visual(pred_plot, true_plot, path = Path(test_results_path).joinpath(f'{str(i)}.pdf'))
-        # 测试结果保存
-        preds = np.concatenate(preds, axis = 0)
-        trues = np.concatenate(trues, axis = 0)
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        logger.info(f"Test results: preds: \n{preds} \npreds.shape: {preds.shape}")
-        logger.info(f"Test results: trues: \n{trues} \ntrues.shape: {trues.shape}")
-        logger.info(f"{40 * '-'}")
-        logger.info(f"Test metric results have been saved in path:")
-        logger.info(f"{40 * '-'}")
-        self._test_results_save(preds, trues, setting, test_results_path)
-        logger.info(test_results_path)
-        # 测试结果可视化
-        logger.info(f"{40 * '-'}")
-        logger.info(f"Test visual results have been saved in path:")
-        logger.info(f"{40 * '-'}")
-        # TODO test batch_size > 1
-        # if test_loader.batch_size > 1:
-        #     preds_flat = np.concatenate(preds_flat, axis = 0)
-        #     trues_flat = np.concatenate(trues_flat, axis = 0)
-        preds_flat = np.concatenate(preds, axis = 0)
-        trues_flat = np.concatenate(trues, axis = 0)
-        predict_result_visual(preds_flat, trues_flat, path = Path(test_results_path).joinpath("test_pred.png")) 
-        logger.info(test_results_path)
-        # log
-        logger.info(f"{40 * '-'}")
-        logger.info(f"Testing Finished!")
-        logger.info(f"{40 * '-'}")
-
-        return
-
     def test(self, setting, load: bool=False):
         """
         模型测试
         """
+        model_checkpoint_path = self._get_model_path(setting)
+        scaler_path = self._get_scaler_path(setting)
+        self.args.scaler_path = str(scaler_path)
+        if load:
+            self._require_file(model_checkpoint_path, "test checkpoint")
+            if getattr(self.args, "scale", 0):
+                self._require_file(scaler_path, "test scaler artifact")
+        self.args.require_scaler_artifact_for_pred = bool(load and getattr(self.args, "scale", 0))
         # 数据集构建
         test_data, test_loader = self._get_data(flag="test")
         # 模型加载
@@ -539,8 +568,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             logger.info(f"{40 * '-'}")
             logger.info("Pretrained model has loaded from:")
             logger.info(f"{40 * '-'}")
-            model_checkpoint_path = self._get_model_path(setting)
-            self.model.load_state_dict(torch.load(model_checkpoint_path)["model"])
+            self.model.load_state_dict(torch.load(model_checkpoint_path, map_location=self.device)["model"])
             logger.info(model_checkpoint_path)
         # 测试结果保存地址
         logger.info(f"{40 * '-'}")
@@ -554,53 +582,61 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         # 模型测试次数
         test_steps = len(test_loader)
-        logger.info(f"Test steps: {test_steps}")
+        logger.info(f"Test total steps: {test_steps}")
         # 模型评估模式
         self.model.eval()
         # 测试结果收集
         preds, trues = [], []
-        preds_flat, trues_flat = [], []
         with torch.no_grad():
             for i, data_batch in enumerate(test_loader):
-                logger.info(f"Test step: {i}")
+                if i == 0 or i == test_steps - 1 or i % 50 == 0:
+                    logger.info(f"Test step: {i} running...")
                 x_test, y_test = data_batch
-                x_test = x_test.float().to(self.device)
-                y_test = y_test.float().to(self.device)
-                # 前向传播
-                outputs = self.model(x_test)
-                outputs = outputs.detach().cpu()
-                y_test = y_test.detach().cpu()
-                
-                # 输入输出逆转换
-                # outputs, y_test = self._inverse_data(test_data, outputs, y_test)
-                # logger.info(f"debug::outputs: \n{outputs} \noutputs.shape: {outputs.shape}")
-                # logger.info(f"debug::y_test: \n{y_test} \ny_test.shape: {y_test.shape}")
-                
-                # 验证结果收集
-                f_dim = -1 if self.args.features == "MS" else 0
-                y_pred = outputs[0, :, f_dim:]
-                y_test = y_test[0, :, f_dim:]
-                # y_pred = test_data.inverse_transform(y_pred.detach().cpu().numpy())
-                # y_test = test_data.inverse_transform(y_test.detach().cpu().numpy())
-                
-                preds.append(y_pred)
+                outputs, y_test = self._model_forward(
+                    test_data,
+                    x_test, y_test,
+                    flag="test", reverse=bool(self.args.inverse),
+                )
+                preds.append(outputs)
                 trues.append(y_test)
-                
-        # 测试结果保存
-        preds = np.array(preds).reshape(-1, 1)
-        trues = np.array(trues).reshape(-1, 1)
+                if i % 100 == 0:
+                    inputs = x_test.detach().cpu().numpy()
+                    if test_data.scale and self.args.inverse:
+                        inputs = test_data.inverse_transform(inputs)
+                    true_plot = np.concatenate((inputs[0, :, -1], y_test[0, :, -1]), axis=0)
+                    pred_plot = np.concatenate((inputs[0, :, -1], outputs[0, :, -1]), axis=0)
+                    predict_result_visual(pred_plot, true_plot, path=test_results_path, iters=i)
+        # 测试结果处理
+        preds = np.concatenate(preds, axis=0)
+        trues = np.concatenate(trues, axis=0)
         logger.info(f"Test results: preds.shape: {preds.shape}, trues.shape: {trues.shape}")
+        testing_step = getattr(test_data, "testing_step", getattr(self.args, "testing_step", 1))
+        stitched_preds, stitched_trues, overlap_counts = self._stitch_window_predictions(preds, trues, step=testing_step)
+        stitched_dates = self._build_test_stitched_dates(test_data, len(stitched_preds), step=testing_step)
+        # 测试结果收集
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        self._test_results_save(preds, trues, setting, test_results_path)
+        self._test_results_save(
+            preds,
+            trues,
+            setting,
+            test_results_path,
+            stitched_preds=stitched_preds,
+            stitched_trues=stitched_trues,
+            overlap_counts=overlap_counts,
+            stitched_dates=stitched_dates,
+            target_dim=-1 if self.args.features in ["M", "MS"] else 0,
+        )
         logger.info(test_results_path)
-        
         # 测试结果可视化
         logger.info(f"{40 * '-'}")
         logger.info(f"Test visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        predict_result_visual(preds.reshape(-1), trues.reshape(-1), path=Path(test_results_path)) 
+        target_dim = -1 if self.args.features in ["M", "MS"] else 0
+        preds_flat = stitched_preds[:, target_dim]
+        trues_flat = stitched_trues[:, target_dim]
+        predict_result_visual(preds_flat, trues_flat, path=Path(test_results_path)) 
         logger.info(test_results_path)
         # log
         logger.info(f"{40 * '-'}")
@@ -608,224 +644,161 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
 
         return
+    
+    @staticmethod
+    def _stitch_window_predictions(preds: np.ndarray, trues: np.ndarray, step: int = 1):
+        """
+        将窗口级预测按测试步长缝合回真实时间轴，重叠位置取均值。
+        """
+        step = step if step and step > 0 else 1
+        num_windows, pred_len, channels = preds.shape
+        stitched_len = (num_windows - 1) * step + pred_len
+        
+        pred_sum = np.zeros((stitched_len, channels), dtype=np.float64)
+        true_sum = np.zeros((stitched_len, channels), dtype=np.float64)
+        counts = np.zeros((stitched_len, 1), dtype=np.int64)
 
-    # TODO
-    def inspect_model_fit(self, setting, load, train_data, train_loader):
+        for window_idx in range(num_windows):
+            start = window_idx * step
+            end = start + pred_len
+            pred_sum[start:end] += preds[window_idx]
+            true_sum[start:end] += trues[window_idx]
+            counts[start:end] += 1
+
+        counts_safe = np.where(counts == 0, 1, counts)
+        stitched_preds = pred_sum / counts_safe
+        stitched_trues = true_sum / counts_safe
+        
+        return stitched_preds.astype(np.float32), stitched_trues.astype(np.float32), counts.squeeze(-1)
+
+    @staticmethod
+    def _build_stitched_results_frame(stitched_preds: np.ndarray, stitched_trues: np.ndarray, overlap_counts=None, stitched_dates=None):
+        rows = {"step": np.arange(len(stitched_preds))}
+        if stitched_dates is not None:
+            rows["date"] = stitched_dates.astype(str)
+        if overlap_counts is not None:
+            rows["overlap_count"] = overlap_counts
+        if stitched_preds.shape[1] == 1:
+            rows["preds"] = stitched_preds[:, 0]
+            rows["trues"] = stitched_trues[:, 0]
+        else:
+            for channel_idx in range(stitched_preds.shape[1]):
+                rows[f"preds_{channel_idx}"] = stitched_preds[:, channel_idx]
+                rows[f"trues_{channel_idx}"] = stitched_trues[:, channel_idx]
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _build_test_stitched_dates(test_data, stitched_len: int, step: int = 1):
         """
-        检验模型拟合情况
+        构建测试集重建时间轴。
         """
-        # 模型加载
+        segment_dates = getattr(test_data, "segment_dates", None)
+        if segment_dates is None:
+            return None
+        stitched_dates = pd.Series(segment_dates).iloc[test_data.seq_len:test_data.seq_len + stitched_len].reset_index(drop=True)
+
+        if len(stitched_dates) != stitched_len:
+            return None
+        
+        return stitched_dates.to_numpy()
+
+    def forecast(self, setting, load: bool=True):
+        """
+        模型预测
+        """
+        forecast_start_time = time.time()
+        model_checkpoint_path = self._get_model_path(setting)
+        scaler_path = self._get_scaler_path(setting)
+        require_artifacts = bool(getattr(self.args, "forecast_require_artifacts", 1))
+        if load and require_artifacts:
+            self._require_file(model_checkpoint_path, "forecast checkpoint")
+            if getattr(self.args, "scale", 0):
+                self._require_file(scaler_path, "forecast scaler artifact")
+        self.args.scaler_path = str(scaler_path)
+        self.args.require_scaler_artifact_for_pred = bool(load and require_artifacts and getattr(self.args, "scale", 0))
+        # 构建预测数据集
+        pred_data, pred_loader = self._get_data(flag="pred")
+        if len(pred_loader) != 1:
+            raise ValueError(f"forecast expects exactly one prediction batch, got {len(pred_loader)}")
+        # 数据预处理
+        batch_x, batch_y = next(iter(pred_loader))
         if load:
             logger.info(f"{40 * '-'}")
             logger.info("Pretrained model has loaded from:")
             logger.info(f"{40 * '-'}")
-            model_checkpoint_path = self._get_model_path(setting)
-            self.model.load_state_dict(torch.load(model_checkpoint_path)["model"])
+            self._require_file(model_checkpoint_path, "forecast checkpoint")
+            self.model.load_state_dict(torch.load(model_checkpoint_path, map_location=self.device)["model"])
             logger.info(model_checkpoint_path)
-        # 模型评估模式
+        # 模型预测结果保存地址
+        logger.info(f"{40 * '-'}")
+        logger.info(f"Forecast results will be saved in path:")
+        logger.info(f"{40 * '-'}")
+        pred_results_path = self._get_predict_results_path(setting)
+        logger.info(pred_results_path)
+        # 模型开始预测
+        logger.info(f"{40 * '-'}")
+        logger.info(f"Model start forecasting...")
+        logger.info(f"{40 * '-'}")
         self.model.eval()
-        # 测试结果收集
-        preds, trues= [], []
-        # 模型测试
-        for x_train, y_train in train_loader:
-            x_train = x_train.float().to(self.device)
-            y_train = y_train.float().to(self.device)
-            # 前向传播
-            outputs = self.model(x_train)
-            # 验证结果收集
-            y_pred = outputs[:, 0, :]
-            y_test = y_train[:, 0, :]
-            y_pred = train_data.inverse_transform(y_pred.detach().cpu().numpy())
-            y_test = train_data.inverse_transform(y_test.detach().cpu().numpy())
-            for i in range(len(y_pred)):
-                preds.append(y_pred[i][-1])
-                trues.append(y_test[i][-1])
+        # 模型预测
+        with torch.no_grad():
+            preds, _ = self._model_forward(
+                pred_data,
+                batch_x, batch_y,
+                flag="pred", reverse=bool(self.args.inverse),
+            )
+        # 预测结果提取
+        preds = preds[0]
+        history_values = getattr(pred_data, "scaled_history_values", batch_x.detach().cpu().numpy()[0])
+        feature_names = getattr(pred_data, "feature_names", [self.args.target])
+        history_dates = pd.to_datetime(getattr(pred_data, "history_dates", np.arange(history_values.shape[0])))
+        future_dates = pd.to_datetime(getattr(pred_data, "future_dates", np.arange(preds.shape[0])))
+        pred_columns = getattr(pred_data, "pred_columns", [self.args.target] if self.args.features in ["S", "MS"] else feature_names)
 
-    def forecast_dl3(self, rolling_data, scaler, device, show, plt):
-        # 预测未知数据的功能
-        df = pd.read_csv(self.args.data_path)
-        df = pd.concat((df, rolling_data), axis=0).reset_index(drop=True)
-        df = df.iloc[:, 1:][-self.args.seq_len:].values  # 转换为nadarry
-        pre_data = scaler.transform(df)
-        tensor_pred = torch.FloatTensor(pre_data).to(device)
-        tensor_pred = tensor_pred.unsqueeze(0)  # 单次预测 , 滚动预测功能暂未开发后期补上
-        model = model
-        model.load_state_dict(torch.load('save_model.pth'))
-        model.eval()  # 评估模式 
-        pred = model(tensor_pred)[0]
-    
-        pred = scaler.inverse_transform(pred.detach().cpu().numpy())
-        if show:
-            # 计算历史数据的长度
-            history_length = len(df[:, -1])
-            # 为历史数据生成x轴坐标
-            history_x = range(history_length)
-            plt.figure(figsize=(10, 5))
-            # 为预测数据生成x轴坐标
-            # 开始于历史数据的最后一个点的x坐标
-            prediction_x = range(history_length - 1, history_length + len(pred[:, -1]) - 1)
-    
-            # 绘制历史数据
-            plt.plot(history_x, df[:, -1], label='History')
-    
-            # 绘制预测数据
-            # 注意这里预测数据的起始x坐标是历史数据的最后一个点的x坐标
-            plt.plot(prediction_x, pred[:, -1], marker='o', label='Prediction')
-            plt.axvline(history_length - 1, color='red')  # 在图像的x位置处画一条红色竖线
-            # 添加标题和图例
-            plt.title("History and Prediction")
-            plt.legend()
-        return pred
-
-    def rolling_forecast(self, model, device, scaler):
-        # 滚动预测
-        history_data = pd.read_csv(self.args.data_path)[self.args.target][-self.args.window_size * 4:].reset_index(drop=True)
-        pre_data = pd.read_csv(self.args.roolling_data_path)
-        columns = pre_data.columns[1:]
-        columns = ['forecast' + column for column in columns]
-        dict_of_lists = {column: [] for column in columns}
-        results = []
-        for i in range(int(len(pre_data)/self.args.pre_len)):
-            rolling_data = pre_data.iloc[:self.args.pre_len * i]  # 转换为nadarry
-            pred = self.predict(model, self.args, device, scaler, rolling_data)
-            if self.args.feature == 'MS' or self.args.feature == 'S':
-                for i in range(self.args.pred_len):
-                    results.append(pred[i][0].detach().cpu().numpy())
-            else:
-                for j in range(self.args.output_size):
-                    for i in range(self.args.pre_len):
-                        dict_of_lists[columns[j]].append(pred[i][j])
-            print(pred)
-        if self.args.feature == 'MS' or self.args.feature == 'S':
-            df = pd.DataFrame({'date':pre_data['date'], '{}'.format(self.args.target): pre_data[self.args.target],
-                                'forecast{}'.format(self.args.target): pre_data[self.args.target]})
-            df.to_csv('Interval-{}'.format(self.args.data_path), index=False)
-        else:
-            df = pd.DataFrame(dict_of_lists)
-            new_df = pd.concat((pre_data,df), axis=1)
-            new_df.to_csv('Interval-{}'.format(self.args.data_path), index=False)
-        pre_len = len(dict_of_lists['forecast' + self.args.target])
-        
-        # 绘图
-        import matplotlib.pyplot as plt
-        plt.figure()
-        if self.args.feature == 'MS' or self.args.feature == 'S':
-            plt.plot(range(len(history_data)), history_data,label='Past Actual Values')
-            plt.plot(range(len(history_data), len(history_data) + pre_len), pre_data[self.args.target][:pre_len].tolist(), label='Predicted Actual Values')
-            plt.plot(range(len(history_data), len(history_data) + pre_len), results, label='Predicted Future Values')
-        else:
-            plt.plot(range(len(history_data)), history_data,
-                    label='Past Actual Values')
-            plt.plot(range(len(history_data), len(history_data) + pre_len), pre_data[self.args.target][:pre_len].tolist(), label='Predicted Actual Values')
-            plt.plot(range(len(history_data), len(history_data) + pre_len), dict_of_lists['forecast' + self.args.target], label='Predicted Future Values')
-        # 添加图例
-        plt.legend()
-        plt.style.use('ggplot')
-        # 添加标题和轴标签
-        plt.title('Past vs Predicted Future Values')
-        plt.xlabel('Time Point')
-        plt.ylabel('Value')
-        # 在特定索引位置画一条直线
-        plt.axvline(x=len(history_data), color='blue', linestyle='--', linewidth=2)
-        # 显示图表
-        plt.savefig('forcast.png')
-        plt.show()
-
-    def forecast_single_step(self, data):
-        """
-        单步预测
-        """
-        logger.info('Model Predicting Point-by-Point...')
-        pred = self.model.predict(data)
-        pred = np.reshape(pred, (pred.size,))
-        
-        return pred
-
-    def forecast_direct_multi_output(self, plot_size):
-        # data load
-        data_loader, _, _ = self._get_data()
-        # train result
-        y_train_pred = data_loader.scaler.inverse_transform(
-            (self.model(data_loader.x_train_tensor).detach().numpy()[:plot_size]).reshape(-1, 1)
+        if pred_data.scale and self.args.inverse:
+            history_values = getattr(pred_data, "raw_history_values", pred_data.inverse_transform(history_values))
+        if len(pred_columns) != preds.shape[-1]:
+            pred_columns = pred_columns[-preds.shape[-1]:]
+        expected_channels = 1 if self.args.features in ["S", "MS"] else len(feature_names)
+        if preds.shape[-1] != expected_channels:
+            raise ValueError(
+                f"forecast output channel mismatch for features='{self.args.features}': "
+                f"expected {expected_channels}, got {preds.shape[-1]}"
+            )
+        # 历史数据表
+        history_frame = pd.DataFrame(history_values, columns=feature_names)
+        history_frame.insert(0, "date", history_dates)
+        # 预测数据表
+        forecast_frame = pd.DataFrame(preds, columns=pred_columns)
+        forecast_frame.insert(0, "date", future_dates)
+        elapsed_seconds = time.time() - forecast_start_time
+        metadata = self._build_forecast_metadata(
+            setting=setting,
+            pred_data=pred_data,
+            history_frame=history_frame,
+            forecast_frame=forecast_frame,
+            checkpoint_path=model_checkpoint_path if load else None,
+            scaler_path=scaler_path if (getattr(self.args, "scale", 0) and load) else None,
+            scaler_loaded_from_artifact=bool(getattr(pred_data, "scaler_loaded_from_artifact", False)),
+            elapsed_seconds=elapsed_seconds,
         )
-        y_train_true = data_loader.scaler.inverse_transform(
-            data_loader.y_train_tensor.detach().numpy().reshape(-1, 1)[:plot_size]
-        )
-        # test result
-        y_test_pred = data_loader.scaler.inverse_transform(
-            self.model(data_loader.x_test_tensor).detach().numpy()[:plot_size]
-        )
-        y_test_true = data_loader.scaler.inverse_transform(
-            data_loader.y_test_tensor.detach().numpy().reshape(-1, 1)[:plot_size]
-        )
-
-        return (y_train_pred, y_train_true), (y_test_pred, y_test_true)
-
-    def forecast_direct_multi_step(self, data):
-        pass
-
-    def forecast_recursive_multi_step(self, data, window_size: int, horizon: int):
-        """
-        时序多步预测
-            - 每次预测使用 window_size 个历史数据进行预测，预测未来 prediction_len 个预测值
-            - 每一步预测一个点，然后下一步将预测的点作为历史数据进行下一次预测
-
-        Args:
-            data (_type_): 测试数据
-            window_size (int): 窗口长度
-            prediction_len (int): 预测序列长度
-
-        Returns:
-            _type_: 预测序列
-        """
-        logger.info('ModelPredicting Sequences Multiple...')
-        preds_seq = []  # (20, 50, 1)
-        for i in range(int(len(data) / horizon)):  # 951 / 50 = 19
-            curr_frame = data[i * horizon]  # (49, 1)
-            preds = []  # 50
-            for j in range(horizon):  # 50
-                pred = self.model.predict(curr_frame[np.newaxis, :, :])[0, 0]  # curr_frame[newaxis, :, :].shape: (1, 49, 1) => (1,)
-                preds.append(pred)
-                curr_frame = curr_frame[1:]  # (48, 1)
-                curr_frame = np.insert(curr_frame, [window_size - 2], preds[-1], axis = 0)
-            preds_seq.append(preds)
+        # 最终预测值保存
+        logger.info(f"{40 * '-'}")
+        logger.info(f"Forecast results have been saved in path:")
+        logger.info(f"{40 * '-'}")
+        self._pred_results_save(history_frame, forecast_frame, preds, pred_results_path, setting, metadata=metadata)
+        logger.info(pred_results_path)
+        # 预测结果可视化
+        logger.info(f"{40 * '-'}")
+        logger.info(f"Forecast visual results have been saved in path:")
+        logger.info(f"{40 * '-'}")
+        history_target = history_frame[pred_columns[-1]].to_numpy()
+        forecast_target = forecast_frame[pred_columns[-1]].to_numpy()
+        forecast_target = np.concatenate((history_target, forecast_target), axis=0)
+        predict_result_visual(forecast_target, history_target, pred_results_path, iters=None)
+        # log
+        logger.info(f"{40 * '-'}")
+        logger.info(f"Forecasting Finished!")
+        logger.info(f"{40 * '-'}")
         
-        return preds_seq
-
-    def forecast_recursive_hybird(self, data):
-        pass
-
-    def forecast_seq2seq_multi_step(self, data):
-        pass
-
-    def forecast_sequence_full(self, data, window_size: int):
-        """
-        单步预测
-
-        Args:
-            data (_type_): 测试数据
-            window_size (_type_): 窗口长度
-
-        Returns:
-            _type_: 预测序列
-        """
-        logger.info('ModelPredicting Sequences Full...')
-        curr_frame = data[0]
-        preds_seq = []
-        for i in range(len(data)):
-            pred = self.model.predict(curr_frame[np.newaxis, :, :])[0, 0]
-            preds_seq.append(pred)
-            curr_frame = curr_frame[1:]
-            curr_frame = np.insert(curr_frame, [window_size - 2], preds_seq[-1], axis = 0)
-        
-        return preds_seq
-
-
-
-
-# 测试代码 main 函数
-def main():
-    pass
- 
-if __name__ == "__main__":
-    main()
+        return

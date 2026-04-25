@@ -30,7 +30,7 @@ mkdir -p "$MPLCONFIGDIR"
     --label_len 0 \
     --pred_len 6 \
     --step_size 1 \
-    --pred_method recursive_multi_step \
+    --pred_method direct_multi_step \
     --feature_size 7 \
     --output_size 1 \
     --hidden_size 32 \
@@ -51,7 +51,7 @@ mkdir -p "$MPLCONFIGDIR"
     --patience 3 \
     --lradj type1 \
     --scale 1 \
-    --inverse 0 \
+    --inverse 1 \
     --num_workers 0 \
     --use_gpu 0 \
     --gpu_type cpu \

@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 ROOT = str(Path.cwd())
-if ROOT not in sys.path: sys.path.append(ROOT)
+if ROOT not in sys.path:
+    sys.path.append(ROOT)
 import json
 import subprocess
 import time
@@ -51,7 +52,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         model_memory_size(model, verbose=True)
         
         return model
-
+    
     def _get_data(self, flag: str):
         """
         数据集构建
@@ -59,7 +60,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         data_set, data_loader = data_provider(self.args, flag)
         
         return data_set, data_loader
-
+    
     def _select_criterion(self):
         """
         评价指标
@@ -74,15 +75,24 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             return smape_loss()
         elif self.args.loss == "L1":
             return nn.L1Loss()
+        raise ValueError(f"Unsupported loss: {self.args.loss}")
     
     def _select_optimizer(self):
         """
         优化器
         """
         if self.args.optimizer.lower() == "adam":
-            optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+            optimizer = torch.optim.Adam(
+                self.model.parameters(), 
+                lr = self.args.learning_rate,
+            )
         elif self.args.optimizer.lower() == "adamw":
-            optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.args.learning_rate)
+            optimizer = torch.optim.AdamW(
+                self.model.parameters(), 
+                lr = self.args.learning_rate,
+            )
+        else:
+            raise ValueError(f"Unsupported optimizer: {self.args.optimizer}")
         
         return optimizer
     
@@ -138,7 +148,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # 窗口级测试结果
         (window_r2, window_mse, window_rmse, window_mae, window_mape, window_mape_accuracy, window_mspe, window_dtw) = metric(
             preds, trues,
-            use_dtw=self.args.use_dtw
+            use_dtw=self.args.use_dtw,
         )
         window_summary_line = (
             f"Window metrics: r2:{window_r2:.4f}, mse:{window_mse:.4f}, rmse:{window_rmse:.4f}, "
@@ -152,16 +162,16 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             (stitched_r2, stitched_mse, stitched_rmse, stitched_mae, stitched_mape, stitched_mape_accuracy, stitched_mspe, stitched_dtw) = metric(
                 stitched_preds.reshape(-1, 1),
                 stitched_trues.reshape(-1, 1),
-                use_dtw=self.args.use_dtw
+                use_dtw=self.args.use_dtw,
             )
             timeline_summary_line = (
                 f"Timeline metrics: r2:{stitched_r2:.4f}, mse:{stitched_mse:.4f}, rmse:{stitched_rmse:.4f}, "
-                f"mae:{stitched_mae:.4f}, mape:{stitched_mape:.4f}, mape accuracy:{stitched_mape_accuracy:.4f}, "
-                f"mspe:{stitched_mspe:.4f}"
+                f"mae:{stitched_mae:.4f}, mape:{stitched_mape:.4f}, "
+                f"mape accuracy:{stitched_mape_accuracy:.4f}, mspe:{stitched_mspe:.4f}"
             )
             logger.info(timeline_summary_line)
 
-        with open(Path(path).joinpath("result_forecast.txt"), 'w', encoding='utf-8') as file:
+        with open(Path(path).joinpath("result_forecast.txt"), "w", encoding="utf-8") as file:
             file.write(setting + "  \n")
             file.write(window_summary_line)
             file.write('\n')
@@ -174,10 +184,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # 测试集上的预测值、真实值
         # ------------------------------
         # 无缝合的测试集上的预测值、真实值
-        flat_results = pd.DataFrame({
-            "preds": preds.reshape(-1),
-            "trues": trues.reshape(-1),
-        })
+        flat_results = pd.DataFrame({"preds": preds.reshape(-1), "trues": trues.reshape(-1)})
         flat_results.to_csv(Path(path).joinpath("test_results_windows.csv"), index=False, encoding="utf-8")
         # 缝合的测试集上的预测值、真实值
         if stitched_preds is not None and stitched_trues is not None:
@@ -251,25 +258,22 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         预测结果保存
         """
+        path = Path(path)
         if preds is not None:
-            np.save(Path(path).joinpath("prediction.npy"), preds) 
-
+            np.save(path.joinpath("prediction.npy"), preds) 
         if trues_df is not None:
-            trues_df.to_csv(path.joinpath('history.csv'), index=False, encoding="utf_8_sig")
-        
+            trues_df.to_csv(path.joinpath("history.csv"), index=False, encoding="utf_8_sig")
         if preds_df is not None:
-            preds_df.to_csv(path.joinpath('forecast.csv'), index=False, encoding="utf_8_sig")
-
+            preds_df.to_csv(path.joinpath("forecast.csv"), index=False, encoding="utf_8_sig")
         if metadata is None:
             metadata = {}
         with open(path.joinpath("metadata.json"), "w", encoding="utf-8") as metadata_file:
             json.dump(metadata, metadata_file, ensure_ascii=False, indent=2)
-        
-        with open(path.joinpath('summary.txt'), 'w', encoding='utf-8') as summary_file:
-            summary_file.write(setting + '\n')
-            summary_file.write(f'prediction only: no ground truth available\n')
-            summary_file.write(f'history_points:{len(trues_df)}, forecast_points:{len(preds_df)}\n')
-            summary_file.write(f'forecast_target:{preds_df.columns[-1]}\n')
+        with open(path.joinpath("summary.txt"), "w", encoding="utf-8") as summary_file:
+            summary_file.write((setting or "") + "\n")
+            summary_file.write(f"prediction only: no ground truth available\n")
+            summary_file.write(f"history_points:{len(trues_df)}, forecast_points:{len(preds_df)}\n")
+            summary_file.write(f"forecast_target:{preds_df.columns[-1]}\n")
             if metadata:
                 summary_file.write(f"checkpoint_path:{metadata.get('checkpoint_path')}\n")
                 summary_file.write(f"scaler_path:{metadata.get('scaler_path')}\n")
@@ -382,7 +386,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         logger.info(f"Train results will be saved in path:")
         logger.info(f"{40 * '-'}")
-        test_results_path = self._get_test_results_path(setting) 
+        test_results_path = self._get_test_results_path(setting)
         logger.info(test_results_path)
         # 模型训练
         logger.info(f"{40 * '-'}")
@@ -393,7 +397,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"Train start time: {from_unix_time(train_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
         # 训练窗口数
         train_steps = len(train_loader)
-        logger.info(f"Train total steps: {train_steps}") 
+        logger.info(f"Train steps: {train_steps}")
         # 模型优化器
         optimizer = self._select_optimizer()
         logger.info(f"Train optimizer has builded...")
@@ -536,6 +540,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 vali_loss.append(loss.item())
         # 计算验证集上所有 batch 的平均验证损失
         vali_loss = np.average(vali_loss)
+        logger.info(f"debug::vali_loss: {vali_loss}")
         # 计算模型输出
         self.model.train()
         # log
@@ -561,7 +566,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         logger.info(f"Test results will be saved in path:")
         logger.info(f"{40 * '-'}")
-        test_results_path = self._get_test_results_path(setting) 
+        test_results_path = self._get_test_results_path(setting)
         logger.info(test_results_path)
         # 模型开始测试
         logger.info(f"{40 * '-'}")
@@ -581,7 +586,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     logger.info(f"Test step: {iters} running...")
                 # 前向传播
                 outputs, batch_y = self._model_forward(
-                    test_data, batch_x, batch_y, batch_x_mark, batch_y_mark, 
+                    test_data,
+                    batch_x, batch_y, batch_x_mark, batch_y_mark, 
                     flag = "test", reverse=True
                 )
                 if outputs is None and batch_y is None: break
@@ -649,7 +655,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         step = step if step and step > 0 else 1
         num_windows, pred_len, channels = preds.shape
         stitched_len = (num_windows - 1) * step + pred_len
-
+        
         pred_sum = np.zeros((stitched_len, channels), dtype=np.float64)
         true_sum = np.zeros((stitched_len, channels), dtype=np.float64)
         counts = np.zeros((stitched_len, 1), dtype=np.int64)
@@ -664,7 +670,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         counts_safe = np.where(counts == 0, 1, counts)
         stitched_preds = pred_sum / counts_safe
         stitched_trues = true_sum / counts_safe
-
+        
         return stitched_preds.astype(np.float32), stitched_trues.astype(np.float32), counts.squeeze(-1)
 
     @staticmethod
@@ -674,7 +680,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             rows["date"] = stitched_dates.astype(str)
         if overlap_counts is not None:
             rows["overlap_count"] = overlap_counts
-
         if stitched_preds.shape[1] == 1:
             rows["preds"] = stitched_preds[:, 0]
             rows["trues"] = stitched_trues[:, 0]
@@ -682,7 +687,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             for channel_idx in range(stitched_preds.shape[1]):
                 rows[f"preds_{channel_idx}"] = stitched_preds[:, channel_idx]
                 rows[f"trues_{channel_idx}"] = stitched_trues[:, channel_idx]
-
         return pd.DataFrame(rows)
 
     @staticmethod
@@ -698,7 +702,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         if len(stitched_dates) != stitched_len:
             return None
-
+        
         return stitched_dates.to_numpy()
 
     def forecast(self, setting, load: bool=True):

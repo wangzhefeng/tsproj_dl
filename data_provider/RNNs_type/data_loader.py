@@ -22,6 +22,7 @@ from pathlib import Path
 ROOT = str(Path.cwd())
 if ROOT not in sys.path:
     sys.path.append(ROOT)
+import pickle
 from typing import List, Tuple
 
 import numpy as np
@@ -49,6 +50,7 @@ class _RNNBaseDataset(Dataset):
             "direct_multi_output",
             "direct_multi_step",
             "direct_recursive_multi_step_mix",
+            "seq2seq_multi_step",
         }
 
         if self.features not in valid_features:
@@ -131,6 +133,9 @@ class _RNNBaseDataset(Dataset):
 
         self.feature_dim = df_data.shape[1]
         self.target_dim = 1 if self.features in ["MS", "S"] else self.feature_dim
+        self.feature_names = list(df_data.columns)
+        self.target_idx = self.feature_names.index(self.target)
+        self.pred_columns = [self.target] if self.features in ["MS", "S"] else self.feature_names
         logger.info(f"{self.flag.capitalize()} data shape after feature selection: {df_data.shape}")
 
         return df_data
@@ -146,10 +151,35 @@ class _RNNBaseDataset(Dataset):
         return border1s, border2s
 
     def _fit_scaler(self, df_data: pd.DataFrame):
+        self.scaler_loaded_from_artifact = False
+        scaler_path = getattr(self.args, "scaler_path", None)
+        require_scaler = bool(getattr(self.args, "require_scaler_artifact_for_pred", False))
+        if scaler_path and self.flag != "train":
+            scaler_path = Path(scaler_path)
+            if scaler_path.exists():
+                self.load_scalers(scaler_path)
+                self.scaler_loaded_from_artifact = True
+                return self._get_split_borders(len(df_data))
+            if require_scaler:
+                raise FileNotFoundError(f"required scaler artifact not found: {scaler_path}")
+
         border1s, border2s = self._get_split_borders(len(df_data))
         train_data = df_data.iloc[border1s[0]:border2s[0]]
         self.scaler.fit(train_data.values)
         return border1s, border2s
+
+    def save_scalers(self, path):
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        with open(path.joinpath("scalers.pkl"), "wb") as file:
+            pickle.dump(self.scaler, file)
+
+    def load_scalers(self, path):
+        path = Path(path)
+        if path.is_dir():
+            path = path.joinpath("scalers.pkl")
+        with open(path, "rb") as file:
+            self.scaler = pickle.load(file)
 
     def _transform_frame(self, df_data: pd.DataFrame) -> np.ndarray:
         if self.scale:
@@ -243,6 +273,7 @@ class Dataset_Train(_RNNBaseDataset):
         border1, border2 = border1s[self.set_type], border2s[self.set_type]
         data_tensor = torch.as_tensor(data[border1:border2], dtype=torch.float32)
         self.data = data_tensor
+        self.segment_dates = df_raw["time"].iloc[border1:border2].reset_index(drop=True)
         logger.info(
             f"Train data length: {border2s[0]-border1s[0]}, "
             f"Valid data length: {border2s[1]-border1s[1]}, "
@@ -340,6 +371,11 @@ class Dataset_Pred(_RNNBaseDataset):
             )
 
         seq_x = data_tensor[-self.seq_len:]
+        self.scaled_history_values = pred_array[-self.seq_len:]
+        self.raw_history_values = pred_data.values[-self.seq_len:]
+        self.history_dates = pred_raw["time"].iloc[-self.seq_len:].reset_index(drop=True)
+        last_date = pd.to_datetime(self.history_dates.iloc[-1])
+        self.future_dates = pd.date_range(last_date, periods=self.pred_len + 1, freq=self.freq)[1:]
         if len(data_tensor) >= (self.seq_len + self.pred_len):
             seq_y = self._build_label_window(data_tensor, len(data_tensor) - self.seq_len - self.pred_len)
         else:
