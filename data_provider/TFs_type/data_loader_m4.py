@@ -39,6 +39,7 @@ class Dataset_M4(Dataset):
                  size=None,  # size [seq_len, label_len, pred_len]
                  features='S',
                  target='OT',  
+                 time='date',
                  freq='15min',
                  timeenc=0, 
                  seasonal_patterns='Yearly',
@@ -60,6 +61,7 @@ class Dataset_M4(Dataset):
         # data freq, feature columns, and target
         self.features = features
         self.target = target
+        self.time = time
         self.freq = freq
         self.timeenc = timeenc
         self.seasonal_patterns = seasonal_patterns

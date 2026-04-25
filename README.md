@@ -135,7 +135,7 @@ python run_dl.py \
 - `scripts/ETTh1_script/ETTh1_nbeats.sh`
 - `scripts/smoke/smoke_etth1_transformer.sh`
 - `scripts/smoke/smoke_etth1_dlinear.sh`
-- `scripts/ETTh1_script/ETTh1_itransformer.sh`
+- `scripts/ETTh1_script/iTransformer/iTransformer_M.sh`
 - `scripts/smoke/smoke_engineering_checks.sh`
 
 历史风场业务脚本已归档到 [docs/archive_wind_forecast](/Users/wangzf/projects/tsproj_dl/docs/archive_wind_forecast)，不再作为当前主线可运行脚本维护。

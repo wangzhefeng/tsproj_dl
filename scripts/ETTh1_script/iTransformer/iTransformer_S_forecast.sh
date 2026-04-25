@@ -1,31 +1,34 @@
-export CUDA_VISIBLE_DEVICES=0
-export LOG_NAME=itransformer-etth1
+# export CUDA_VISIBLE_DEVICES=0
+export LOG_NAME=itransformer-etth1-s-forecast
 
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
 mkdir -p "$MPLCONFIGDIR"
 
 model_name=iTransformer
 
-# 训练、验证、测试
+# 生产离线推理：只加载已训练 checkpoint 和 scaler，不触发训练/测试
 "${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
     --task_name long_term_forecast \
-    --des 'Exp iTransformer_24_12_24' \
+    --des 'Forecast iTransformer_S_24_12_24' \
     --is_training 0 \
-    --is_testing 1 \
-    --testing_step 24 \
-    --is_forecasting 0 \
+    --is_testing 0 \
+    --is_forecasting 1 \
+    --forecast_require_artifacts 1 \
+    --train_step 1 \
+    --valid_step 1 \
+    --testing_step 1 \
     --model_id etth1_24_12_24 \
     --model $model_name \
-    --root_path ./dataset/ETT-small/ \
+    --root_path ./dataset/ETT-small \
     --data_path ETTh1.csv \
     --data ETTh1 \
-    --features MS \
+    --features S \
     --target OT \
     --time date \
     --checkpoints ./results/pretrained_models/ \
     --test_results ./results/test_results/ \
     --forecast_results ./results/forecast_results/ \
-    --freq 1h \
+    --freq h \
     --embed timeF \
     --seq_len 24 \
     --label_len 12 \
@@ -36,8 +39,8 @@ model_name=iTransformer
     --embed_type 0 \
     --d_model 512 \
     --d_ff 2048 \
-    --enc_in 7 \
-    --dec_in 7 \
+    --enc_in 1 \
+    --dec_in 1 \
     --c_out 1 \
     --e_layers 2 \
     --d_layers 1 \

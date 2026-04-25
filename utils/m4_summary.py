@@ -79,7 +79,10 @@ class M4Summary:
         for group_name in M4Meta.seasonal_patterns:
             file_name = self.file_path + group_name + "_forecast.csv"
             if os.path.exists(file_name):
-                model_forecast = pd.read_csv(file_name).values
+                model_forecast_frame = pd.read_csv(file_name)
+                if model_forecast_frame.shape[1] == M4Meta.horizons_map[group_name] + 1:
+                    model_forecast_frame = model_forecast_frame.iloc[:, 1:]
+                model_forecast = model_forecast_frame.values.astype(np.float32)
 
             naive2_forecast = group_values(naive2_forecasts, self.test_set.groups, group_name)
             target = group_values(self.test_set.values, self.test_set.groups, group_name)

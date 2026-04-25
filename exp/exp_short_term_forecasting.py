@@ -11,7 +11,6 @@
 # * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
 # ***************************************************
 
-import os
 import sys
 from pathlib import Path
 ROOT = str(Path.cwd())
@@ -37,6 +36,16 @@ from utils.timestamp_utils import from_unix_time
 from utils.log_util import logger
 
 
+M4_FORECAST_GROUPS = {
+    "Weekly_forecast.csv",
+    "Monthly_forecast.csv",
+    "Yearly_forecast.csv",
+    "Daily_forecast.csv",
+    "Hourly_forecast.csv",
+    "Quarterly_forecast.csv",
+}
+
+
 class Exp_Short_Term_Forecast(Exp_Basic):
 
     def __init__(self, args):
@@ -55,12 +64,13 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             self.args.label_len = self.args.pred_len
             self.args.frequency_map = M4Meta.frequency_map[self.args.seasonal_patterns]
         # 时间序列模型初始化
-        model = self.get_model_module(self.args.model).Model(self.args)
+        logger.info(f"Initializing model {self.args.model}...")
+        model = self.get_model_class(self.args.model)(self.args).float()
         # 多 GPU 训练
-        if self.args.use_multi_gpu and self.args.use_gpu:
-            model = nn.DataParallel(model, device_ids=self.args.devices)
+        if self.args.use_gpu and self.args.use_multi_gpu:
+            model = nn.DataParallel(model, device_ids=self.args.device_ids)
         # 打印模型参数量
-        total_memory_gb = model_memory_size(model, verbose=True)
+        model_memory_size(model, verbose=True)
         
         return model 
     
@@ -84,15 +94,19 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             return mase_loss()
         elif self.args.loss == 'SMAPE':
             return smape_loss()
+        elif self.args.loss == "L1":
+            return nn.L1Loss()
 
     def _select_optimizer(self):
         """
         优化器
         """
-        optimizer = torch.optim.Adam(
-            self.model.parameters(), 
-            lr = self.args.learning_rate
-        )
+        if self.args.optimizer.lower() == "adam":
+            optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        elif self.args.optimizer.lower() == "adamw":
+            optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.args.learning_rate)
+        else:
+            raise ValueError(f"unsupported optimizer: {self.args.optimizer}")
 
         return optimizer
 
@@ -101,10 +115,10 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         模型保存路径
         """
         # 模型保存路径
-        model_path = os.path.join(self.args.checkpoints, setting)
-        os.makedirs(model_path, exist_ok=True)
+        model_path = Path(self.args.checkpoints).joinpath(setting)
+        model_path.mkdir(parents=True, exist_ok=True)
         # 最优模型保存路径
-        model_checkpoint_path = os.path.join(model_path, "checkpoint.pth")
+        model_checkpoint_path = model_path.joinpath("checkpoint.pth")
         
         return model_checkpoint_path
 
@@ -112,8 +126,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         """
         结果保存路径
         """
-        results_path = os.path.join(self.args.test_results, setting)
-        os.makedirs(results_path, exist_ok=True)
+        results_path = Path(self.args.test_results).joinpath(setting)
+        results_path.mkdir(parents=True, exist_ok=True)
         
         return results_path
 
@@ -121,8 +135,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         """
         结果保存路径
         """
-        results_path = os.path.join(self.args.forecast_results, setting)
-        os.makedirs(results_path, exist_ok=True)
+        results_path = Path(self.args.forecast_results).joinpath(setting)
+        results_path.mkdir(parents=True, exist_ok=True)
         
         return results_path 
 
@@ -131,39 +145,75 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         """
         测试结果保存
         """
-        from utils.metrics_dl import metric, DTW
+        from utils.metrics_dl import metric
         # 计算测试结果评价指标
-        mse, rmse, mae, mape, mape_accuracy, mspe = metric(preds, trues)
-        dtw = DTW(preds, trues) if self.args.use_dtw else -999
-        logger.info(f"Test results: mse:{mse:.4f} rmse:{rmse:.4f} mae:{mae:.4f} mape:{mape:.4f} mape accuracy:{mape_accuracy:.4f} mspe:{mspe:.4f} dtw: {dtw:.4f}")
+        r2, mse, rmse, mae, mape, mape_accuracy, mspe, dtw = metric(preds, trues, use_dtw=self.args.use_dtw)
+        logger.info(f"Test results: r2:{r2:.4f} mse:{mse:.4f} rmse:{rmse:.4f} mae:{mae:.4f} mape:{mape:.4f} mape accuracy:{mape_accuracy:.4f} mspe:{mspe:.4f} dtw: {dtw}")
         
         # result1 保存
-        with open(os.path.join(path, "result_forecast.txt"), 'a') as file:
+        with open(Path(path).joinpath("result_forecast.txt"), 'a', encoding="utf-8") as file:
             file.write(setting + "  \n")
-            file.write(f"mse:{mse}, rmse:{rmse}, mae:{mae}, mape:{mape}, mape accuracy:{mape_accuracy}, mspe:{mspe}, dtw:{dtw}")
+            file.write(f"r2:{r2}, mse:{mse}, rmse:{rmse}, mae:{mae}, mape:{mape}, mape accuracy:{mape_accuracy}, mspe:{mspe}, dtw:{dtw}")
             file.write('\n')
             file.write('\n')
             file.close()
         # result2 保存
         np.save(
-            os.path.join(path, 'metrics.npy'), 
-            np.array([mae, mse, rmse, mape, mape_accuracy, mspe, dtw])
+            Path(path).joinpath('metrics.npy'), 
+            np.array([r2, mae, mse, rmse, mape, mape_accuracy, mspe], dtype=float)
         )
-        np.save(os.path.join(path, 'preds.npy'), preds)
-        np.save(os.path.join(path, 'trues.npy'), trues)
+        np.save(Path(path).joinpath('preds.npy'), preds)
+        np.save(Path(path).joinpath('trues.npy'), trues)
     
     def _pred_results_save(self, preds, preds_df, path):
         """
         预测结果保存
         """
         if preds is not None:
-            np.save(os.path.join(path, "prediction.npy"), preds) 
+            np.save(Path(path).joinpath("prediction.npy"), preds) 
         if preds_df is not None:
             preds_df.to_csv(
-                os.path.join(path, "prediction.csv"), 
+                Path(path).joinpath("prediction.csv"), 
                 encoding="utf_8_sig", 
                 index=False
             )
+
+    def _model_forward(self, batch_x, batch_y, batch_x_mark, batch_y_mark, flag):
+        """
+        短期预测前向传播。
+        """
+        batch_x = batch_x.float().to(self.device)
+        batch_y = batch_y.float().to(self.device)
+        batch_y_mark = batch_y_mark.float().to(self.device)
+
+        dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
+        dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
+
+        def _run_model():
+            outputs = self.model(batch_x, None, dec_inp, None)
+            if self.args.output_attention and isinstance(outputs, (tuple, list)):
+                return outputs[0]
+            return outputs
+
+        if self.args.use_amp:
+            with torch.amp.autocast("cuda"):
+                outputs = _run_model()
+        else:
+            outputs = _run_model()
+
+        f_dim = -1 if self.args.features == 'MS' else 0
+        outputs = outputs[:, -self.args.pred_len:, f_dim:]
+        batch_y = batch_y[:, -self.args.pred_len:, f_dim:]
+        batch_y_mark = batch_y_mark[:, -self.args.pred_len:, f_dim:]
+
+        if flag == "test":
+            return outputs.detach().cpu().numpy(), batch_y.detach().cpu().numpy(), batch_y_mark.detach().cpu().numpy()
+        return outputs, batch_y, batch_y_mark
+
+    def _compute_loss(self, criterion, insample, forecast, target, mask):
+        if self.args.loss in {"MAPE", "MASE", "SMAPE"}:
+            return criterion(insample, self.args.frequency_map, forecast, target, mask)
+        return criterion(forecast, target)
 
     def train(self, setting):
         # 数据集构建
@@ -200,8 +250,17 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         # 早停类实例
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
         logger.info(f"Train early stopping instance has builded, patience: {self.args.patience}")
-        # TODO MSE 损失函数
-        # mse = nn.MSELoss()
+        # learning rate scheduler
+        if self.args.lradj == "TST":
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                optimizer=optimizer,
+                steps_per_epoch=train_steps,
+                pct_start=self.args.pct_start,
+                epochs=self.args.train_epochs,
+                max_lr=self.args.learning_rate,
+            )
+        else:
+            scheduler = None
         # 自动混合精度训练
         if self.args.use_amp:
             scaler = torch.amp.GradScaler()
@@ -223,26 +282,12 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 iter_count += 1
                 # 模型优化器梯度归零
                 optimizer.zero_grad()
-                # ------------------------------
                 # 前向传播
-                # ------------------------------
-                batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y.float().to(self.device)
-                batch_y_mark = batch_y_mark.float().to(self.device)
-                # decoder input
-                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
-                dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
-                # model forward
-                outputs = self.model(batch_x, None, dec_inp, None)
-                # 预测/实际 label
-                f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-                batch_y_mark = batch_y_mark[:, -self.args.pred_len:, f_dim:].to(self.device)
+                outputs, batch_y, batch_y_mark = self._model_forward(
+                    batch_x, batch_y, batch_x_mark, batch_y_mark, flag="train"
+                )
                 # 计算损失
-                loss_value = criterion(batch_x, self.args.frequency_map, outputs, batch_y, batch_y_mark)
-                # loss_sharpness = mse((outputs[:, 1:, :] - outputs[:, :-1, :]), (batch_y[:, 1:, :] - batch_y[:, :-1, :]))
-                loss = loss_value  # + loss_sharpness * 1e-5
+                loss = self._compute_loss(criterion, batch_x.float().to(self.device), outputs, batch_y, batch_y_mark)
                 train_loss.append(loss.item())
                 
                 # 当前 epoch-batch 下每 100 个 batch 的训练速度、误差损失
@@ -262,6 +307,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 else:
                     loss.backward()
                     optimizer.step()
+                if scheduler is not None:
+                    scheduler.step()
             
             # 日志打印: 训练 epoch、每个 epoch 训练的用时
             logger.info(f"Epoch: {epoch + 1}, \tCost time: {time.time() - epoch_start_time}")
@@ -278,14 +325,17 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 val_loss=vali_loss,
                 model=self.model,
                 optimizer=optimizer,
-                scheduler=None,
+                scheduler=scheduler,
                 model_path=model_checkpoint_path,
             )
             if early_stopping.early_stop:
                 logger.info(f"Epoch: {epoch + 1}, \tEarly stopping...")
                 break
             # 学习率调整
-            adjust_learning_rate(optimizer, None, epoch + 1, self.args)
+            if self.args.lradj != "TST":
+                adjust_learning_rate(optimizer, scheduler, epoch + 1, self.args, printout=True)
+            else:
+                logger.info(f"Updating learning rate to {scheduler.get_last_lr()[0]}")
         # -----------------------------
         # 模型加载
         # ------------------------------
@@ -303,7 +353,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         )
         # load model
         logger.info("Loading best model...")
-        self.model.load_state_dict(torch.load(model_checkpoint_path)["model"])
+        self.model.load_state_dict(torch.load(model_checkpoint_path, map_location=self.device)["model"])
         # return model and train results
         logger.info("Return training results...")
         return self.model
@@ -335,27 +385,30 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             id_list = np.append(id_list, B)
             # 前向传播
             for i in range(len(id_list) - 1):
-                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(
+                model_outputs = self.model(
                     x[id_list[i]:id_list[i + 1]], 
                     None,
                     dec_inp[id_list[i]:id_list[i + 1]],
                     None
-                ).detach().cpu()
+                )
+                if self.args.output_attention and isinstance(model_outputs, (tuple, list)):
+                    model_outputs = model_outputs[0]
+                outputs[id_list[i]:id_list[i + 1], :, :] = model_outputs.detach().cpu()
             # 预测值/真实值提取
             f_dim = -1 if self.args.features == 'MS' else 0
             outputs = outputs[:, -self.args.pred_len:, f_dim:]
             pred = outputs
-            true = torch.from_numpy(np.array(y))
+            true = torch.from_numpy(np.array(y, dtype=np.float32))
             batch_y_mark = torch.ones(true.shape)
             # 计算/保存验证损失
-            loss = criterion(x.detach().cpu()[:, :, 0], self.args.frequency_map, pred[:, :, 0], true, batch_y_mark)
+            loss = self._compute_loss(criterion, x.detach().cpu()[:, :, 0], pred[:, :, 0], true, batch_y_mark)
             # vali_loss.append(loss)
             # logger.info(f"debug::valid step: {i}, valid loss: {loss.item()}")
         # 计算模型输出
         self.model.train()
         # log
         logger.info(f"Validating Finished!")
-        return loss
+        return float(loss.item())
 
     def test(self, setting, load: bool=False):
         # 数据集构建
@@ -372,7 +425,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             logger.info("Pretrained model has loaded from:")
             logger.info(f"{40 * '-'}")
             model_checkpoint_path = self._get_model_path(setting)
-            self.model.load_state_dict(torch.load(model_checkpoint_path)["model"]) 
+            self.model.load_state_dict(torch.load(model_checkpoint_path, map_location=self.device)["model"]) 
             logger.info(model_checkpoint_path)
         # 测试结果保存地址
         logger.info(f"{40 * '-'}")
@@ -400,16 +453,19 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             dec_inp = torch.cat([x[:, -self.args.label_len:, :], dec_inp], dim=1).float()
             # encoder - decoder
             outputs = torch.zeros((B, self.args.pred_len, C)).float().to(self.device)
-            id_list = np.arange(0, B, 1)
+            id_list = np.arange(0, B, 500)
             id_list = np.append(id_list, B)
             # 前向传播
             for i in range(len(id_list) - 1):
-                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(
+                model_outputs = self.model(
                     x[id_list[i]:id_list[i + 1]], 
                     None,
                     dec_inp[id_list[i]:id_list[i + 1]], 
                     None
                 )
+                if self.args.output_attention and isinstance(model_outputs, (tuple, list)):
+                    model_outputs = model_outputs[0]
+                outputs[id_list[i]:id_list[i + 1], :, :] = model_outputs
                 if id_list[i] % 1000 == 0:
                     logger.info(f"id_list[i]: {id_list[i]}")
             # 预测值/真实值提取
@@ -418,17 +474,17 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             outputs = outputs.detach().cpu().numpy()
             # 测试结果收集
             preds = outputs
-            trues = y
+            trues = np.array(y, dtype=np.float32)
             # 预测数据可视化
             x = x.detach().cpu().numpy()
-            for i in range(0, preds.shape[0], preds.shape[0] // 10):
+            plot_step = max(1, preds.shape[0] // 10)
+            for i in range(0, preds.shape[0], plot_step):
                 true_plot = np.concatenate((x[i, :, 0], trues[i]), axis=0)
                 pred_plot = np.concatenate((x[i, :, 0], preds[i, :, 0]), axis=0)
-                predict_result_visual(pred_plot, true_plot, path = os.path.join(test_results_path, str(i) + '.pdf'))
+                predict_result_visual(pred_plot, true_plot, path=Path(test_results_path).joinpath(f"{i}.pdf"))
         # 测试结果保存
-        folder_path = './m4_results/' + self.args.model + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        folder_path = Path("./m4_results").joinpath(self.args.model)
+        folder_path.mkdir(parents=True, exist_ok=True)
         
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
@@ -437,23 +493,18 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             preds[:, :, 0], 
             columns=[f'V{i + 1}' for i in range(self.args.pred_len)]
         )
-        forecasts_df.index = test_loader.dataset.ids[:preds.shape[0]]
-        forecasts_df.index.name = 'id'
-        forecasts_df.set_index(forecasts_df.columns[0], inplace=True)
-        forecasts_df.to_csv(test_results_path + folder_path + self.args.seasonal_patterns + '_forecast.csv')
+        forecasts_df.insert(0, "id", test_loader.dataset.ids[:preds.shape[0]])
+        forecast_path = folder_path.joinpath(f"{self.args.seasonal_patterns}_forecast.csv")
+        forecasts_df.to_csv(forecast_path, index=False, encoding="utf-8")
+        self._test_results_save(preds[:, :, 0], trues, setting, test_results_path)
+        logger.info(forecast_path)
         logger.info(test_results_path)
         
-        if ('Weekly_forecast.csv' in os.listdir(folder_path) \
-            and 'Monthly_forecast.csv' in os.listdir(folder_path) \
-            and 'Yearly_forecast.csv' in os.listdir(folder_path) \
-            and 'Daily_forecast.csv' in os.listdir(folder_path) \
-            and 'Hourly_forecast.csv' in os.listdir(folder_path) \
-            and 'Quarterly_forecast.csv' in os.listdir(folder_path)
-        ):
-            m4_summary = M4Summary(folder_path, self.args.root_path)
+        if M4_FORECAST_GROUPS.issubset({path.name for path in folder_path.iterdir()}):
+            m4_summary = M4Summary(f"{folder_path.as_posix()}/", self.args.root_path)
             # m4_forecast.set_index(m4_winner_forecast.columns[0], inplace=True)
             smape_results, owa_results, mape, mase = m4_summary.evaluate()
-            logger.info(f"Test results: smape:{smape_results:.4f} mape:{mape:.4f} mase:{mase:.4f} owa:{owa_results:.4f}")
+            logger.info(f"Test results: smape:{smape_results} mape:{mape} mase:{mase} owa:{owa_results}")
         else:
             logger.info('After all 6 tasks are finished, you can calculate the averaged index')
         # log

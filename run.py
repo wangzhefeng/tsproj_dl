@@ -19,10 +19,11 @@ if ROOT not in sys.path:
 import argparse
 
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
-# from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
+from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 # from exp.exp_forecasting_rnns import Exp_Long_Term_Forecast
 from utils.args_tools import print_args_ts
 from utils.device import torch_gc
+from utils.m4 import M4Meta
 from utils.random_seed import set_seed
 from utils.log_util import logger
 
@@ -69,15 +70,15 @@ def args_parse():
     parser.add_argument('--model', type=str, required=True, default='Transformer', help='model name, options: [Autoformer, Transformer, TimesNet]')
     # data loader
     parser.add_argument('--root_path', type=str, required=True, default='./dataset/', help='root path of the data file')
-    parser.add_argument('--data_path', type=str, required=True, default='ETTh1.csv', help='data file')
+    parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
     parser.add_argument('--data', type=str, required=True, default='ETTh1', help='dataset type')
-    parser.add_argument('--target', type=str, required=True, default='OT', help='target feature in S or MS task')
-    parser.add_argument('--time', type=str, required=True, default='time', help='time feature in S or MS task')
-    parser.add_argument('--freq', type=str, required=True, default='h', help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
+    parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
+    parser.add_argument('--time', type=str, default='time', help='time feature in S or MS task')
+    parser.add_argument('--freq', type=str, default='h', help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
     parser.add_argument('--features', type=str, default='MS', help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
     parser.add_argument("--step_size", type=int, default=1, help="RNNs data window step")
-    parser.add_argument('--train_ratio', type=float, required=True, default=0.7, help='train dataset ratio')
-    parser.add_argument('--test_ratio', type=float, required=True, default=0.2, help='test dataset ratio')
+    parser.add_argument('--train_ratio', type=float, default=0.7, help='train dataset ratio')
+    parser.add_argument('--test_ratio', type=float, default=0.2, help='test dataset ratio')
     parser.add_argument('--embed', type=str, default='timeF', help='time features encoding, options:[timeF, fixed, learned]')
     parser.add_argument('--scale', type=int, default=0, help = 'data transform')
     parser.add_argument('--inverse', type=int, default=0, help='inverse output data')
@@ -88,7 +89,7 @@ def args_parse():
     parser.add_argument('--forecast_results', type=str, default=None, help='forecast result directory, defaults to <results_root>/forecast_results/') 
     parser.add_argument('--forecast_require_artifacts', type=int, default=1, help='require checkpoint and scaler artifacts for production forecasting')
     # forecasting task
-    parser.add_argument('--seq_len', type=int, required=True, default=72, help='input sequence length')
+    parser.add_argument('--seq_len', type=int, default=72, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=12, help='start token length')
     parser.add_argument('--pred_len', type=int, default=24, help='prediction sequence length')
     parser.add_argument('--seasonal_patterns', type=str, default='Monthly', help='subset for M4')
@@ -206,8 +207,8 @@ def args_parse():
 def run(args):
     if args.task_name == 'long_term_forecast':
         Exp = Exp_Long_Term_Forecast
-    # elif args.task_name == 'short_term_forecast':
-        # Exp = Exp_Short_Term_Forecast
+    elif args.task_name == 'short_term_forecast':
+        Exp = Exp_Short_Term_Forecast
     # elif args.task_name == 'imputation':
     #     Exp = Exp_Imputation
     # elif args.task_name == 'anomaly_detection':
@@ -216,6 +217,12 @@ def run(args):
     #     Exp = Exp_Classification
     else:
         Exp = Exp_Long_Term_Forecast
+
+    if args.task_name == "short_term_forecast" and args.data == "m4":
+        args.pred_len = M4Meta.horizons_map[args.seasonal_patterns]
+        args.seq_len = 2 * args.pred_len
+        args.label_len = args.pred_len
+        args.frequency_map = M4Meta.frequency_map[args.seasonal_patterns]
     
     # setting record of experiments
     setting = (

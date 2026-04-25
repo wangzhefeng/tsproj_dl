@@ -24,7 +24,6 @@ from glob import glob
 from collections import OrderedDict
 from dataclasses import dataclass
 
-import patoolib
 from tqdm import tqdm
 import numpy as np
 import pandas as pd

@@ -126,6 +126,8 @@
 | EXP-008 | Done | Codex | `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_loader.py`, `utils/metrics_dl.py` | test 时间轴缝合支持 testing_step，test 复用训练 scaler，MAPE/MSPE 避免 inf |
 | EXP-009 | Done | Codex | `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_loader.py`, `scripts/ETTh1_script/PatchTST/PatchTST_S_forecast.sh` | forecast 作为生产离线推理入口：强制 checkpoint/scaler 校验，输出元数据，提供 forecast-only 脚本 |
 | EXP-010 | Done | Codex | `scripts/ETTh1_script/PatchTST/` | PatchTST S/MS/M 训练测试预测脚本与 forecast-only 脚本统一归档到专用目录 |
+| EXP-011 | Done | Codex | `scripts/ETTh1_script/iTransformer/` | iTransformer S/MS/M 训练测试预测脚本与 forecast-only 脚本统一归档到专用目录；脚本语法检查通过 |
+| EXP-012 | Doing | Codex | `run_dl.py`, `exp/exp_short_term_forecasting.py`, `scripts/M4_short_term/`, `tests/` | M4 iTransformer 6 个短期预测脚本恢复可运行；`short_term_forecast` 走短期实验类；首个脚本完成 train/valid/test smoke |
 
 任务更新规则：
 
