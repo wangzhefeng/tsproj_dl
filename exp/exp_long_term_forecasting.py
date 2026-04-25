@@ -144,27 +144,27 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             f"mspe:{window_mspe:.4f}"
         )
         logger.info(window_summary_line)
-        # 缝合的级测试结果
-        stitched_summary_line = None
+        # 真实时间轴级测试结果
+        timeline_summary_line = None
         if stitched_preds is not None and stitched_trues is not None:
             (stitched_r2, stitched_mse, stitched_rmse, stitched_mae, stitched_mape, stitched_mape_accuracy, stitched_mspe, stitched_dtw) = metric(
                 stitched_preds.reshape(-1, 1),
                 stitched_trues.reshape(-1, 1),
                 use_dtw=self.args.use_dtw
             )
-            stitched_summary_line = (
-                f"Stitched metrics: r2:{stitched_r2:.4f}, mse:{stitched_mse:.4f}, rmse:{stitched_rmse:.4f}, "
+            timeline_summary_line = (
+                f"Timeline metrics: r2:{stitched_r2:.4f}, mse:{stitched_mse:.4f}, rmse:{stitched_rmse:.4f}, "
                 f"mae:{stitched_mae:.4f}, mape:{stitched_mape:.4f}, mape accuracy:{stitched_mape_accuracy:.4f}, "
                 f"mspe:{stitched_mspe:.4f}"
             )
-            logger.info(stitched_summary_line)
+            logger.info(timeline_summary_line)
 
         with open(Path(path).joinpath("result_forecast.txt"), 'w', encoding='utf-8') as file:
             file.write(setting + "  \n")
             file.write(window_summary_line)
             file.write('\n')
-            if stitched_summary_line is not None:
-                file.write(stitched_summary_line)
+            if timeline_summary_line is not None:
+                file.write(timeline_summary_line)
             file.write('\n')
             file.write('\n')
             file.close()
@@ -331,13 +331,16 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
         logger.info(f"Train early stopping instance has builded, patience: {self.args.patience}")
         # learning rate scheduler
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer=optimizer,
-            steps_per_epoch=train_steps,
-            pct_start=self.args.pct_start,
-            epochs=self.args.train_epochs,
-            max_lr=self.args.learning_rate,
-        )
+        if self.args.lradj == "TST":
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                optimizer=optimizer,
+                steps_per_epoch=train_steps,
+                pct_start=self.args.pct_start,
+                epochs=self.args.train_epochs,
+                max_lr=self.args.learning_rate,
+            )
+        else:
+            scheduler = None
         # 自动混合精度训练
         if self.args.use_amp:
             scaler = torch.amp.GradScaler()
@@ -393,8 +396,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     loss.backward()
                     optimizer.step()
                 # learning rate update
-                if self.args.lradj != "TST":
-                    adjust_learning_rate(optimizer, scheduler, epoch + 1, self.args, printout=False)
+                if scheduler is not None:
                     scheduler.step()
             logger.info(f"Epoch: {epoch + 1}, \tCost time: {time.time() - epoch_start_time}")
             # 模型验证
@@ -471,6 +473,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         模型测试
         """
+        self.args.scaler_path = str(self._get_scaler_path(setting))
         # 数据集构建
         test_data, test_loader = self._get_data(flag="test")
         # 模型加载
@@ -501,7 +504,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         preds_flat, trues_flat = [], []
         with torch.no_grad():
             for iters, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
-                logger.info(f"Test step: {iters} running...")
+                if iters == 0 or iters == test_steps - 1 or iters % 50 == 0:
+                    logger.info(f"Test step: {iters} running...")
                 # 前向传播
                 outputs, batch_y = self._model_forward(
                     test_data, batch_x, batch_y, batch_x_mark, batch_y_mark, 
@@ -528,8 +532,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         logger.info(f'test preds shape: {preds.shape} tures shape: {trues.shape}')
-        stitched_preds, stitched_trues, overlap_counts = self._stitch_window_predictions(preds, trues)
-        stitched_dates = self._build_test_stitched_dates(test_data, len(stitched_preds))
+        testing_step = test_data.testing_step if test_data.testing_step and test_data.testing_step > 0 else 1
+        stitched_preds, stitched_trues, overlap_counts = self._stitch_window_predictions(preds, trues, step=testing_step)
+        stitched_dates = self._build_test_stitched_dates(test_data, len(stitched_preds), step=testing_step)
         # 测试结果收集
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
@@ -562,24 +567,23 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         return
     
     @staticmethod
-    def _stitch_window_predictions(preds: np.ndarray, trues: np.ndarray):
+    def _stitch_window_predictions(preds: np.ndarray, trues: np.ndarray, step: int = 1):
         """
         将滑动窗口预测结果还原成时间轴上的连续序列。
 
-        当前统一数据层的 test loader 默认使用 stride=1，
-        直接 reshape/concatenate 会把重叠窗口重复拼接，导致时间顺序失真。
-        这里按时间位置对所有重叠预测取均值，恢复真实时间轴。
+        按 test 窗口步长恢复真实时间轴，并对重叠位置取均值。
         """
+        step = step if step and step > 0 else 1
         num_windows, pred_len, channels = preds.shape
-        stitched_len = num_windows + pred_len - 1
+        stitched_len = (num_windows - 1) * step + pred_len
 
         pred_sum = np.zeros((stitched_len, channels), dtype=np.float64)
         true_sum = np.zeros((stitched_len, channels), dtype=np.float64)
         counts = np.zeros((stitched_len, 1), dtype=np.int64)
 
         for window_idx in range(num_windows):
-            start = window_idx
-            end = window_idx + pred_len
+            start = window_idx * step
+            end = start + pred_len
             pred_sum[start:end] += preds[window_idx]
             true_sum[start:end] += trues[window_idx]
             counts[start:end] += 1
@@ -608,13 +612,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         return pd.DataFrame(rows)
 
-    def _build_test_stitched_dates(self, test_data, stitched_len: int):
+    @staticmethod
+    def _build_test_stitched_dates(test_data, stitched_len: int, step: int = 1):
         """
         构建测试集重建时间轴。
         """
         segment_dates = getattr(test_data, "segment_dates", None)
         if segment_dates is None:
             return None
+        step = step if step and step > 0 else 1
         stitched_dates = pd.Series(segment_dates).iloc[test_data.seq_len:test_data.seq_len + stitched_len].reset_index(drop=True)
 
         if len(stitched_dates) != stitched_len:

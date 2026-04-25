@@ -36,8 +36,8 @@ def data_provider(args, flag):
     canonical_flag = flag.lower()
     # 是否对时间戳进行编码
     timeenc = 0 if args.embed != "timeF" else 1
-    # 区别在 test/pred 和 train/valid 任务下是否进行 shuffle 数据
-    shuffle_flag = False if canonical_flag in ["test", "pred"] else True
+    # 仅训练集打乱；验证、测试和预测保持时间顺序，便于可复现评估和调试
+    shuffle_flag = True if canonical_flag == "train" else False
     # 是否丢弃最后一个 batch
     drop_last = False
     num_workers = 0 if canonical_flag == "pred" else args.num_workers

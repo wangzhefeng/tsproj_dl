@@ -168,6 +168,8 @@ class Dataset_Train(Dataset):
         # data preprocess
         self.scale = scale
         self.inverse = inverse
+        self.train_step = getattr(self.args, "train_step", 1)
+        self.valid_step = getattr(self.args, "valid_step", 1)
         self.testing_step = testing_step
         # data read
         self.__read_data__()
@@ -208,16 +210,33 @@ class Dataset_Train(Dataset):
         self.full_scaler = StandardScaler()
         self.target_scaler = StandardScaler()
         if self.scale:
-            train_data = df_data[border1s[0]:border2s[0]]
-            self.full_scaler.fit(train_data.values)
-            self.target_scaler.fit(train_data[[self.target]].values)
+            scaler_path = getattr(self.args, "scaler_path", None)
+            if self.flag == "test" and scaler_path and _scaler_artifact_path(scaler_path).exists():
+                scalers, metadata = _load_scaler_artifacts(scaler_path)
+                self.full_scaler = scalers["full_scaler"]
+                self.target_scaler = scalers["target_scaler"]
+                expected_features = metadata.get("feature_names")
+                if expected_features and expected_features != self.feature_names:
+                    raise ValueError(
+                        f"scaler feature_names mismatch: expected {expected_features}, got {self.feature_names}"
+                    )
+                expected_target = metadata.get("target")
+                if expected_target and expected_target != self.target:
+                    raise ValueError(f"scaler target mismatch: expected {expected_target}, got {self.target}")
+                logger.info(f"Scaler artifacts have been loaded from path: {_scaler_artifact_path(scaler_path)}")
+            else:
+                if self.flag == "test" and scaler_path:
+                    logger.info(f"Scaler artifacts not found in path: {_scaler_artifact_path(scaler_path)}. Fit scalers with training data.")
+                train_data = df_data[border1s[0]:border2s[0]]
+                self.full_scaler.fit(train_data.values)
+                self.target_scaler.fit(train_data[[self.target]].values)
             data = self.full_scaler.transform(df_data.values)
         else:
             data = df_data.values
         logger.info(f"Train data shape after standardization: {data.shape}")
         # 训练/测试/验证数据集分割: 选取当前 flag 下的数据
         logger.info(f"Train data length: {border2s[0]-border1s[0]}, Valid data length: {border2s[1]-border1s[1]}, Test data length: {border2s[2]-border1s[2]}")
-        logger.info(f"Train step: {1}, Valid step: {1}, Test step: {self.testing_step}")
+        logger.info(f"Train step: {self.train_step}, Valid step: {self.valid_step}, Test step: {self.testing_step}")
         logger.info(f"{self.flag.capitalize()} input data index: {border1}:{border2}, data length: {border2-border1}")
         # 时间特征处理
         self.segment_dates = pd.to_datetime(df_raw[self.time].iloc[border1:border2]).reset_index(drop=True)
@@ -240,8 +259,12 @@ class Dataset_Train(Dataset):
 
     def __getitem__(self, index):
         # data_x 索引
-        if self.flag in ["train", "valid"]:
-            s_begin = index
+        if self.flag == "train":
+            step = self.train_step if self.train_step and self.train_step > 0 else 1
+            s_begin = index * step
+        elif self.flag == "valid":
+            step = self.valid_step if self.valid_step and self.valid_step > 0 else 1
+            s_begin = index * step
         elif self.flag == "test":
             step = self.testing_step if self.testing_step and self.testing_step > 0 else 1
             s_begin = index * step
@@ -262,9 +285,12 @@ class Dataset_Train(Dataset):
         total = len(self.data_x) - self.seq_len - self.pred_len + 1
         if total <= 0:
             return 0
-        if self.flag != "test":
-            return total
-        step = self.testing_step if self.testing_step and self.testing_step > 0 else 1
+        if self.flag == "train":
+            step = self.train_step if self.train_step and self.train_step > 0 else 1
+        elif self.flag == "valid":
+            step = self.valid_step if self.valid_step and self.valid_step > 0 else 1
+        else:
+            step = self.testing_step if self.testing_step and self.testing_step > 0 else 1
         return (total - 1) // step + 1
 
     def inverse_transform(self, data):

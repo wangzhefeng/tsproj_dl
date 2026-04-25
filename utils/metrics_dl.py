@@ -52,7 +52,10 @@ def MAE(pred, true):
 
 
 def MAPE(pred, true):
-    return np.mean(np.abs((true - pred) / true))
+    true = np.asarray(true, dtype=float)
+    pred = np.asarray(pred, dtype=float)
+    denominator = np.where(np.abs(true) < 1e-8, 1.0, np.abs(true))
+    return np.mean(np.abs((true - pred) / denominator))
 
 
 def MAPE_v2(true: Union[List, np.array], pred: Union[List, np.array]):
@@ -73,7 +76,10 @@ def Accuracy(pred, true):
 
 
 def MSPE(pred, true):
-    return np.mean(np.square((true - pred) / true))
+    true = np.asarray(true, dtype=float)
+    pred = np.asarray(pred, dtype=float)
+    denominator = np.where(np.abs(true) < 1e-8, 1.0, np.abs(true))
+    return np.mean(np.square((true - pred) / denominator))
 
 
 def DTW(preds, trues, use_dtw=False):
