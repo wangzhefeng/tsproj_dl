@@ -37,20 +37,34 @@ def data_provider(args, flag):
     """
     数据集构造
     """
-    # 区别在 test/pred 和 train/valid 任务下是否进行 shuffle 数据
-    shuffle_flag = False if flag in ["test", "pred"] else True
+    canonical_flag = flag.lower()
+    if canonical_flag not in ["train", "valid", "test", "pred"]:
+        raise ValueError(
+            f"Unsupported data flag: {flag}. "
+            "Expected one of ['train', 'valid', 'test', 'pred']."
+        )
+    # 仅训练集打乱；验证、测试和预测保持时间顺序，便于复现和结果缝合
+    shuffle_flag = canonical_flag == "train"
     # 是否丢弃最后一个 batch
     drop_last = False
+    num_workers = 0 if canonical_flag == "pred" else args.num_workers
     # 数据集参数
-    if flag in ["train", "valid"]:
+    if canonical_flag in ["train", "valid"]:
         batch_size = args.batch_size
         Data = Dataset_Train
-    elif flag == "test":
+    elif canonical_flag == "test":
         batch_size = 1
         Data = Dataset_Train
-    elif flag == "pred":
+    elif canonical_flag == "pred":
         batch_size = 1
         Data = Dataset_Pred
+    step_attr = {
+        "train": "train_step",
+        "valid": "valid_step",
+        "test": "testing_step",
+        "pred": "step_size",
+    }[canonical_flag]
+    step_size = getattr(args, step_attr, getattr(args, "step_size", 1))
     # 构建 Dataset 和 DataLoader
     data_set = Data(
         args = args,
@@ -63,9 +77,9 @@ def data_provider(args, flag):
         seq_len = args.seq_len,
         pred_len = args.pred_len,
         pred_method = args.pred_method,
-        step_size = args.step_size,
+        step_size = step_size,
         scale = args.scale,
-        flag = flag
+        flag = canonical_flag
     )
     data_loader = DataLoader(
         dataset = data_set,
@@ -73,7 +87,7 @@ def data_provider(args, flag):
         shuffle = shuffle_flag,
         sampler=None,
         drop_last = drop_last,
-        num_workers=args.num_workers,
+        num_workers=num_workers,
     )
     
     return data_set, data_loader

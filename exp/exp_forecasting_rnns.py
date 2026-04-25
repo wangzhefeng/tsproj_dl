@@ -106,6 +106,17 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             )
         
         return optimizer
+
+    @staticmethod
+    def _align_prediction_target(outputs, targets):
+        """
+        Align RNN outputs and labels before loss calculation.
+        """
+        if outputs.shape == targets.shape:
+            return outputs, targets
+        if outputs.ndim == 2 and targets.ndim == 3 and targets.shape[1] == 1:
+            return outputs, targets.reshape(outputs.shape)
+        return outputs, targets
     
     def _get_model_path(self, setting):
         """
@@ -142,20 +153,29 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         测试结果保存
         """
         # 计算测试结果评价指标
-        mse, rmse, mae, mape, mape_accuracy, mspe = metric(preds, trues)
-        dtw = DTW(preds, trues) if self.args.use_dtw else -999
-        logger.info(f"Test results: mse:{mse:.4f} rmse:{rmse:.4f} mae:{mae:.4f} mape:{mape:.4f} mape accuracy:{mape_accuracy:.4f} mspe:{mspe:.4f} dtw: {dtw:.4f}")
+        r2, mse, rmse, mae, mape, mape_accuracy, mspe, dtw = metric(
+            preds,
+            trues,
+            use_dtw=self.args.use_dtw,
+        )
+        logger.info(
+            f"Test results: r2:{r2:.4f} mse:{mse:.4f} rmse:{rmse:.4f} "
+            f"mae:{mae:.4f} mape:{mape:.4f} mape accuracy:{mape_accuracy:.4f} "
+            f"mspe:{mspe:.4f} dtw:{dtw}"
+        )
         # result1 保存
-        with open(Path(path).joinpath("result_forecast.txt"), 'a') as file:
+        with open(Path(path).joinpath("result_forecast.txt"), 'a', encoding="utf-8") as file:
             file.write(setting + "  \n")
-            file.write(f"mse:{mse}, rmse:{rmse}, mae:{mae}, mape:{mape}, mape accuracy:{mape_accuracy}, mspe:{mspe}, dtw:{dtw}")
+            file.write(
+                f"r2:{r2}, mse:{mse}, rmse:{rmse}, mae:{mae}, mape:{mape}, "
+                f"mape accuracy:{mape_accuracy}, mspe:{mspe}, dtw:{dtw}"
+            )
             file.write('\n')
             file.write('\n')
-            file.close()
         # result2 保存
         np.save(
             Path(path).joinpath('metrics.npy'), 
-            np.array([mae, mse, rmse, mape, mape_accuracy, mspe, dtw])
+            np.array([r2, mae, mse, rmse, mape, mape_accuracy, mspe, dtw], dtype=object)
         )
         np.save(Path(path).joinpath('preds.npy'), preds)
         np.save(Path(path).joinpath('trues.npy'), trues)
@@ -310,10 +330,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 # logger.info(f"debug::batch_y: \n{batch_y}, \nbatch_y.shape: {batch_y.shape}")
                 
                 # 计算训练损失
-                if self.args.output_size == 1:
-                    loss = criterion(outputs, y_train.reshape(-1, 1))
-                else:
-                    loss = criterion(outputs, y_train)
+                outputs, y_train = self._align_prediction_target(outputs, y_train)
+                loss = criterion(outputs, y_train)
                 train_loss.append(loss.item())
                 # logger.info(f"debug::train step: {i}, train loss: {loss}")
                 # 当前 epoch-batch 下每 100 个 batch 的训练速度、误差损失
@@ -397,10 +415,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 # 前向传播
                 outputs = self.model(x_vali)
                 # 计算/保存验证损失
-                if self.args.output_size == 1:
-                    loss = criterion(outputs.detach().cpu(), y_vali.reshape(-1, 1))
-                else:
-                    loss = criterion(outputs.detach().cpu(), y_vali)
+                outputs, y_vali = self._align_prediction_target(outputs.detach().cpu(), y_vali)
+                loss = criterion(outputs, y_vali)
                 vali_loss.append(loss.item())
                 # logger.info(f"Valid step: {i}, valid loss: {loss}")
         # 计算验证集上所有 batch 的平均验证损失
@@ -554,8 +570,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 outputs = self.model(x_test)
                 outputs = outputs.detach().cpu()
                 y_test = y_test.detach().cpu()
-                logger.info(f"debug::outputs: \n{outputs} \noutputs.shape: {outputs.shape}")
-                logger.info(f"debug::y_test: \n{y_test} \ny_test.shape: {y_test.shape}")
                 
                 # 输入输出逆转换
                 # outputs, y_test = self._inverse_data(test_data, outputs, y_test)
@@ -568,24 +582,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 y_test = y_test[0, :, f_dim:]
                 # y_pred = test_data.inverse_transform(y_pred.detach().cpu().numpy())
                 # y_test = test_data.inverse_transform(y_test.detach().cpu().numpy())
-                logger.info(f"debug::y_pred: \n{y_pred} \ny_pred.shape: {y_pred.shape}")
-                logger.info(f"debug::y_test: \n{y_test} \ny_test.shape: {y_test.shape}")
                 
                 preds.append(y_pred)
                 trues.append(y_test)
-                logger.info(f"debug::preds: \n{preds}")
-                logger.info(f"debug::trues: \n{trues}")
                 
-                # TODO debug
-                if i == 1:
-                    break
         # 测试结果保存
-        logger.info(f"debug::preds: \n{preds}")
-        logger.info(f"debug::trues: \n{trues}")
-        preds = np.array(preds).reshape(1, -1)
-        trues = np.array(trues).reshape(1, -1)
-        logger.info(f"Test results: preds: \n{preds} \npreds.shape: {preds.shape}")
-        logger.info(f"Test results: trues: \n{trues} \ntrues.shape: {trues.shape}")
+        preds = np.array(preds).reshape(-1, 1)
+        trues = np.array(trues).reshape(-1, 1)
+        logger.info(f"Test results: preds.shape: {preds.shape}, trues.shape: {trues.shape}")
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
         logger.info(f"{40 * '-'}")
@@ -596,9 +600,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         logger.info(f"Test visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        preds_flat = np.concatenate(preds, axis = 0)
-        trues_flat = np.concatenate(trues, axis = 0)
-        predict_result_visual(preds_flat, trues_flat, path=Path(test_results_path).joinpath("test_pred.png")) 
+        predict_result_visual(preds.reshape(-1), trues.reshape(-1), path=Path(test_results_path)) 
         logger.info(test_results_path)
         # log
         logger.info(f"{40 * '-'}")

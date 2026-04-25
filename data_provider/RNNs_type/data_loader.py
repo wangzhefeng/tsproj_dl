@@ -75,14 +75,22 @@ class _RNNBaseDataset(Dataset):
             raise ValueError("train_ratio + test_ratio must be <= 1.")
 
     def _read_raw_frame(self, data_path: Path) -> pd.DataFrame:
-        df_raw = pd.read_csv(data_path, parse_dates=[self.time])
-        logger.info(f"Train data: \n{df_raw.head()}")
-        logger.info(f"Train data shape: {df_raw.shape}")
-        logger.info(f"Train data NA check: \n{df_raw.isna().sum()}")
+        if not data_path.exists():
+            raise FileNotFoundError(f"Data file not found: {data_path}")
+
+        df_raw = pd.read_csv(data_path)
+        if self.time not in df_raw.columns:
+            raise ValueError(f"Time column `{self.time}` not found in {data_path}.")
+        df_raw[self.time] = pd.to_datetime(df_raw[self.time])
+
+        log_label = self.flag.capitalize()
+        logger.info(f"{log_label} data: \n{df_raw.head()}")
+        logger.info(f"{log_label} data shape: {df_raw.shape}")
+        logger.info(f"{log_label} data NA check: \n{df_raw.isna().sum()}")
 
         df_raw = time_col_rename(df_raw, time_col=self.time)
         df_raw = time_col_distinct(df_raw, time_col="time")
-        logger.info(f"Train data shape after drop timestamp duplicate: {df_raw.shape}")
+        logger.info(f"{log_label} data shape after drop timestamp duplicate: {df_raw.shape}")
 
         df_complete = pd.DataFrame({
             "time": pd.date_range(
@@ -96,13 +104,13 @@ class _RNNBaseDataset(Dataset):
             if col != "time":
                 df_complete[col] = df_complete["time"].map(source[col])
         df_raw = df_complete
-        logger.info(f"Train data shape after date complete: {df_raw.shape}")
+        logger.info(f"{log_label} data shape after date complete: {df_raw.shape}")
 
         df_raw.set_index("time", inplace=True)
         df_raw = df_raw.interpolate(method="linear", limit_direction="both")
         df_raw = df_raw.dropna(axis=0)
         df_raw.reset_index(inplace=True)
-        logger.info(f"Train data shape after interpolate and dropna: {df_raw.shape}")
+        logger.info(f"{log_label} data shape after interpolate and dropna: {df_raw.shape}")
 
         if self.target not in df_raw.columns:
             raise ValueError(f"Target column `{self.target}` not found in {data_path}.")
@@ -111,7 +119,7 @@ class _RNNBaseDataset(Dataset):
         cols.remove(self.target)
         cols.remove("time")
         df_raw = df_raw[["time"] + cols + [self.target]]
-        logger.info(f"Train data shape after feature order: {df_raw.shape}")
+        logger.info(f"{log_label} data shape after feature order: {df_raw.shape}")
 
         return df_raw
 
@@ -123,7 +131,7 @@ class _RNNBaseDataset(Dataset):
 
         self.feature_dim = df_data.shape[1]
         self.target_dim = 1 if self.features in ["MS", "S"] else self.feature_dim
-        logger.info(f"Train data shape after feature selection: {df_data.shape}")
+        logger.info(f"{self.flag.capitalize()} data shape after feature selection: {df_data.shape}")
 
         return df_data
 
@@ -203,8 +211,12 @@ class Dataset_Train(_RNNBaseDataset):
         self.time = time
         self.freq = freq
         self.features = features
-        self.flag = flag if flag != "val" else "valid"
-        assert self.flag in ["train", "test", "valid"]
+        self.flag = flag
+        if self.flag not in ["train", "valid", "test"]:
+            raise ValueError(
+                f"Unsupported dataset flag: {flag}. "
+                "Expected one of ['train', 'valid', 'test']."
+            )
         type_map = {"train": 0, "valid": 1, "test": 2}
         self.set_type = type_map[self.flag]
         self.seq_len = seq_len
@@ -226,10 +238,11 @@ class Dataset_Train(_RNNBaseDataset):
 
         border1s, border2s = self._fit_scaler(df_data)
         data = self._transform_frame(df_data)
-        logger.info(f"Train data shape after standardization: {data.shape}")
+        logger.info(f"{self.flag.capitalize()} data shape after standardization: {data.shape}")
 
         border1, border2 = border1s[self.set_type], border2s[self.set_type]
         data_tensor = torch.as_tensor(data[border1:border2], dtype=torch.float32)
+        self.data = data_tensor
         logger.info(
             f"Train data length: {border2s[0]-border1s[0]}, "
             f"Valid data length: {border2s[1]-border1s[1]}, "
@@ -239,6 +252,12 @@ class Dataset_Train(_RNNBaseDataset):
         logger.info(f"{self.flag.capitalize()} input data shape: {data_tensor.shape}")
 
         self.sequences = self.__create_input_sequences(data_tensor)
+        if not self.sequences:
+            raise ValueError(
+                f"{self.flag} split has no windows. "
+                f"Need at least seq_len + pred_len = {self.seq_len + self.pred_len} rows, "
+                f"got {len(data_tensor)}."
+            )
 
     def __create_input_sequences(self, input_data: torch.Tensor) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         output_seq = []

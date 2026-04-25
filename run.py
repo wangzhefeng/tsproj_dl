@@ -20,12 +20,28 @@ import argparse
 
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
-# from exp.exp_forecasting_rnns import Exp_Long_Term_Forecast
+from exp.exp_forecasting_rnns import Exp_Long_Term_Forecast as Exp_RNN_Long_Term_Forecast
 from utils.args_tools import print_args_ts
 from utils.device import torch_gc
 from utils.m4 import M4Meta
 from utils.random_seed import set_seed
 from utils.log_util import logger
+
+
+RNN_TODO_MODELS = {
+    "BiLSTM_todo",
+    "DeepAR_todo",
+    "DSSM_todo",
+    "GRU_todo",
+    "LSTM2LSTM_todo",
+    "LSTM_Attention_todo",
+    "LSTM_CNN_todo",
+    "LSTM_todo",
+    "NeuralODEs_todo",
+    "RNN_todo",
+    "S4_todo",
+    "Seq2Seq_LSTM_todo",
+}
 
 
 def _normalize_output_dir(path_like: str | Path) -> str:
@@ -53,6 +69,16 @@ def _set_output_dirs(args):
         args.forecast_results = _normalize_output_dir(args.forecast_results)
 
     return args
+
+
+def _select_experiment_class(args):
+    if args.task_name == "long_term_forecast" and args.model in RNN_TODO_MODELS:
+        return Exp_RNN_Long_Term_Forecast
+    if args.task_name == "long_term_forecast":
+        return Exp_Long_Term_Forecast
+    if args.task_name == "short_term_forecast":
+        return Exp_Short_Term_Forecast
+    return Exp_Long_Term_Forecast
 
 
 def args_parse():
@@ -205,18 +231,7 @@ def args_parse():
 
 
 def run(args):
-    if args.task_name == 'long_term_forecast':
-        Exp = Exp_Long_Term_Forecast
-    elif args.task_name == 'short_term_forecast':
-        Exp = Exp_Short_Term_Forecast
-    # elif args.task_name == 'imputation':
-    #     Exp = Exp_Imputation
-    # elif args.task_name == 'anomaly_detection':
-    #     Exp = Exp_Anomaly_Detection
-    # elif args.task_name == 'classification':
-    #     Exp = Exp_Classification
-    else:
-        Exp = Exp_Long_Term_Forecast
+    Exp = _select_experiment_class(args)
 
     if args.task_name == "short_term_forecast" and args.data == "m4":
         args.pred_len = M4Meta.horizons_map[args.seasonal_patterns]

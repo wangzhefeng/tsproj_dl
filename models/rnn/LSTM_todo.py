@@ -119,7 +119,7 @@ class Model(nn.Module):
         # logger.info(f"debug::H.shape: {H.shape}")
         
         # [num_layers, batch_size, hidden_size]
-        h_t = torch.zeros(self.args.num_layers, batch_size, self.hidden_size).to(x.device)
+        h_t = torch.zeros(self.args.num_layers, batch_size, self.args.hidden_size).to(x.device)
         # logger.info(f"debug::h_t.shape: {h_t.shape}")
         
         c_t = h_t.clone()
