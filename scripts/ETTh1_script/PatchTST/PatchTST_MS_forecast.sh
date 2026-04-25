@@ -1,18 +1,19 @@
 # export CUDA_VISIBLE_DEVICES=0
-export LOG_NAME=patchtst-etth1
+export LOG_NAME=patchtst-etth1-ms-forecast
 
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/tsproj_dl_matplotlib}"
 mkdir -p "$MPLCONFIGDIR"
 
 model_name=PatchTST
 
-# 训练、验证、测试
+# 生产离线推理：只加载已训练 checkpoint 和 scaler，不触发训练/测试
 "${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
     --task_name long_term_forecast \
-    --des 'Exp PatchTST_24_12_24' \
-    --is_training 1 \
-    --is_testing 1 \
+    --des 'Forecast PatchTST_MS_96_48_24' \
+    --is_training 0 \
+    --is_testing 0 \
     --is_forecasting 1 \
+    --forecast_require_artifacts 1 \
     --train_step 1 \
     --valid_step 1 \
     --testing_step 1 \
@@ -21,7 +22,7 @@ model_name=PatchTST
     --root_path ./dataset/ETT-small \
     --data_path ETTh1.csv \
     --data ETTh1 \
-    --features S \
+    --features MS \
     --target OT \
     --time date \
     --checkpoints ./results/pretrained_models/ \
@@ -38,8 +39,8 @@ model_name=PatchTST
     --embed_type 0 \
     --d_model 64 \
     --d_ff 128 \
-    --enc_in 1 \
-    --dec_in 1 \
+    --enc_in 7 \
+    --dec_in 7 \
     --c_out 1 \
     --e_layers 3 \
     --d_layers 1 \

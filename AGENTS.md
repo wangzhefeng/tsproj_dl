@@ -122,8 +122,10 @@
 | EXP-004 | Done | Codex | `data_provider/TFs_type/data_loader.py`, `exp/exp_long_term_forecasting.py`, `tests/` | PatchTST 特征全通道与目标单通道转换策略均有测试覆盖；train/valid/test/forecast smoke 通过 |
 | EXP-005 | Done | Codex | `exp/exp_long_term_forecasting.py`, `tests/test_transformer_family.py` | MPS 训练时 valid loss 不再把 device tensor 交给 NumPy；PatchTST training-only smoke 通过 |
 | EXP-006 | Done | Codex | `data_provider/TFs_type/data_loader.py`, `exp/exp_long_term_forecasting.py`, `scripts/ETTh1_script/PatchTST_*.sh` | 训练 scaler 随 checkpoint 保存，forecast 优先复用训练 scaler；PatchTST M/MS/S 脚本参数与策略一致；三类脚本 smoke 均通过 |
-| EXP-007 | Done | Codex | `run_dl.py`, `data_provider/TFs_type/*`, `exp/exp_long_term_forecasting.py`, `scripts/ETTh1_script/PatchTST_S.sh` | PatchTST_S 的 train/valid 数据步长、验证 shuffle、标准化和学习率调度策略完成优化并通过 smoke |
+| EXP-007 | Done | Codex | `run_dl.py`, `data_provider/TFs_type/*`, `exp/exp_long_term_forecasting.py`, `scripts/ETTh1_script/PatchTST/PatchTST_S.sh` | PatchTST_S 的 train/valid 数据步长、验证 shuffle、标准化和学习率调度策略完成优化并通过 smoke |
 | EXP-008 | Done | Codex | `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_loader.py`, `utils/metrics_dl.py` | test 时间轴缝合支持 testing_step，test 复用训练 scaler，MAPE/MSPE 避免 inf |
+| EXP-009 | Done | Codex | `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_loader.py`, `scripts/ETTh1_script/PatchTST/PatchTST_S_forecast.sh` | forecast 作为生产离线推理入口：强制 checkpoint/scaler 校验，输出元数据，提供 forecast-only 脚本 |
+| EXP-010 | Done | Codex | `scripts/ETTh1_script/PatchTST/` | PatchTST S/MS/M 训练测试预测脚本与 forecast-only 脚本统一归档到专用目录 |
 
 任务更新规则：
 

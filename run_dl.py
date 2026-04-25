@@ -86,6 +86,7 @@ def args_parse():
     parser.add_argument('--checkpoints', type=str, default=None, help='checkpoint directory, defaults to <results_root>/pretrained_models/')
     parser.add_argument('--test_results', type=str, default=None, help='test result directory, defaults to <results_root>/test_results/')
     parser.add_argument('--forecast_results', type=str, default=None, help='forecast result directory, defaults to <results_root>/forecast_results/') 
+    parser.add_argument('--forecast_require_artifacts', type=int, default=1, help='require checkpoint and scaler artifacts for production forecasting')
     # forecasting task
     parser.add_argument('--seq_len', type=int, required=True, default=72, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=12, help='start token length')

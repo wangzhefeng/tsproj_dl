@@ -127,6 +127,17 @@ def _load_scaler_artifacts(path):
     return scalers, metadata
 
 
+def _validate_regular_time_index(stamps, freq):
+    dates = pd.to_datetime(pd.Series(stamps), format="mixed")
+    if dates.isna().any():
+        raise ValueError("forecast history contains invalid timestamps")
+    if len(dates) <= 1:
+        return
+    expected = pd.date_range(dates.iloc[0], periods=len(dates), freq=freq)
+    if not dates.reset_index(drop=True).equals(pd.Series(expected)):
+        raise ValueError(f"forecast history timestamps are not continuous with freq='{freq}'")
+
+
 class Dataset_Train(Dataset):
     
     def __init__(self,
@@ -406,6 +417,7 @@ class Dataset_Pred(Dataset):
         self.target_scaler = StandardScaler()
         if self.scale:
             scaler_path = getattr(self.args, "scaler_path", None)
+            require_scaler_artifact = bool(getattr(self.args, "require_scaler_artifact_for_pred", False))
             if scaler_path and _scaler_artifact_path(scaler_path).exists():
                 scalers, metadata = _load_scaler_artifacts(scaler_path)
                 self.full_scaler = scalers["full_scaler"]
@@ -420,6 +432,12 @@ class Dataset_Pred(Dataset):
                     raise ValueError(f"scaler target mismatch: expected {expected_target}, got {self.target}")
                 logger.info(f"Scaler artifacts have been loaded from path: {_scaler_artifact_path(scaler_path)}")
             else:
+                if require_scaler_artifact:
+                    if scaler_path:
+                        expected_scaler_path = _scaler_artifact_path(scaler_path)
+                    else:
+                        expected_scaler_path = "<missing scaler_path>"
+                    raise FileNotFoundError(f"required scaler artifacts not found in path: {expected_scaler_path}")
                 if scaler_path:
                     logger.info(f"Scaler artifacts not found in path: {_scaler_artifact_path(scaler_path)}. Fit scalers with current prediction data.")
                 self.full_scaler.fit(df_data.values)
@@ -435,6 +453,7 @@ class Dataset_Pred(Dataset):
         # 时间戳特征处理
         forecast_history_stamp = pd.to_datetime(df_raw[self.time].iloc[border1:border2], format='mixed')
         forecast_history_stamp = forecast_history_stamp.reset_index(drop=True)
+        _validate_regular_time_index(forecast_history_stamp, self.freq)
         forecast_future_stamp = pd.date_range(forecast_history_stamp.iloc[-1], periods=self.pred_len + 1, freq=self.freq)[1:]
         self.forecast_start_time = forecast_future_stamp[0]
         self.history_dates = forecast_history_stamp.to_numpy()

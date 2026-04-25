@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 ROOT = str(Path.cwd())
 if ROOT not in sys.path: sys.path.append(ROOT)
+import json
+import subprocess
 import time
 
 import numpy as np
@@ -186,7 +188,66 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         test_results.to_csv(Path(path).joinpath("test_results.csv"), index=False, encoding="utf-8")
         logger.info(f"test_results: \n{test_results.head()}")
     
-    def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None):
+    @staticmethod
+    def _git_revision():
+        try:
+            return subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=ROOT,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        except Exception:
+            return "unknown"
+
+    @staticmethod
+    def _require_file(path, description):
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"required {description} not found: {path}")
+        return path
+
+    def _build_forecast_metadata(
+        self,
+        setting,
+        pred_data,
+        history_frame,
+        forecast_frame,
+        checkpoint_path,
+        scaler_path,
+        scaler_loaded_from_artifact,
+        elapsed_seconds,
+    ):
+        return {
+            "setting": setting,
+            "model": getattr(self.args, "model", None),
+            "model_id": getattr(self.args, "model_id", None),
+            "task_name": getattr(self.args, "task_name", None),
+            "features": getattr(self.args, "features", None),
+            "target": getattr(self.args, "target", None),
+            "feature_names": getattr(pred_data, "feature_names", []),
+            "prediction_columns": list(forecast_frame.columns[1:]),
+            "seq_len": getattr(self.args, "seq_len", None),
+            "label_len": getattr(self.args, "label_len", None),
+            "pred_len": getattr(self.args, "pred_len", None),
+            "freq": getattr(self.args, "freq", None),
+            "scale": bool(getattr(self.args, "scale", 0)),
+            "inverse": bool(getattr(self.args, "inverse", 0)),
+            "checkpoint_path": str(Path(checkpoint_path).resolve()) if checkpoint_path else None,
+            "scaler_path": str(Path(scaler_path).resolve()) if scaler_path else None,
+            "scaler_loaded_from_artifact": bool(scaler_loaded_from_artifact),
+            "history_start": str(history_frame["date"].iloc[0]),
+            "history_end": str(history_frame["date"].iloc[-1]),
+            "forecast_start": str(forecast_frame["date"].iloc[0]),
+            "forecast_end": str(forecast_frame["date"].iloc[-1]),
+            "history_points": len(history_frame),
+            "forecast_points": len(forecast_frame),
+            "device": str(self.device),
+            "elapsed_seconds": float(elapsed_seconds),
+            "git_commit": self._git_revision(),
+        }
+
+    def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None, metadata=None):
         """
         预测结果保存
         """
@@ -198,12 +259,24 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         
         if preds_df is not None:
             preds_df.to_csv(path.joinpath('forecast.csv'), index=False, encoding="utf_8_sig")
+
+        if metadata is None:
+            metadata = {}
+        with open(path.joinpath("metadata.json"), "w", encoding="utf-8") as metadata_file:
+            json.dump(metadata, metadata_file, ensure_ascii=False, indent=2)
         
         with open(path.joinpath('summary.txt'), 'w', encoding='utf-8') as summary_file:
             summary_file.write(setting + '\n')
             summary_file.write(f'prediction only: no ground truth available\n')
             summary_file.write(f'history_points:{len(trues_df)}, forecast_points:{len(preds_df)}\n')
             summary_file.write(f'forecast_target:{preds_df.columns[-1]}\n')
+            if metadata:
+                summary_file.write(f"checkpoint_path:{metadata.get('checkpoint_path')}\n")
+                summary_file.write(f"scaler_path:{metadata.get('scaler_path')}\n")
+                summary_file.write(f"scaler_loaded_from_artifact:{metadata.get('scaler_loaded_from_artifact')}\n")
+                summary_file.write(f"history_range:{metadata.get('history_start')} -> {metadata.get('history_end')}\n")
+                summary_file.write(f"forecast_range:{metadata.get('forecast_start')} -> {metadata.get('forecast_end')}\n")
+                summary_file.write(f"device:{metadata.get('device')}\n")
     
     def _model_forward(self, data, batch_x, batch_y, batch_x_mark, batch_y_mark, flag, reverse=False):
         """
@@ -635,9 +708,19 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         https://github.com/thuml/Autoformer/blob/main/exp/exp_main.py#L241
         https://github.com/thuml/Autoformer/blob/main/predict.ipynb
         """
-        self.args.scaler_path = str(self._get_scaler_path(setting))
+        forecast_start_time = time.time()
+        model_checkpoint_path = self._get_model_path(setting)
+        scaler_path = self._get_scaler_path(setting)
+        require_artifacts = bool(getattr(self.args, "forecast_require_artifacts", 1))
+        if load and require_artifacts:
+            self._require_file(model_checkpoint_path, "forecast checkpoint")
+            self._require_file(scaler_path, "forecast scaler artifact")
+        self.args.scaler_path = str(scaler_path)
+        self.args.require_scaler_artifact_for_pred = bool(load and require_artifacts and getattr(self.args, "scale", 0))
         # 构建预测数据集
         pred_data, pred_loader = self._get_data(flag='pred')
+        if len(pred_loader) != 1:
+            raise ValueError(f"forecast expects exactly one prediction batch, got {len(pred_loader)}")
         # 数据预处理
         batch_x, batch_y, batch_x_mark, batch_y_mark = next(iter(pred_loader))
         batch_x = batch_x.float().to(self.device)
@@ -651,8 +734,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             logger.info(f"{40 * '-'}")
             logger.info("Pretrained model has loaded from:")
             logger.info(f"{40 * '-'}")
-            model_checkpoint_path = self._get_model_path(setting)
-            self.model.load_state_dict(torch.load(model_checkpoint_path)["model"]) 
+            self._require_file(model_checkpoint_path, "forecast checkpoint")
+            self.model.load_state_dict(torch.load(model_checkpoint_path, map_location=self.device)["model"])
             logger.info(model_checkpoint_path)
         # 模型预测结果保存地址
         logger.info(f"{40 * '-'}")
@@ -697,17 +780,39 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # 预测结果保存
         if len(pred_columns) != preds.shape[-1]:
             pred_columns = pred_columns[-preds.shape[-1]:]
+        if self.args.features in ["S", "MS"]:
+            expected_channels = 1
+        elif self.args.features == "M":
+            expected_channels = len(feature_names)
+        else:
+            raise ValueError(f"unsupported features mode: {self.args.features}")
+        if preds.shape[-1] != expected_channels:
+            raise ValueError(
+                f"forecast output channel mismatch for features='{self.args.features}': "
+                f"expected {expected_channels}, got {preds.shape[-1]}"
+            )
         # 历史数据表
         history_frame = pd.DataFrame(history_values, columns=feature_names)
         history_frame.insert(0, "date", history_dates)
         # 预测数据表
         forecast_frame = pd.DataFrame(preds, columns=pred_columns)
         forecast_frame.insert(0, "date", future_dates)
+        elapsed_seconds = time.time() - forecast_start_time
+        metadata = self._build_forecast_metadata(
+            setting=setting,
+            pred_data=pred_data,
+            history_frame=history_frame,
+            forecast_frame=forecast_frame,
+            checkpoint_path=model_checkpoint_path if load else None,
+            scaler_path=scaler_path if (getattr(self.args, "scale", 0) and load) else None,
+            scaler_loaded_from_artifact=bool(getattr(self.args, "scale", 0) and load and scaler_path.exists()),
+            elapsed_seconds=elapsed_seconds,
+        )
         # 最终预测值保存
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        self._pred_results_save(history_frame, forecast_frame, preds, pred_results_path, setting)
+        self._pred_results_save(history_frame, forecast_frame, preds, pred_results_path, setting, metadata=metadata)
         logger.info(pred_results_path)
         # 预测结果可视化
         logger.info(f"{40 * '-'}")
