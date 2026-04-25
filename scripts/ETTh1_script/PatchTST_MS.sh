@@ -44,7 +44,9 @@ model_name=PatchTST
     --factor 3 \
     --n_heads 1 \
     --dropout 0.05 \
+    --rev 1 \
     --padding 0 \
+    --output_attention 0 \
     --num_workers 0 \
     --itr 1 \
     --train_epochs 10 \
@@ -57,6 +59,7 @@ model_name=PatchTST
     --lradj type1 \
     --scale 0 \
     --inverse 0 \
+    --use_amp 0 \
     --use_gpu 1 \
     --gpu_type 'mps' \
     --use_multi_gpu 0 \
