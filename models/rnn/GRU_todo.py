@@ -105,6 +105,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         
         self.args = args
+        self.output_dim = 1 if args.features in ["MS", "S"] else args.feature_size
         self.gru = nn.GRU(
             args.feature_size, 
             args.hidden_size, 
@@ -113,27 +114,19 @@ class Model(nn.Module):
             batch_first=True
         )
         self.dropout = nn.Dropout(0.1)
-        self.fc = nn.Linear(args.hidden_size, args.output_size)
-        self.relu = nn.ReLU()
+        self.horizon_projection = nn.Linear(args.hidden_size, args.pred_len * self.output_dim)
     
     def forward(self, x):
-        batch_size, seq_len, feature_size = x.shape
+        batch_size = x.shape[0]
 
         h0_gru = torch.zeros(self.args.num_layers, batch_size, self.args.hidden_size).to(x.device)
         
         # gru layer
-        out, _ = self.gru(x, h0_gru)
-        out = self.dropout(out)
+        _, hidden_state = self.gru(x, h0_gru)
+        final_hidden = self.dropout(hidden_state[-1])
+        out = self.horizon_projection(final_hidden)
         
-        # 取最后 pred_len 时间步的输出
-        out = out[:, -self.args.pred_len:, :]
-        
-        # fc linear
-        out = self.fc(out)
-        # relu
-        out = self.relu(out)
-        
-        return out
+        return out.reshape(batch_size, self.args.pred_len, self.output_dim)
 
 
 

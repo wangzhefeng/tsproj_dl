@@ -12,10 +12,10 @@ mkdir -p "$MPLCONFIGDIR"
     --des 'Exp GRU_todo ETTh1 smoke' \
     --is_training 1 \
     --is_testing 1 \
+    --is_forecasting 0 \
     --train_step 4 \
     --valid_step 4 \
-    --testing_step 24 \
-    --is_forecasting 0 \
+    --testing_step 6 \
     --model_id "$model_id" \
     --model "$model_name" \
     --root_path ./dataset/ETT-small \
@@ -41,19 +41,19 @@ mkdir -p "$MPLCONFIGDIR"
     --test_results ./results/test_results/ \
     --forecast_results ./results/forecast_results/ \
     --itr 1 \
-    --train_epochs 1 \
+    --train_epochs 30 \
     --batch_size 4 \
     --learning_rate 5e-3 \
     --loss MSE \
     --optimizer adam \
     --activation gelu \
     --use_dtw 0 \
-    --patience 3 \
+    --patience 7 \
     --lradj type1 \
     --scale 1 \
     --inverse 1 \
     --num_workers 0 \
-    --use_gpu 0 \
-    --gpu_type cpu \
+    --use_gpu 1 \
+    --gpu_type mps \
     --use_multi_gpu 0 \
-    --devices 0
+    --devices 0,1,2,3,4,5,6,7

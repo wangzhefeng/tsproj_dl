@@ -20,7 +20,7 @@ from utils.model_tools import adjust_learning_rate, EarlyStopping
 # loss
 from utils.losses import mape_loss, mase_loss, smape_loss
 # metrics
-from utils.metrics_dl import metric
+from utils.metrics_dl import metric, percentage_error_valid_count
 from utils.plot_results import predict_result_visual
 from utils.plot_losses import plot_losses
 # log
@@ -157,56 +157,78 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         """
         测试结果保存
         """
+        def _format_metric_line(label, values, true_values):
+            r2, mse, rmse, mae, mape, mape_accuracy, mspe, dtw = values
+            mape_valid_count = percentage_error_valid_count(true_values)
+            return (
+                f"{label}: r2:{r2:.4f}, mse:{mse:.4f}, rmse:{rmse:.4f}, "
+                f"mae:{mae:.4f}, mape:{mape:.4f}, mape accuracy:{mape_accuracy:.4f}, "
+                f"mspe:{mspe:.4f}, mape_valid_count:{mape_valid_count}, dtw:{dtw}"
+            )
+
         # ------------------------------
         # 计算窗口级测试结果评价指标
         # ------------------------------
         # 窗口级测试结果
-        window_r2, window_mse, window_rmse, window_mae, window_mape, window_mape_accuracy, window_mspe, window_dtw = metric(
-            preds.reshape(-1, preds.shape[-1]),
-            trues.reshape(-1, trues.shape[-1]),
+        window_preds = preds.reshape(-1, preds.shape[-1])
+        window_trues = trues.reshape(-1, trues.shape[-1])
+        window_metrics = metric(
+            window_preds,
+            window_trues,
             use_dtw=self.args.use_dtw,
         )
-        window_summary_line = (
-            f"Window metrics: r2:{window_r2:.4f}, mse:{window_mse:.4f}, rmse:{window_rmse:.4f}, "
-            f"mae:{window_mae:.4f}, mape:{window_mape:.4f}, mape accuracy:{window_mape_accuracy:.4f}, "
-            f"mspe:{window_mspe:.4f}, dtw:{window_dtw}"
-        )
+        window_summary_line = _format_metric_line("Window metrics", window_metrics, window_trues)
         logger.info(window_summary_line)
+        horizon_mae = np.mean(np.abs(preds - trues), axis=(0, 2))
+        horizon_summary_line = "Horizon MAE: " + ", ".join(
+            [f"horizon_{idx + 1}:{value:.4f}" for idx, value in enumerate(horizon_mae)]
+        )
+        logger.info(horizon_summary_line)
         # 真实时间轴级测试结果
         timeline_summary_line = None
+        test_results = None
         if stitched_preds is not None and stitched_trues is not None:
-            (timeline_r2, timeline_mse, timeline_rmse, timeline_mae, timeline_mape, timeline_mape_accuracy, timeline_mspe, timeline_dtw) = metric(
-                stitched_preds.reshape(-1, stitched_preds.shape[-1]),
-                stitched_trues.reshape(-1, stitched_trues.shape[-1]),
+            observed_mask = self._observed_timeline_mask(stitched_preds, stitched_trues, overlap_counts)
+            observed_preds = stitched_preds[observed_mask]
+            observed_trues = stitched_trues[observed_mask]
+            if len(observed_preds) == 0:
+                raise ValueError("No observed timeline points are available for test metrics.")
+            timeline_metrics = metric(
+                observed_preds.reshape(-1, observed_preds.shape[-1]),
+                observed_trues.reshape(-1, observed_trues.shape[-1]),
                 use_dtw=self.args.use_dtw,
             )
-            timeline_summary_line = (
-                f"Timeline metrics: r2:{timeline_r2:.4f}, mse:{timeline_mse:.4f}, rmse:{timeline_rmse:.4f}, "
-                f"mae:{timeline_mae:.4f}, mape:{timeline_mape:.4f}, "
-                f"mape accuracy:{timeline_mape_accuracy:.4f}, mspe:{timeline_mspe:.4f}, dtw:{timeline_dtw}"
+            timeline_summary_line = _format_metric_line(
+                "Timeline observed metrics",
+                timeline_metrics,
+                observed_trues.reshape(-1, observed_trues.shape[-1]),
             )
             logger.info(timeline_summary_line)
+            test_results = self._build_stitched_results_frame(
+                stitched_preds,
+                stitched_trues,
+                overlap_counts,
+                stitched_dates,
+            ).loc[observed_mask].reset_index(drop=True)
 
         target_summary_line = None
         if target_dim is not None and preds.shape[-1] > 1:
             target_idx = target_dim if target_dim >= 0 else preds.shape[-1] + target_dim
             target_preds = preds[..., target_idx:target_idx + 1].reshape(-1, 1)
             target_trues = trues[..., target_idx:target_idx + 1].reshape(-1, 1)
-            target_r2, target_mse, target_rmse, target_mae, target_mape, target_mape_accuracy, target_mspe, target_dtw = metric(
+            target_metrics = metric(
                 target_preds,
                 target_trues,
                 use_dtw=self.args.use_dtw,
             )
-            target_summary_line = (
-                f"Target metrics: r2:{target_r2:.4f}, mse:{target_mse:.4f}, rmse:{target_rmse:.4f}, "
-                f"mae:{target_mae:.4f}, mape:{target_mape:.4f}, "
-                f"mape accuracy:{target_mape_accuracy:.4f}, mspe:{target_mspe:.4f}, dtw:{target_dtw}"
-            )
+            target_summary_line = _format_metric_line("Target metrics", target_metrics, target_trues)
             logger.info(target_summary_line)
 
         with open(Path(path).joinpath("result_forecast.txt"), "w", encoding="utf-8") as file:
             file.write(setting + "  \n")
             file.write(window_summary_line)
+            file.write('\n')
+            file.write(horizon_summary_line)
             file.write('\n')
             if timeline_summary_line is not None:
                 file.write(timeline_summary_line)
@@ -223,15 +245,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         flat_results = pd.DataFrame({"preds": preds.reshape(-1), "trues": trues.reshape(-1)})
         flat_results.to_csv(Path(path).joinpath("test_results_windows.csv"), index=False, encoding="utf-8")
         # 缝合的测试集上的预测值、真实值
-        if stitched_preds is not None and stitched_trues is not None:
-            test_results = self._build_stitched_results_frame(stitched_preds, stitched_trues, overlap_counts, stitched_dates)
-        else:
+        if test_results is None:
             test_results = flat_results.copy()
             test_results.insert(0, "step", np.arange(len(test_results)))
         test_results.to_csv(Path(path).joinpath("test_results.csv"), index=False, encoding="utf-8")
         logger.info(f"test_results: \n{test_results.head()}")
         np.save(path.joinpath('metrics.npy'), np.array([
-            window_r2, window_mae, window_mse, window_rmse, window_mape, window_mape_accuracy, window_mspe, window_dtw
+            window_metrics[0], window_metrics[3], window_metrics[1], window_metrics[2],
+            window_metrics[4], window_metrics[5], window_metrics[6], window_metrics[7]
         ], dtype=object))
         np.save(path.joinpath('preds.npy'), preds)
         np.save(path.joinpath('trues.npy'), trues)
@@ -634,8 +655,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         logger.info(f"Test visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
         target_dim = -1 if self.args.features in ["M", "MS"] else 0
-        preds_flat = stitched_preds[:, target_dim]
-        trues_flat = stitched_trues[:, target_dim]
+        observed_mask = self._observed_timeline_mask(stitched_preds, stitched_trues, overlap_counts)
+        preds_flat = stitched_preds[observed_mask, target_dim]
+        trues_flat = stitched_trues[observed_mask, target_dim]
         predict_result_visual(preds_flat, trues_flat, path=Path(test_results_path)) 
         logger.info(test_results_path)
         # log
@@ -668,8 +690,20 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         counts_safe = np.where(counts == 0, 1, counts)
         stitched_preds = pred_sum / counts_safe
         stitched_trues = true_sum / counts_safe
+        gap_mask = counts.squeeze(-1) == 0
+        stitched_preds[gap_mask] = np.nan
+        stitched_trues[gap_mask] = np.nan
         
         return stitched_preds.astype(np.float32), stitched_trues.astype(np.float32), counts.squeeze(-1)
+
+    @staticmethod
+    def _observed_timeline_mask(stitched_preds: np.ndarray, stitched_trues: np.ndarray, overlap_counts=None):
+        if overlap_counts is not None:
+            observed_mask = np.asarray(overlap_counts) > 0
+        else:
+            observed_mask = np.ones(len(stitched_preds), dtype=bool)
+        finite_mask = np.isfinite(stitched_preds).all(axis=1) & np.isfinite(stitched_trues).all(axis=1)
+        return observed_mask & finite_mask
 
     @staticmethod
     def _build_stitched_results_frame(stitched_preds: np.ndarray, stitched_trues: np.ndarray, overlap_counts=None, stitched_dates=None):

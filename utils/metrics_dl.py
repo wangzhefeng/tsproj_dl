@@ -20,6 +20,8 @@ from sklearn.metrics import r2_score
 from utils.dtw_metric import accelerated_dtw
 from utils.log_util import logger
 
+PERCENTAGE_ERROR_EPS = 1.0
+
 
 def RSE(pred, true):
     return np.sqrt(np.sum((true - pred) ** 2)) / np.sqrt(np.sum((true - true.mean()) ** 2))
@@ -54,8 +56,10 @@ def MAE(pred, true):
 def MAPE(pred, true):
     true = np.asarray(true, dtype=float)
     pred = np.asarray(pred, dtype=float)
-    denominator = np.where(np.abs(true) < 1e-8, 1.0, np.abs(true))
-    return np.mean(np.abs((true - pred) / denominator))
+    valid_mask = percentage_error_mask(true)
+    if not np.any(valid_mask):
+        return np.nan
+    return np.mean(np.abs((true[valid_mask] - pred[valid_mask]) / np.abs(true[valid_mask])))
 
 
 def MAPE_v2(true: Union[List, np.array], pred: Union[List, np.array]):
@@ -64,22 +68,38 @@ def MAPE_v2(true: Union[List, np.array], pred: Union[List, np.array]):
     """
     true = np.asarray(true, dtype=float)
     pred = np.asarray(pred, dtype=float)
-    denominator = np.where(np.abs(true) < 1e-8, 1.0, np.abs(true))
-    return float(np.mean(np.abs((true - pred) / denominator)))
+    valid_mask = percentage_error_mask(true)
+    if not np.any(valid_mask):
+        return np.nan
+    return float(np.mean(np.abs((true[valid_mask] - pred[valid_mask]) / np.abs(true[valid_mask]))))
 
 
 def Accuracy(pred, true):
     """
     时序预测准确率计算，1-MAPE
     """
-    return 1 - MAPE_v2(true, pred)
+    mape = MAPE_v2(true, pred)
+    if np.isnan(mape):
+        return np.nan
+    return 1 - mape
 
 
 def MSPE(pred, true):
     true = np.asarray(true, dtype=float)
     pred = np.asarray(pred, dtype=float)
-    denominator = np.where(np.abs(true) < 1e-8, 1.0, np.abs(true))
-    return np.mean(np.square((true - pred) / denominator))
+    valid_mask = percentage_error_mask(true)
+    if not np.any(valid_mask):
+        return np.nan
+    return np.mean(np.square((true[valid_mask] - pred[valid_mask]) / np.abs(true[valid_mask])))
+
+
+def percentage_error_mask(true, eps=PERCENTAGE_ERROR_EPS):
+    true = np.asarray(true, dtype=float)
+    return np.isfinite(true) & (np.abs(true) >= eps)
+
+
+def percentage_error_valid_count(true, eps=PERCENTAGE_ERROR_EPS):
+    return int(np.sum(percentage_error_mask(true, eps=eps)))
 
 
 def DTW(preds, trues, use_dtw=False):
