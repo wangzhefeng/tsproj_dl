@@ -9,7 +9,7 @@ mkdir -p "$MPLCONFIGDIR"
 # model vars
 model_name=LSTM2LSTM
 
-"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run.py \
     --task_name long_term_forecast \
     --des 'Exp' \
     --is_training 1 \

@@ -6,7 +6,7 @@ mkdir -p "$MPLCONFIGDIR"
 
 model_name=iTransformer
 
-"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run.py \
   --task_name short_term_forecast \
   --des 'Exp' \
   --is_training 1 \

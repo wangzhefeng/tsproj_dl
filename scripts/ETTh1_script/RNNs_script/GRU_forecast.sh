@@ -30,7 +30,7 @@ mkdir -p "$MPLCONFIGDIR"
     --label_len 0 \
     --pred_len 6 \
     --step_size 1 \
-    --pred_method direct_multi_step \
+    --pred_method direct_multi_output \
     --feature_size 7 \
     --output_size 1 \
     --hidden_size 32 \

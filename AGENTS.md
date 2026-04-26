@@ -26,11 +26,11 @@
 
 当前唯一维护主线为 Transformer 长期预测链路：
 
-`run_dl.py -> exp/exp_long_term_forecasting.py -> data_provider/TFs_type -> exp/exp_basic.py`
+`run.py -> exp/exp_long_term_forecasting.py -> data_provider/TFs_type -> exp/exp_basic.py`
 
 说明：
 
-- `run_dl.py` 是当前推荐命令行入口
+- `run.py` 是当前推荐命令行入口
 - `exp/exp_long_term_forecasting.py` 是当前推荐训练主流程
 - `data_provider/TFs_type` 是当前推荐数据处理主线
 - `exp/exp_basic.py` 负责维护主线模型注册与设备初始化
@@ -42,7 +42,7 @@
 
 ## 4. 目录职责
 
-- `run_dl.py`：统一训练、测试、预测入口
+- `run.py`：统一训练、测试、预测入口
 - `exp/`：实验主流程
   - `exp_basic.py`：基础实验接口与模型注册
   - `exp_long_term_forecasting.py`：当前主训练主线
@@ -61,7 +61,7 @@
 
 ## 5. 当前状态
 
-主线链路（`run_dl.py → exp_long_term_forecasting.py → TFs_type → exp_basic.py`）已全面打通，DLinear / Transformer / TSMixer / N_HiTs / N_BEATS 五条 ETTh1 smoke 已完成，工程依赖、输出目录、字体配置均已收敛。
+主线链路（`run.py → exp_long_term_forecasting.py → TFs_type → exp_basic.py`）已全面打通，DLinear / Transformer / TSMixer / N_HiTs / N_BEATS 五条 ETTh1 smoke 已完成，工程依赖、输出目录、字体配置均已收敛。
 
 **资产状态：**
 
@@ -75,7 +75,7 @@
 
 ### 可用骨架
 
-- 主训练骨架：`run_dl.py`、`exp/exp_long_term_forecasting.py`、`exp/exp_basic.py`
+- 主训练骨架：`run.py`、`exp/exp_long_term_forecasting.py`、`exp/exp_basic.py`
 - Transformer 数据主线：`data_provider/TFs_type/*`
 - 当前工程辅助：`scripts/smoke/*`、`scripts/dev/audit_runtime_utils_imports.py`、`tests/`
 - 当前保留的数据集主目录：`dataset/ETT-small/`、`dataset/weather/`、`dataset/traffic/`、`dataset/illness/`、`dataset/m4/`
@@ -122,17 +122,18 @@
 | EXP-004 | Done | Codex | `data_provider/TFs_type/data_loader.py`, `exp/exp_long_term_forecasting.py`, `tests/` | PatchTST 特征全通道与目标单通道转换策略均有测试覆盖；train/valid/test/forecast smoke 通过 |
 | EXP-005 | Done | Codex | `exp/exp_long_term_forecasting.py`, `tests/test_transformer_family.py` | MPS 训练时 valid loss 不再把 device tensor 交给 NumPy；PatchTST training-only smoke 通过 |
 | EXP-006 | Done | Codex | `data_provider/TFs_type/data_loader.py`, `exp/exp_long_term_forecasting.py`, `scripts/ETTh1_script/PatchTST_*.sh` | 训练 scaler 随 checkpoint 保存，forecast 优先复用训练 scaler；PatchTST M/MS/S 脚本参数与策略一致；三类脚本 smoke 均通过 |
-| EXP-007 | Done | Codex | `run_dl.py`, `data_provider/TFs_type/*`, `exp/exp_long_term_forecasting.py`, `scripts/ETTh1_script/PatchTST/PatchTST_S.sh` | PatchTST_S 的 train/valid 数据步长、验证 shuffle、标准化和学习率调度策略完成优化并通过 smoke |
+| EXP-007 | Done | Codex | `run.py`, `data_provider/TFs_type/*`, `exp/exp_long_term_forecasting.py`, `scripts/ETTh1_script/PatchTST/PatchTST_S.sh` | PatchTST_S 的 train/valid 数据步长、验证 shuffle、标准化和学习率调度策略完成优化并通过 smoke |
 | EXP-008 | Done | Codex | `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_loader.py`, `utils/metrics_dl.py` | test 时间轴缝合支持 testing_step，test 复用训练 scaler，MAPE/MSPE 避免 inf |
 | EXP-009 | Done | Codex | `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_loader.py`, `scripts/ETTh1_script/PatchTST/PatchTST_S_forecast.sh` | forecast 作为生产离线推理入口：强制 checkpoint/scaler 校验，输出元数据，提供 forecast-only 脚本 |
 | EXP-010 | Done | Codex | `scripts/ETTh1_script/PatchTST/` | PatchTST S/MS/M 训练测试预测脚本与 forecast-only 脚本统一归档到专用目录 |
 | EXP-011 | Done | Codex | `scripts/ETTh1_script/iTransformer/` | iTransformer S/MS/M 训练测试预测脚本与 forecast-only 脚本统一归档到专用目录；脚本语法检查通过 |
-| EXP-012 | Doing | Codex | `run_dl.py`, `exp/exp_short_term_forecasting.py`, `scripts/M4_short_term/`, `tests/` | M4 iTransformer 6 个短期预测脚本恢复可运行；`short_term_forecast` 走短期实验类；首个脚本完成 train/valid/test smoke |
+| EXP-012 | Doing | Codex | `run.py`, `exp/exp_short_term_forecasting.py`, `scripts/M4_short_term/`, `tests/` | M4 iTransformer 6 个短期预测脚本恢复可运行；`short_term_forecast` 走短期实验类；首个脚本完成 train/valid/test smoke |
 | EXP-013 | Done | Codex | `run.py`, `data_provider/RNNs_type/*`, `models/rnn/LSTM_todo.py`, `models/rnn/GRU_todo.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | LSTM_todo/GRU_todo 通过 RNN 数据管道完成 ETTh1 train/test smoke；`run.py` 对 RNN todo 模型路由到旧 RNN 实验类；相关 unittest 通过 |
 | EXP-014 | Done | Codex | `exp/exp_forecasting_rnns.py`, `data_provider/RNNs_type/data_loader.py`, `tests/` | RNN 实验类对齐主线工程化：train 保存 scaler，test 保存窗口级与时间轴级结果，forecast 支持 direct multi-step 并产出标准预测文件 |
 | EXP-015 | Done | Codex | `exp/exp_forecasting_rnns.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | RNN test/forecast 数据转换语义收敛：test 强制复用 scaler artifact，窗口级预测保持三维保存，target 主指标单独输出，forecast 脚本默认原始量纲输出；相关 unittest 通过 |
 | EXP-016 | Done | Codex | `exp/exp_forecasting_rnns.py`, `models/rnn/LSTM_todo.py`, `models/rnn/GRU_todo.py`, `utils/metrics_dl.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | 已修复 LSTM/GRU 测试结果异常：时间轴缝合空洞不参与指标，MAPE/MSPE 忽略近零真实值，LSTM/GRU 使用真正 direct multi-step horizon head，RNN 脚本 testing_step 对齐 pred_len；RNN 回归与 LSTM/GRU train-test/forecast smoke 通过 |
 | EXP-017 | Done | Codex | `exp/exp_forecasting_rnns.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | RNN testing 已改为 rolling-origin backtest：默认 `testing_step=1`，结构化保存窗口级 horizon 结果，时间轴重叠均值缝合，增加 persistence/seasonal naive baseline，修正窗口样例图避免历史段误导；RNN 回归与 LSTM/GRU smoke 通过 |
+| EXP-018 | Done | Codex | `data_provider/RNNs_type/data_loader.py`, `exp/exp_forecasting_rnns.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | 递归策略 train/valid 使用单步监督，test/forecast 递归生成完整 horizon；`direct_multi_output` 成为 RNN 脚本默认多步直接输出语义；RNN 数据与实验 unittest、本地 data factory smoke、脚本语法检查通过 |
 
 任务更新规则：
 

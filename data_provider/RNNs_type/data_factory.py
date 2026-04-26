@@ -108,7 +108,7 @@ def build_local_test_args(**overrides):
         features="MS",
         seq_len=24,
         pred_len=6,
-        pred_method="direct_multi_step",
+        pred_method="direct_multi_output",
         step_size=1,
         train_step=4,
         valid_step=4,

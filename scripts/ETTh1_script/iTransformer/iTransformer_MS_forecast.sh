@@ -7,7 +7,7 @@ mkdir -p "$MPLCONFIGDIR"
 model_name=iTransformer
 
 # 生产离线推理：只加载已训练 checkpoint 和 scaler，不触发训练/测试
-"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run.py \
     --task_name long_term_forecast \
     --des 'Forecast iTransformer_MS_24_12_24' \
     --is_training 0 \

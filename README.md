@@ -6,9 +6,9 @@
 
 ## 项目简介
 
-- 当前推荐入口是 `run_dl.py`。
+- 当前推荐入口是 `run.py`。
 - 当前推荐主线是长周期时间序列预测链路：
-  `run_dl.py -> exp/exp_long_term_forecasting.py -> data_provider/TFs_type -> exp/exp_basic.py`
+  `run.py -> exp/exp_long_term_forecasting.py -> data_provider/TFs_type -> exp/exp_basic.py`
 - 目前仓库中包含可直接使用模块、在建模块和待补充模块，具体开发状态请查看根目录 `AGENTS.md`。
 
 ## 环境准备
@@ -59,7 +59,7 @@ bash scripts/smoke/smoke_etth1_transformer.sh
 示例 4：直接调用训练入口
 
 ```bash
-python run_dl.py \
+python run.py \
     --task_name long_term_forecast \
     --des "Exp Transformer_24_12_24" \
     --is_training 1 \
@@ -114,7 +114,7 @@ python run_dl.py \
 
 ## 目录简介
 
-- `run_dl.py`：命令行训练/测试/预测入口
+- `run.py`：命令行训练/测试/预测入口
 - `exp/`：实验流程，包括训练、验证、测试、预测主逻辑
 - `data_provider/`：数据读取、切窗、标准化、时间特征与 DataLoader 构建
 - `models/`：模型实现，按 `transformer`、`mlp`、`rnn`、`cnn`、`gnn`、`others` 分类

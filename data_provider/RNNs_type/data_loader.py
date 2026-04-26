@@ -194,7 +194,7 @@ class _RNNBaseDataset(Dataset):
 
     def _build_label_window(self, input_data: torch.Tensor, start_idx: int) -> torch.Tensor:
         label_start = start_idx + self.seq_len
-        label_end = label_start + self.pred_len
+        label_end = label_start + self._supervision_len()
 
         if self.features in ["MS", "S"]:
             future_target = input_data[label_start:label_end, -1:]
@@ -202,6 +202,11 @@ class _RNNBaseDataset(Dataset):
             future_target = input_data[label_start:label_end]
 
         return future_target
+
+    def _supervision_len(self) -> int:
+        if self.pred_method == "recursive_multi_step" and self.flag in ["train", "valid"]:
+            return 1
+        return self.pred_len
 
     def _inverse_input_dim(self, data: np.ndarray) -> np.ndarray:
         if data.ndim == 2:
@@ -300,9 +305,10 @@ class Dataset_Train(_RNNBaseDataset):
     def __create_input_sequences(self, input_data: torch.Tensor) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         output_seq = []
         input_data_len = len(input_data)
+        supervision_len = self._supervision_len()
 
         for i in range(0, input_data_len - self.seq_len, self.step_size):
-            if (i + self.seq_len + self.pred_len) > input_data_len:
+            if (i + self.seq_len + supervision_len) > input_data_len:
                 break
 
             train_seq = input_data[i:(i + self.seq_len)]

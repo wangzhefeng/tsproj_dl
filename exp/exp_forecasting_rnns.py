@@ -333,6 +333,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             "freq": getattr(self.args, "freq", None),
             "scale": bool(getattr(self.args, "scale", 0)),
             "inverse": bool(getattr(self.args, "inverse", 0)),
+            "recursive_covariate_policy": self._recursive_covariate_policy(),
             "checkpoint_path": str(Path(checkpoint_path).resolve()) if checkpoint_path else None,
             "scaler_path": str(Path(scaler_path).resolve()) if scaler_path else None,
             "scaler_loaded_from_artifact": bool(scaler_loaded_from_artifact),
@@ -346,6 +347,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             "elapsed_seconds": float(elapsed_seconds),
             "git_commit": self._git_revision(),
         }
+
+    def _recursive_covariate_policy(self):
+        pred_method = getattr(self.args, "pred_method", None)
+        if pred_method not in {"recursive_multi_step", "direct_recursive_multi_step_mix"}:
+            return None
+        if self.args.features == "MS":
+            return "target column is recursively replaced; non-target covariates keep the latest observed row"
+        if self.args.features == "S":
+            return "single target column is recursively replaced"
+        if self.args.features == "M":
+            return "all output columns are recursively replaced"
+        return None
 
     def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None, metadata=None):
         """
@@ -382,6 +395,19 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         target_idx = getattr(data, "target_idx", values.shape[-1] - 1)
         return values[..., target_idx:target_idx + 1]
 
+    @staticmethod
+    def _select_next_step(values):
+        if values.ndim == 2:
+            values = values.unsqueeze(1)
+        return values[:, :1, :]
+
+    @staticmethod
+    def _uses_recursive_rollout(pred_method: str, flag: str) -> bool:
+        return flag in ["test", "pred"] and pred_method in {
+            "recursive_multi_step",
+            "direct_recursive_multi_step_mix",
+        }
+
     def _model_forward(self, data, batch_x, batch_y=None, flag="train", reverse=False):
         """
         RNN 前向传播与输出/目标统一处理。
@@ -397,7 +423,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             raise NotImplementedError("seq2seq_multi_step forecast is not implemented for RNN todo models yet.")
 
         def _run_model():
-            if flag == "pred" and pred_method == "recursive_multi_step":
+            if self._uses_recursive_rollout(pred_method, flag):
                 return self._forecast_recursive_tensor(batch_x)
             return self.model(batch_x)
 
@@ -409,9 +435,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         if outputs.ndim == 2:
             outputs = outputs.unsqueeze(-1)
-        outputs = outputs[:, -self.args.pred_len:, :]
+        if pred_method == "recursive_multi_step" and flag in ["train", "valid"]:
+            outputs = self._select_next_step(outputs)
+        else:
+            outputs = outputs[:, -self.args.pred_len:, :]
         if batch_y is not None:
-            batch_y = batch_y[:, -self.args.pred_len:, :]
+            if pred_method == "recursive_multi_step" and flag in ["train", "valid"]:
+                batch_y = batch_y[:, :1, :]
+            else:
+                batch_y = batch_y[:, -self.args.pred_len:, :]
             outputs, batch_y = self._align_prediction_target(outputs, batch_y)
 
         if self.args.features == "MS":
@@ -434,9 +466,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         preds = []
         for _ in range(self.args.pred_len):
             step_output = self.model(current)
-            if step_output.ndim == 2:
-                step_output = step_output.unsqueeze(1)
-            step_pred = step_output[:, -1:, :]
+            step_pred = self._select_next_step(step_output)
             preds.append(step_pred)
 
             next_row = current[:, -1:, :].clone()

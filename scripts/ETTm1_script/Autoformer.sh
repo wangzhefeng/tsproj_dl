@@ -7,7 +7,7 @@ mkdir -p "$MPLCONFIGDIR"
 model_name=Autoformer
 
 # 训练、验证、测试
-"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run.py \
     --task_name long_term_forecast \
     --des 'Exp' \
     --is_training 0 \

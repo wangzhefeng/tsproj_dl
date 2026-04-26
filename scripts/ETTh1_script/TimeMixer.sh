@@ -7,7 +7,7 @@ mkdir -p "$MPLCONFIGDIR"
 model_name=TimeMixer
 
 # 训练、验证、测试
-"${PYTHON_BIN:-./.venv/bin/python}" -u run_dl.py \
+"${PYTHON_BIN:-./.venv/bin/python}" -u run.py \
     --task_name long_term_forecast \
     --des 'Exp TimeMixer_24_0_24' \
     --is_training 1 \
