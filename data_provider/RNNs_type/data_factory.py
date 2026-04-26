@@ -6,14 +6,10 @@
 # * Email       : zfwang7@gmail.com
 # * Date        : 2025-05-24
 # * Version     : 1.0.052418
-# * Description : https://blog.csdn.net/java1314777/article/details/134407174
+# * Description : description
 # * Link        : link
 # * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
 # ***************************************************
-
-__all__ = [
-    "data_provider"
-]
 
 # python libraries
 import sys
@@ -25,9 +21,9 @@ if ROOT not in sys.path:
 from torch.utils.data import DataLoader
 
 from data_provider.RNNs_type.data_loader import (
-    Dataset_Train,
-    Dataset_Pred,
+    Dataset_Train, Dataset_Pred,
 )
+from utils.log_util import logger
 
 # global variable
 LOGGING_LABEL = Path(__file__).name[:-3]
@@ -43,8 +39,10 @@ def data_provider(args, flag):
             f"Unsupported data flag: {flag}. "
             "Expected one of ['train', 'valid', 'test', 'pred']."
         )
+    # TODO 是否对时间戳进行编码
+    timeenc = 0 if args.embed != "timeF" else 1
     # 仅训练集打乱；验证、测试和预测保持时间顺序，便于复现和结果缝合
-    shuffle_flag = canonical_flag == "train"
+    shuffle_flag = True if canonical_flag == "train" else False
     # 是否丢弃最后一个 batch
     drop_last = False
     num_workers = 0 if canonical_flag == "pred" else args.num_workers
@@ -70,17 +68,18 @@ def data_provider(args, flag):
         args = args,
         root_path = args.root_path,
         data_path = args.data_path,
+        flag = canonical_flag,
+        features = args.features,
         target = args.target,
         time = args.time,
         freq = args.freq,
-        features = args.features,
         seq_len = args.seq_len,
         pred_len = args.pred_len,
         pred_method = args.pred_method,
         step_size = step_size,
         scale = args.scale,
-        flag = canonical_flag
     )
+    logger.info(f"{canonical_flag}: {len(data_set)}")
     data_loader = DataLoader(
         dataset = data_set,
         batch_size = batch_size,
@@ -95,49 +94,63 @@ def data_provider(args, flag):
 
 
 
-# 测试代码 main 函数
-def main():    
-    # command arguments
-    args = { 
-        # data 
-        # ----------------------------
-        "root_path": "./dataset/ETT-small",  # 数据集目录
-        "data_path": "ETTh1.csv",  # 数据文件名
-        "target": "OT",  # 数据目标特征
-        "time": "date",  # 数据时间列名
-        "freq": "h",  # 数据频率
-        "seq_len": 6,  # 窗口大小(历史)
-        "pred_len": 3,  # 预测长度
-        "step_size": 1,  # 滑窗步长
-        "batch_size": 1,
-        "train_ratio": 0.7,
-        "test_ratio": 0.2, 
-        "embed": "timeF",
-        "scale": True,
-        "num_workers": 0,
-        # task
-        # ----------------------------
-        "features": "MS",
-        "feature_size": 7,  # 特征个数(除了时间特征)
-        "hidden_size": 128,
-        "num_layers": 2,
-        "rolling_predict": True,  # 是否进行滚动预测功能
-        "rolling_data_path": "ETTh1Test.csv"  # 滚动数据集的数据
-    }
-    from utils.args_tools import DotDict
-    args = DotDict(args)
-    
-    # data
-    data_set, data_loader = data_provider(args, flag="train")
-    # data_set, data_loader = data_provider(args, flag="valid")
-    # data_set, data_loader = data_provider(args, flag="test")
+def build_local_test_args(**overrides):
+    """
+    构造 RNN 数据管道本地 smoke 参数。
+    """
+    from types import SimpleNamespace
+    args = dict(
+        root_path="./dataset/ETT-small",
+        data_path="ETTh1.csv",
+        target="OT",
+        time="date",
+        freq="h",
+        features="MS",
+        seq_len=24,
+        pred_len=6,
+        pred_method="direct_multi_step",
+        step_size=1,
+        train_step=4,
+        valid_step=4,
+        testing_step=1,
+        batch_size=4,
+        train_ratio=0.7,
+        test_ratio=0.2,
+        embed="timeF",
+        scale=1,
+        num_workers=0,
+        feature_size=7,
+        hidden_size=32,
+        num_layers=2,
+        rolling_predict=1,
+        rolling_data_path="ETTh1.csv",
+    )
+    args.update(overrides)
+    return SimpleNamespace(**args)
 
-    # data test
+
+def main():
+    """
+    本地快速测试 RNN 数据管道。
+    """
     from utils.log_util import logger
-    for input_seq, label_seq in data_loader:
-        logger.info(f"input_seq: \n{input_seq} \ninput_seq.shape: {input_seq.shape}")
-        logger.info(f"label_seq: \n{label_seq} \nlabel_seq.shape: {label_seq.shape}")
-        break
+
+    args = build_local_test_args()
+    for flag in ["train", "valid", "test", "pred"]:
+        logger.info(f"{40 * '='}")
+        logger.info(f"RNN data provider local smoke: flag={flag}")
+        logger.info(f"{40 * '='}")
+        data_set, data_loader = data_provider(args, flag=flag)
+        batch_x, batch_y = next(iter(data_loader))
+        logger.info(
+            f"flag={flag}, dataset_len={len(data_set)}, loader_len={len(data_loader)}, "
+            f"batch_size={data_loader.batch_size}, shuffle={data_loader.sampler.__class__.__name__}"
+        )
+        logger.info(
+            f"feature_dim={data_set.feature_dim}, target_dim={data_set.target_dim}, "
+            f"feature_names={data_set.feature_names}, pred_columns={data_set.pred_columns}"
+        )
+        logger.info(f"batch_x.shape={tuple(batch_x.shape)}, batch_y.shape={tuple(batch_y.shape)}")
 
 if __name__ == "__main__":
     main()

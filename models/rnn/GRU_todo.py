@@ -12,17 +12,8 @@
 # ***************************************************
 
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch
 import torch.nn as nn
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Model_v1(nn.Module):
@@ -134,27 +125,7 @@ class Model(nn.Module):
 
 # 测试代码 main 函数
 def main():
-    import torch
-    from utils.log_util import logger
-
-    # model
-    model = nn.GRU(
-        input_size=3, 
-        hidden_size=10, 
-        num_layers=2, 
-        bias=True, 
-        batch_first=True, 
-        bidirectional=False
-    )
-    logger.info(model)
-
-    # data
-    x = torch.randn(1, 5, 3)
-
-    # forward
-    output, h_0 = model(x)
-    print(output.shape)
-    print(h_0.shape)
+    pass
 
 if __name__ == "__main__":
     main()

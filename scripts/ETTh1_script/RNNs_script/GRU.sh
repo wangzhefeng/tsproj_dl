@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
+# export CUDA_VISIBLE_DEVICES=0
 
 model_id=ETTh1_GRU_todo_smoke
 model_name=GRU_todo
@@ -15,7 +15,7 @@ mkdir -p "$MPLCONFIGDIR"
     --is_forecasting 0 \
     --train_step 4 \
     --valid_step 4 \
-    --testing_step 6 \
+    --testing_step 1 \
     --model_id "$model_id" \
     --model "$model_name" \
     --root_path ./dataset/ETT-small \

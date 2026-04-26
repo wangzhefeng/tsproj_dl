@@ -132,6 +132,7 @@
 | EXP-014 | Done | Codex | `exp/exp_forecasting_rnns.py`, `data_provider/RNNs_type/data_loader.py`, `tests/` | RNN 实验类对齐主线工程化：train 保存 scaler，test 保存窗口级与时间轴级结果，forecast 支持 direct multi-step 并产出标准预测文件 |
 | EXP-015 | Done | Codex | `exp/exp_forecasting_rnns.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | RNN test/forecast 数据转换语义收敛：test 强制复用 scaler artifact，窗口级预测保持三维保存，target 主指标单独输出，forecast 脚本默认原始量纲输出；相关 unittest 通过 |
 | EXP-016 | Done | Codex | `exp/exp_forecasting_rnns.py`, `models/rnn/LSTM_todo.py`, `models/rnn/GRU_todo.py`, `utils/metrics_dl.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | 已修复 LSTM/GRU 测试结果异常：时间轴缝合空洞不参与指标，MAPE/MSPE 忽略近零真实值，LSTM/GRU 使用真正 direct multi-step horizon head，RNN 脚本 testing_step 对齐 pred_len；RNN 回归与 LSTM/GRU train-test/forecast smoke 通过 |
+| EXP-017 | Done | Codex | `exp/exp_forecasting_rnns.py`, `scripts/ETTh1_script/RNNs_script/`, `tests/` | RNN testing 已改为 rolling-origin backtest：默认 `testing_step=1`，结构化保存窗口级 horizon 结果，时间轴重叠均值缝合，增加 persistence/seasonal naive baseline，修正窗口样例图避免历史段误导；RNN 回归与 LSTM/GRU smoke 通过 |
 
 任务更新规则：
 

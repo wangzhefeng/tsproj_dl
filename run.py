@@ -29,18 +29,29 @@ from utils.log_util import logger
 
 
 RNN_TODO_MODELS = {
+    "CNN_Attention_todo",
+    "CNN_Conv1D_todo",
+    "CNN_Conv2D_todo",
+    "CNN_LSTM_Attention_todo",
+    "TCN_todo",
+
+    "MLP_todo",
+    "N_BEATS_todo",
+    "N_HiTs_todo",
+
     "BiLSTM_todo",
     "DeepAR_todo",
     "DSSM_todo",
     "GRU_todo",
-    "LSTM2LSTM_todo",
     "LSTM_Attention_todo",
     "LSTM_CNN_todo",
     "LSTM_todo",
+    "LSTM2LSTM_todo",
     "NeuralODEs_todo",
     "RNN_todo",
     "S4_todo",
     "Seq2Seq_LSTM_todo",
+    "Attention_todo",
 }
 
 
@@ -50,19 +61,23 @@ def _normalize_output_dir(path_like: str | Path) -> str:
 
 
 def _set_output_dirs(args):
+    """
+    模型结果输出路径处理
+    """
+    # output dirs
     results_root = _normalize_output_dir(args.results_root or "./results/")
     args.results_root = results_root
-
+    # checkpoints
     if not args.checkpoints:
         args.checkpoints = f"{results_root}pretrained_models/"
     else:
         args.checkpoints = _normalize_output_dir(args.checkpoints)
-
+    # testing results
     if not args.test_results:
         args.test_results = f"{results_root}test_results/"
     else:
         args.test_results = _normalize_output_dir(args.test_results)
-
+    # forecast results
     if not args.forecast_results:
         args.forecast_results = f"{results_root}forecast_results/"
     else:
@@ -264,7 +279,7 @@ def run(args):
                 logger.info(f">>>>>>>>> start testing: iter-{ii}: {training_setting}>>>>>>>>>>")
                 logger.info(f"{180 * '='}")
                 exp.test(setting=training_setting, load=False)
-
+    
     # 模型测试
     if not args.is_training and args.is_testing:
         for ii in range(args.itr):
@@ -291,7 +306,7 @@ def run(args):
         exp = Exp(args)
         # model training
         model = exp.train(final_training_setting)
-
+    
     # 模型预测
     if args.is_forecasting: 
         ii = 0  # "final"

@@ -12,19 +12,8 @@
 # ***************************************************
 
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch
 import torch.nn as nn
-
-from utils.log_util import logger
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Model_v1(nn.Module):
@@ -127,41 +116,7 @@ class Model(nn.Module):
 
 # 测试代码 main 函数
 def main():
-    from utils.log_util import logger
-
-    # command arguments
-    args = { 
-        # data 
-        # ----------------------------
-        "root_path": "./dataset/ETT-small",  # 数据集目录
-        "data_path": "ETTh1.csv",  # 数据文件名
-        "target": "OT",  # 数据目标特征
-        "time": "date",  # 数据时间列名
-        "freq": "h",  # 数据频率
-        "seq_len": 120,  # 窗口大小(历史)
-        "pred_len": 24,  # 预测长度
-        "step_size": 1,  # 滑窗步长
-        "batch_size": 1,
-        "train_ratio": 0.7,
-        "test_ratio": 0.2, 
-        "embed": "timeF",
-        "scale": True,
-        "num_workers": 0,
-        # task
-        # ----------------------------
-        "features": "S",
-        "feature_size": 1,  # 特征个数(除了时间特征)
-        "hidden_size": 128,
-        "num_layers": 2,
-        "rolling_predict": True,  # 是否进行滚动预测功能
-        "rolling_data_path": "ETTh1Test.csv"  # 滚动数据集的数据
-    }
-    from utils.args_tools import DotDict
-    args = DotDict(args)
-    
-    # model
-    rnn2 = Model(args)
-    logger.info(f"rnn2: \n{rnn2}")
+    pass
 
 if __name__ == "__main__":
     main()

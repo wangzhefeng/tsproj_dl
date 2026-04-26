@@ -12,23 +12,13 @@
 # ***************************************************
 
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch.nn as nn
-
-from utils.log_util import logger
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Model(nn.Module):
     """
     TCN(Temporal Convolutional Network)
+
     模型介绍：
         一种基于卷积神经网路的时间序列模型。
         它通过一系列的一维卷积层对输入序列进行特征提取，

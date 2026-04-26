@@ -34,6 +34,11 @@ def data_provider(args, flag):
     数据集构造
     """
     canonical_flag = flag.lower()
+    if canonical_flag not in ["train", "valid", "test", "pred"]:
+        raise ValueError(
+            f"Unsupported data flag: {flag}. "
+            "Expected one of ['train', 'valid', 'test', 'pred']."
+        )
     # 是否对时间戳进行编码
     timeenc = 0 if args.embed != "timeF" else 1
     # 仅训练集打乱；验证、测试和预测保持时间顺序，便于可复现评估和调试
@@ -65,8 +70,6 @@ def data_provider(args, flag):
         elif canonical_flag == "pred":
             batch_size = 1
             Data = Dataset_Pred
-        else:
-            raise ValueError(f"unsupported data flag: {flag}")
     # 构建 Dataset 和 DataLoader
     if args.task_name == 'anomaly_detection':
         drop_last = False

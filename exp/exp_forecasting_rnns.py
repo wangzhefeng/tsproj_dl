@@ -13,20 +13,21 @@ import torch
 import torch.nn as nn
 
 from exp.exp_basic import Exp_Basic
-# data pipeline
 from data_provider.RNNs_type.data_factory import data_provider
-# model training
 from utils.model_tools import adjust_learning_rate, EarlyStopping
-# loss
 from utils.losses import mape_loss, mase_loss, smape_loss
-# metrics
 from utils.metrics_dl import metric, percentage_error_valid_count
 from utils.plot_results import predict_result_visual
 from utils.plot_losses import plot_losses
-# log
 from utils.model_memory import model_memory_size
 from utils.timestamp_utils import from_unix_time
 from utils.log_util import logger
+
+import warnings
+warnings.filterwarnings('ignore')
+
+# global variable
+LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class Exp_Long_Term_Forecast(Exp_Basic):
@@ -153,6 +154,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                            stitched_trues=None,
                            overlap_counts=None,
                            stitched_dates=None,
+                           window_dates=None,
                            target_dim=None):
         """
         测试结果保存
@@ -165,6 +167,16 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 f"mae:{mae:.4f}, mape:{mape:.4f}, mape accuracy:{mape_accuracy:.4f}, "
                 f"mspe:{mspe:.4f}, mape_valid_count:{mape_valid_count}, dtw:{dtw}"
             )
+
+        def _baseline_metric_line(label, baseline_preds, baseline_trues):
+            if len(baseline_preds) < 2:
+                return f"{label}: not enough observed points"
+            baseline_values = metric(
+                baseline_preds.reshape(-1, baseline_preds.shape[-1]),
+                baseline_trues.reshape(-1, baseline_trues.shape[-1]),
+                use_dtw=self.args.use_dtw,
+            )
+            return _format_metric_line(label, baseline_values, baseline_trues)
 
         # ------------------------------
         # 计算窗口级测试结果评价指标
@@ -199,7 +211,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 use_dtw=self.args.use_dtw,
             )
             timeline_summary_line = _format_metric_line(
-                "Timeline observed metrics",
+                "Timeline rolling metrics",
                 timeline_metrics,
                 observed_trues.reshape(-1, observed_trues.shape[-1]),
             )
@@ -210,6 +222,19 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 overlap_counts,
                 stitched_dates,
             ).loc[observed_mask].reset_index(drop=True)
+
+        persistence_summary_line = None
+        seasonal_summary_line = None
+        if stitched_preds is not None and stitched_trues is not None:
+            observed_mask = self._observed_timeline_mask(stitched_preds, stitched_trues, overlap_counts)
+            observed_trues = stitched_trues[observed_mask]
+            persistence_summary_line, seasonal_summary_line = self._baseline_summary_lines(
+                observed_trues,
+                _baseline_metric_line,
+                seasonal_period=24,
+            )
+            logger.info(persistence_summary_line)
+            logger.info(seasonal_summary_line)
 
         target_summary_line = None
         if target_dim is not None and preds.shape[-1] > 1:
@@ -233,6 +258,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             if timeline_summary_line is not None:
                 file.write(timeline_summary_line)
                 file.write('\n')
+            if persistence_summary_line is not None:
+                file.write(persistence_summary_line)
+                file.write('\n')
+            if seasonal_summary_line is not None:
+                file.write(seasonal_summary_line)
+                file.write('\n')
             if target_summary_line is not None:
                 file.write(target_summary_line)
                 file.write('\n')
@@ -242,11 +273,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # 测试集上的预测值、真实值
         # ------------------------------
         # 无缝合的测试集上的预测值、真实值
-        flat_results = pd.DataFrame({"preds": preds.reshape(-1), "trues": trues.reshape(-1)})
-        flat_results.to_csv(Path(path).joinpath("test_results_windows.csv"), index=False, encoding="utf-8")
+        window_results = self._build_window_results_frame(preds, trues, window_dates)
+        window_results.to_csv(Path(path).joinpath("test_results_windows.csv"), index=False, encoding="utf-8")
         # 缝合的测试集上的预测值、真实值
         if test_results is None:
-            test_results = flat_results.copy()
+            test_results = pd.DataFrame({"preds": preds.reshape(-1), "trues": trues.reshape(-1)})
             test_results.insert(0, "step", np.arange(len(test_results)))
         test_results.to_csv(Path(path).joinpath("test_results.csv"), index=False, encoding="utf-8")
         logger.info(f"test_results: \n{test_results.head()}")
@@ -624,9 +655,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     inputs = x_test.detach().cpu().numpy()
                     if test_data.scale and self.args.inverse:
                         inputs = test_data.inverse_transform(inputs)
-                    true_plot = np.concatenate((inputs[0, :, -1], y_test[0, :, -1]), axis=0)
-                    pred_plot = np.concatenate((inputs[0, :, -1], outputs[0, :, -1]), axis=0)
-                    predict_result_visual(pred_plot, true_plot, path=test_results_path, iters=i)
+                    self._plot_rolling_origin_sample(
+                        inputs[0, :, -1],
+                        y_test[0, :, -1],
+                        outputs[0, :, -1],
+                        path=test_results_path,
+                        iters=i,
+                    )
         # 测试结果处理
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
@@ -634,6 +669,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         testing_step = getattr(test_data, "testing_step", getattr(self.args, "testing_step", 1))
         stitched_preds, stitched_trues, overlap_counts = self._stitch_window_predictions(preds, trues, step=testing_step)
         stitched_dates = self._build_test_stitched_dates(test_data, len(stitched_preds), step=testing_step)
+        window_dates = self._build_test_window_dates(test_data, preds.shape[0], preds.shape[1], step=testing_step)
         # 测试结果收集
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
@@ -647,6 +683,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             stitched_trues=stitched_trues,
             overlap_counts=overlap_counts,
             stitched_dates=stitched_dates,
+            window_dates=window_dates,
             target_dim=-1 if self.args.features in ["M", "MS"] else 0,
         )
         logger.info(test_results_path)
@@ -658,7 +695,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         observed_mask = self._observed_timeline_mask(stitched_preds, stitched_trues, overlap_counts)
         preds_flat = stitched_preds[observed_mask, target_dim]
         trues_flat = stitched_trues[observed_mask, target_dim]
-        predict_result_visual(preds_flat, trues_flat, path=Path(test_results_path)) 
+        self._plot_timeline_prediction(
+            preds_flat,
+            trues_flat,
+            Path(test_results_path),
+            testing_step=testing_step,
+            overlap_counts=overlap_counts[observed_mask],
+        )
         logger.info(test_results_path)
         # log
         logger.info(f"{40 * '-'}")
@@ -722,6 +765,61 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         return pd.DataFrame(rows)
 
     @staticmethod
+    def _build_window_results_frame(preds: np.ndarray, trues: np.ndarray, window_dates=None):
+        num_windows, pred_len, channels = preds.shape
+        rows = {
+            "window_idx": np.repeat(np.arange(num_windows), pred_len),
+            "horizon": np.tile(np.arange(1, pred_len + 1), num_windows),
+        }
+        if window_dates is None:
+            rows["date"] = np.full(num_windows * pred_len, "", dtype=object)
+        else:
+            rows["date"] = np.asarray(window_dates).reshape(-1).astype(str)
+
+        if channels == 1:
+            rows["preds"] = preds.reshape(-1)
+            rows["trues"] = trues.reshape(-1)
+        else:
+            flat_preds = preds.reshape(-1, channels)
+            flat_trues = trues.reshape(-1, channels)
+            for channel_idx in range(channels):
+                rows[f"preds_{channel_idx}"] = flat_preds[:, channel_idx]
+                rows[f"trues_{channel_idx}"] = flat_trues[:, channel_idx]
+
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _baseline_summary_lines(observed_trues: np.ndarray, formatter, seasonal_period: int = 24):
+        observed_trues = np.asarray(observed_trues)
+        if len(observed_trues) <= 1:
+            persistence_line = formatter(
+                "Persistence baseline metrics",
+                np.empty((0, observed_trues.shape[-1])),
+                np.empty((0, observed_trues.shape[-1])),
+            )
+        else:
+            persistence_line = formatter(
+                "Persistence baseline metrics",
+                observed_trues[:-1],
+                observed_trues[1:],
+            )
+
+        if len(observed_trues) <= seasonal_period:
+            seasonal_line = formatter(
+                "Seasonal naive baseline metrics",
+                np.empty((0, observed_trues.shape[-1])),
+                np.empty((0, observed_trues.shape[-1])),
+            )
+        else:
+            seasonal_line = formatter(
+                "Seasonal naive baseline metrics",
+                observed_trues[:-seasonal_period],
+                observed_trues[seasonal_period:],
+            )
+
+        return persistence_line, seasonal_line
+
+    @staticmethod
     def _build_test_stitched_dates(test_data, stitched_len: int, step: int = 1):
         """
         构建测试集重建时间轴。
@@ -733,8 +831,78 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         if len(stitched_dates) != stitched_len:
             return None
-        
+
         return stitched_dates.to_numpy()
+
+    @staticmethod
+    def _build_test_window_dates(test_data, num_windows: int, pred_len: int, step: int = 1):
+        segment_dates = getattr(test_data, "segment_dates", None)
+        if segment_dates is None:
+            return None
+
+        dates = pd.Series(segment_dates).reset_index(drop=True)
+        window_dates = []
+        for window_idx in range(num_windows):
+            start = test_data.seq_len + window_idx * step
+            end = start + pred_len
+            if end > len(dates):
+                return None
+            window_dates.append(dates.iloc[start:end].to_numpy())
+
+        return np.asarray(window_dates)
+
+    @staticmethod
+    def _build_rolling_origin_plot_series(history, future_true, future_pred):
+        history = np.asarray(history)
+        future_true = np.asarray(future_true)
+        future_pred = np.asarray(future_pred)
+        return {
+            "context_x": np.arange(-len(history), 0),
+            "future_x": np.arange(len(future_true)),
+            "context": history,
+            "future_true": future_true,
+            "future_pred": future_pred,
+        }
+
+    def _plot_rolling_origin_sample(self, history, future_true, future_pred, path, iters=None):
+        import matplotlib.pyplot as plt
+
+        path = Path(path)
+        series = self._build_rolling_origin_plot_series(history, future_true, future_pred)
+        plt.figure(figsize=(25, 8))
+        plt.plot(series["context_x"], series["context"], color="0.65", lw=1.4, label="History context")
+        plt.plot(series["future_x"], series["future_true"], color="C0", lw=1.8, label="Future true")
+        plt.plot(series["future_x"], series["future_pred"], color="C1", lw=1.8, ls="-.", label="Future pred")
+        plt.axvline(-0.5, color="0.3", lw=1.0, ls=":")
+        plt.legend()
+        plt.xlabel("Relative time from forecast origin")
+        plt.ylabel("Value")
+        plt.title("Rolling-origin Forecast Sample")
+        plt.grid(True)
+        plt.tight_layout()
+        filename = "prediction.png" if iters is None else f"{iters}.png"
+        plt.savefig(path.joinpath(filename), bbox_inches="tight", dpi=300)
+        plt.close()
+
+    @staticmethod
+    def _plot_timeline_prediction(preds, trues, path, testing_step=None, overlap_counts=None):
+        import matplotlib.pyplot as plt
+
+        path = Path(path)
+        overlap_label = ""
+        if overlap_counts is not None and len(overlap_counts) > 0:
+            overlap_label = f", overlap mean count={np.mean(overlap_counts):.2f}"
+        plt.figure(figsize=(25, 8))
+        plt.plot(preds, label="Rolling preds", lw=1.7, ls="-.")
+        plt.plot(trues, label="Trues", lw=1.7)
+        plt.legend()
+        plt.xlabel("Test timeline step")
+        plt.ylabel("Value")
+        plt.title(f"Rolling-origin Timeline Prediction (testing_step={testing_step}{overlap_label})")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(path.joinpath("prediction.png"), bbox_inches="tight", dpi=300)
+        plt.close()
 
     def forecast(self, setting, load: bool=True):
         """

@@ -12,19 +12,8 @@
 # ***************************************************
 
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch
 import torch.nn as nn
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device {device}.")
 
 
 class Encoder(nn.Module):

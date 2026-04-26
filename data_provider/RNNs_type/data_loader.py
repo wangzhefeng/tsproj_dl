@@ -6,7 +6,7 @@
 # * Email       : zfwang7@gmail.com
 # * Date        : 2025-01-20
 # * Version     : 1.0.012021
-# * Description : https://blog.csdn.net/java1314777/article/details/134407174
+# * Description : description
 # * Link        : link
 # * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
 # ***************************************************
@@ -77,46 +77,52 @@ class _RNNBaseDataset(Dataset):
             raise ValueError("train_ratio + test_ratio must be <= 1.")
 
     def _read_raw_frame(self, data_path: Path) -> pd.DataFrame:
+        # log label
+        log_label = self.flag.capitalize()
+
+        # data file check
         if not data_path.exists():
             raise FileNotFoundError(f"Data file not found: {data_path}")
-
+        
+        # read data
         df_raw = pd.read_csv(data_path)
+        
+        # time column check and transform
         if self.time not in df_raw.columns:
             raise ValueError(f"Time column `{self.time}` not found in {data_path}.")
         df_raw[self.time] = pd.to_datetime(df_raw[self.time])
 
-        log_label = self.flag.capitalize()
+        # df_raw log
         logger.info(f"{log_label} data: \n{df_raw.head()}")
         logger.info(f"{log_label} data shape: {df_raw.shape}")
         logger.info(f"{log_label} data NA check: \n{df_raw.isna().sum()}")
 
+        # time column rename and distinct
         df_raw = time_col_rename(df_raw, time_col=self.time)
         df_raw = time_col_distinct(df_raw, time_col="time")
         logger.info(f"{log_label} data shape after drop timestamp duplicate: {df_raw.shape}")
 
-        df_complete = pd.DataFrame({
-            "time": pd.date_range(
-                df_raw["time"].min(),
-                df_raw["time"].max(),
-                freq=self.freq,
-            )
-        })
+        # date complete
+        df_complete = pd.DataFrame({"time": pd.date_range(df_raw["time"].min(), df_raw["time"].max(), freq=self.freq)})
         source = df_raw.set_index("time")
         for col in df_raw.columns:
             if col != "time":
                 df_complete[col] = df_complete["time"].map(source[col])
         df_raw = df_complete
         logger.info(f"{log_label} data shape after date complete: {df_raw.shape}")
-
+        
+        # missing value interpolate
         df_raw.set_index("time", inplace=True)
         df_raw = df_raw.interpolate(method="linear", limit_direction="both")
         df_raw = df_raw.dropna(axis=0)
         df_raw.reset_index(inplace=True)
         logger.info(f"{log_label} data shape after interpolate and dropna: {df_raw.shape}")
 
+        # target column check
         if self.target not in df_raw.columns:
             raise ValueError(f"Target column `{self.target}` not found in {data_path}.")
 
+        # feature order
         cols = list(df_raw.columns)
         cols.remove(self.target)
         cols.remove("time")
@@ -262,14 +268,15 @@ class Dataset_Train(_RNNBaseDataset):
         logger.info(f"{40 * '-'}")
         logger.info(f"Load and Preprocess {self.flag} data...")
         logger.info(f"{40 * '-'}")
-
+        # read raw data
         df_raw = self._read_raw_frame(self.data_file_path)
+        # select feature
         df_data = self._select_feature_frame(df_raw)
-
+        # standardization
         border1s, border2s = self._fit_scaler(df_data)
         data = self._transform_frame(df_data)
         logger.info(f"{self.flag.capitalize()} data shape after standardization: {data.shape}")
-
+        # split
         border1, border2 = border1s[self.set_type], border2s[self.set_type]
         data_tensor = torch.as_tensor(data[border1:border2], dtype=torch.float32)
         self.data = data_tensor
@@ -393,10 +400,11 @@ class Dataset_Pred(_RNNBaseDataset):
         return sequence, label
 
 
+
+
 # 测试代码 main 函数
 def main():
     pass
-
 
 if __name__ == "__main__":
     main()

@@ -12,20 +12,8 @@
 # ***************************************************
 
 # python libraries
-import os
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-
 import torch
 import torch.nn as nn
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device {device}.")
 
 
 class Model_V1(nn.Module):
@@ -143,50 +131,7 @@ class Model_V3(nn.Module):
 
 # 测试代码 main 函数
 def main():
-    from tsproj_dl.config.bilstm import Config
-    from data_provider.RNNs_type.data_loader import Data_Loader
-    from exp.exp_forecasting_rnns import train, plot_train_results
-
-    # config
-    config = Config()
-    
-    # data
-    data_loader = Data_Loader(cfgs = config)
-    train_loader, test_loader = data_loader.run()
-
-    # model
-    model = Model_V1(
-        feature_size = config.feature_size,
-        hidden_size = config.hidden_size,
-        num_layers = config.num_layers,
-        output_size = config.output_size,
-    )
-    
-    # loss
-    loss_func = nn.MSELoss()
-    
-    # optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr = config.learning_rate)
-    
-    # model train
-    (y_train_pred, y_train_true), (y_test_pred, y_test_true) = train(
-        config = config,
-        train_loader = train_loader,
-        test_loader = test_loader,
-        model = model,
-        loss_func = loss_func,
-        optimizer = optimizer,
-        x_train_tensor = data_loader.x_train_tensor, 
-        y_train_tensor = data_loader.y_train_tensor,
-        x_test_tensor = data_loader.x_test_tensor,
-        y_test_tensor = data_loader.y_test_tensor,
-        plot_size = 200,
-        scaler = data_loader.scaler,
-    )
-    
-    # result plot
-    plot_train_results(y_train_pred, y_train_true)
-    plot_train_results(y_test_pred, y_test_true)
+    pass
 
 if __name__ == "__main__":
     main()

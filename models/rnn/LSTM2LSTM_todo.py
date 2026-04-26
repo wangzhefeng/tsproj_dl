@@ -11,26 +11,10 @@
 # * Requirement : 相关模块版本需求(例如: numpy >= 2.1.0)
 # ***************************************************
 
-__all__ = []
-
 # python libraries
-import sys
-from pathlib import Path
-ROOT = str(Path.cwd())
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
-from warnings import simplefilter
-simplefilter("ignore")
-from pathlib import Path
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from utils.log_util import logger
-
-# global variable
-LOGGING_LABEL = Path(__file__).name[:-3]
 
 
 class LSTMEncoder(nn.Module):
