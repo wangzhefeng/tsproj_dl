@@ -140,6 +140,20 @@ python run.py \
 
 历史风场业务脚本已归档到 [docs/archive_wind_forecast](/Users/wangzf/projects/tsproj_dl/docs/archive_wind_forecast)，不再作为当前主线可运行脚本维护。
 
+## RNN 系列续修记录
+
+当前 RNN 系列已完成 `pred_method` 基础语义收敛：`recursive_multi_step` 的 `train/valid` 使用单步监督，`test/forecast` 递归生成完整 horizon；`direct_multi_output` 作为现有多步直接输出实现的正式名称；RNN 脚本默认使用 `direct_multi_output`。
+
+下次继续修复时，优先处理以下未完成项：
+
+- 严格版 `direct_multi_step` 尚未实现。目前仍是“单模型多 horizon head”的过渡实现，未拆成每个 horizon 一个独立模型、独立 checkpoint 和独立评估流程。
+- `direct_recursive_multi_step_mix` 仍是实验性策略。目前只在预测阶段支持前序预测回填，尚未形成明确的训练样本构造、损失设计和可复现实验脚本。
+- `seq2seq_multi_step` 只保留接口和参数校验，训练、验证、测试、预测流程尚未实现。
+- 递归预测暂未引入未来已知协变量接口。`MS` 模式默认只回填目标列，其他特征沿用窗口最后一行；需要未来外生变量时，应补充专门的数据输入与对齐逻辑。
+- `recursive_multi_step` 目前复用现有多步输出模型结构，并只训练/使用第一个 horizon head；后续可以为递归策略增加真正的一步输出 head，避免无用输出参数。
+- RNN 策略还缺少完整业务脚本覆盖。当前 LSTM/GRU smoke 可用于基础回归，但四类 `pred_method`、`S/MS/M` 组合还没有形成系统脚本矩阵。
+- RNN 相关测试文件位于 `tests/`，但当前 `.gitignore` 忽略了 `tests/`。如果希望测试随仓库版本化，需要先调整忽略规则，再补充并提交策略级测试。
+
 ## 文档说明
 
 - `README.md`：项目使用说明、环境准备、运行方式、目录简介
