@@ -1,3 +1,10 @@
+---
+source_type: web
+created_at: 2026-01-01  # default placeholder, actual date unknown
+topics: [tsproj_dl]
+status: summarized
+---
+
 
 <details><summary>目录</summary><p>
 
