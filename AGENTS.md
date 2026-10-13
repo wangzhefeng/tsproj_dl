@@ -116,6 +116,8 @@
 
 | ID | Status | Owner | Targets | Acceptance |
 | --- | --- | --- | --- | --- |
+| DOC-001 | Done | MC | `docs/gslaformer/` | v4.0 方案完整归档并命名 GSLAformer；根 `.venv` Python 校验 2 份文档、3 个本地链接、14 个连续章节和代码围栏通过，`git diff --check` 通过；仅文档，模型未实现 |
+| DOC-002 | Done | MC | `docs/gslaformer/` | R2 设计与 implementation.md 已按用户决定完善：功能首轮验收、新实体免重训、归属交互、通用未来条件；根 `.venv` 校验章节／链接／围栏／JSON／维度与配置路径通过，`git diff --check` 通过；仅文档，模型未开发 |
 | EXP-001 | Doing | TBD | `exp/exp_forecasting_rnns.py`, `exp/exp_short_term_forecasting.py` | 已完成主要工具接口对齐；下一步需明确旧实验分支是继续维护还是转入暂缓区 |
 | EXP-002 | Done | Codex | `exp/exp_basic.py`, `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_factory.py`, `tests/` | `PatchTST.sh` 已完成 ETTh1 train/valid/test smoke；相关 unittest 通过 |
 | EXP-003 | Done | Codex | `data_provider/TFs_type/data_factory.py`, `tests/test_tfs_data_provider.py` | 数据集 flag 仅使用 `valid`，不再兼容 `val` |
