@@ -1,0 +1,53 @@
+{
+  "status": "pass",
+  "scope": "static documentation and example arithmetic only; no model tests",
+  "checks": {
+    "markdown_files": 10,
+    "local_links": 65,
+    "fenced_json_blocks": 1,
+    "per_site_window_counts": {
+      "L48_H6": {
+        "train": 811,
+        "valid": 48,
+        "test": 48
+      },
+      "L168_H24": {
+        "train": 673,
+        "valid": 12,
+        "test": 12
+      },
+      "L168_H72": {
+        "train": 625,
+        "valid": 4,
+        "test": 4
+      }
+    },
+    "hours_to_days": {
+      "6": 0.25,
+      "24": 1.0,
+      "72": 3.0
+    },
+    "quarter_hour_history_days": 7.0,
+    "quarter_hour_forecast_hours": 24.0,
+    "reference_relation_score_bytes": 88080384,
+    "reference_relation_score_MiB": 84.0,
+    "source_references": 23,
+    "diagram": {
+      "nodes": 13,
+      "edges": 13,
+      "gates": {
+        "validate": "pass",
+        "deliver": "pass",
+        "check": "pass",
+        "browser-check": "pass"
+      }
+    },
+    "artifact_hashes": {
+      "architecture.json": "a5c7315a45544a0623964b5fe39dc75d95688beebf54d2147848656be64e2d5d",
+      "architecture.html": "ddcbdb40b22a126a78249132bbc2f061dc48a643222e821e5d260d579b9c89cf",
+      "architecture.png": "27a9f8b6251f84d1b5ebdfb944b1496eb58a71bce17e24f3795a58ed7deaedd4"
+    },
+    "scoped_git_diff_check": 0
+  },
+  "errors": []
+}

@@ -1,6 +1,6 @@
-# GSLAformer R3：开发实施规格
+# GSLAformer R4：开发实施规格
 
-> 上位设计：[design.md](design.md)。本文件保留 D1–D5，落实第一性原理评估后的 R3 修订。
+> 上位设计：[design.md](design.md)。本文件保留 D1–D5 与 R3 核心计算，落实 R4 AIDC 输入合同和跨站点模拟验收。
 >
 > 状态：实施规格，模型、测试、配置文件和脚本均尚未实现；以下命令是后续开发目标，不是已执行证据。
 >
@@ -10,7 +10,7 @@
 >
 > 数值性质：本文件的模型尺寸、训练预算和合成数据数值是工程初始配置，不是实测最优值或用户业务参数。
 
-机制任务与验收见 [mechanism_tests.md](mechanism_tests.md)，本轮实际文档检查见 [review_r3.md](review_r3.md)。schema_version 升至 2；R2 只存在设计，不存在可迁移的模型产物。
+机制任务见 [mechanism_tests.md](mechanism_tests.md)，AIDC 业务字段见 [input_output.md](input_output.md)，多站点模拟协议见 [synthetic_aidc.md](synthetic_aidc.md)，组件与框架映射见 [integration.md](integration.md)。当前数据／模型 schema_version 为 3；R2/R3 只有设计，不存在模型产物迁移。[review_r3.md](review_r3.md)只保留历史审查证据，不覆盖本版新增合同。
 
 ## 1. 范围、决定与完成标准
 
@@ -24,7 +24,7 @@
 | D4 | 接受不胜过对照，必须真实报告 | 功能完成不要求胜出，不把合成结果包装成业务收益 |
 | D5 | 提供归属表，让关系参与计算 | 先实体交互再池化；full 模式不允许关系表只保存不消费 |
 
-新增实体限于同一系统、既有分组／属性／关系 schema；新实体可无动态历史，但需合法静态输入与关系，结果标注冷启动。新类型、新特征列和跨系统泛化不属于该承诺。
+新增实体限于既有分组／属性／关系 schema；新实体可无动态历史，但需合法静态输入与关系，结果标注冷启动。R4 增加多 AIDC 共享训练和同 schema 未见站点冻结推理，必须独立报告留出误差；不承诺新类型、新特征列或真实跨系统零样本精度。site_id 与 entity_id 都不进入可学习身份表。
 
 ### 1.2 首轮完成定义
 
@@ -37,6 +37,7 @@
 - CPU 验证与可用 MPS 的定向 smoke 均有实测证据；MPS 不可用时记录环境阻塞，不能冒充通过。
 - 基线和最小消融按同一合成协议运行，保存结果和失败情况，不要求完整模型获胜。
 - 原有模型入口定向回归通过，无全局依赖、外部服务或数据库迁移。
+- AIDC 六组 schema、多类型关系、站点与时间双轴切分，按 H=6/24/72 的独立 profile 完成模拟训练／测试／无标签新站预测，资源与失败结果如实记录。
 
 没有真实数据实验时只报告 synthetic 功能结论。文档与代码完成度分别记录，不把本规格的存在计入模型完成度。
 
@@ -50,19 +51,21 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `manifest.json` | `schema_version=2`、`data_kind=synthetic`、episode 清单、时区、频率、单位、分组 schema、分区边界、文件校验值 |
+| `manifest.json` | `schema_version=3`、`data_kind=synthetic`、episode 清单、时区、频率、单位、分组 schema、分区边界、文件校验值 |
 | `entities.json` | 分组内唯一 ID、数值／类别属性、有效区间、available_at、revision；ID 仅为字符串元数据 |
-| `relations.json` | `child_group/child_id/parent_group/parent_id/type/valid_from/valid_to/available_at` |
+| `relations.json` | `src_group/src_id/dst_group/dst_id/type/valid_from/valid_to/available_at/revision`；业务方向由类型规定 |
+| `site.json` | site_id、目标计量合同、站点角色；机制任务使用 synthetic_site，仍不作数值 ID 输入 |
+| `measurements.json` | 测点到实体／特征／端口的显式映射、来源单位及转换、冗余策略；纯机制夹具也声明直接生成的映射 |
 | `observations.npz` | `timestamps`、各组 values／observed／applicable／present／available_at、target／target_observed／target_available_at |
 | `known_future.npz` | 每条记录的 origin、target_time、feature index、value、observed、published_at、revision；无协变量时为空记录 |
 
-manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前者包含上表实体／关系／观测文件；后者包含 `episodes:[{id,family_id,split,path}]`，path 指向完整 single_episode 子包，split 限 train/valid/test。同一 family_id 不得跨 split。collection 根不伪造合并 observations，不把不同实体轴强拼成一个时间序列。
+manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前者包含上表文件；后者包含 `episodes:[{id,family_id,site_id,split,path}]`，path 指向完整 single_episode 子包。episode_family 模式的 split 限 train/valid/test，同一 family_id 不得跨 split。site_time 模式的 split 为 null，另附 topology_family_id、time_split 与 site_split，按 synthetic_aidc 的双轴协议生成窗口，不能给整个站点套一个时间分区。collection 根不伪造合并 observations，不把不同实体轴强拼成一个时间序列。
 
 `timestamps` 为严格递增、等间隔 UTC int64 秒；本地日历使用 manifest 的时区生成。首轮 synthetic 使用 UTC，避免把时间转换问题与模型测试混在一起。
 
 历史动态观测首版一个单元格只存一个值及其到达时间，不自动选择历史修订；真实数据若有版本修订，必须先做 as-of 来源适配，不直接导入最终修订宽表。未来协变量支持同一起点可见的多版本记录，按 `published_at <= origin` 选最近版本，时间相同再按显式 revision 排序；完全同键的冲突记录报错。
 
-关系边是业务归属，不是电气流向。关系 schema 声明允许的组间方向；允许多父级 DAG，但拒绝自环、重复边、循环和悬空端点。源表存子→父，计算时明确生成双向信息边。full 模式每个请求至少有一条有效边；某些孤立实体允许 self 通信，但记录 orphan 数量。
+关系 schema 声明 `name/src_groups/dst_groups/acyclic/reverse_message`，允许同组边、多来源和多目标，不把任意类型都解释成父子。业务方向与逐类型合法性见 input_output §3；acyclic=true 的类型单独拒绝循环，不要求所有类型合并后仍为 DAG。拒绝源记录自环、同类型重复边、跨站边和悬空端点；模型再生成 self 与显式反向通信，不把双向消息当物理反向供电。full 每个请求至少一条有效边；孤立实体允许 self，但记录 orphan 数量。AIDC 的 contains 还需按实体 space_level 验证方向；supplies 按端口／设备类型验证，组级白名单不是全部约束。
 
 ### 2.2 有效期、历史版本与请求快照
 
@@ -96,6 +99,7 @@ manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前�
 | `future_known` | float32 `[B,H,K]` | 已声明通用连续协变量，`K=0` 合法 |
 | `future_known_mask` | bool `[B,H,K]` | 在起点是否可用 |
 | `origins` | int64 `[B]` | 最后一个历史时刻 |
+| `site_ids/target_contract` | B 份元数据 | 站点隔离、目标边界、原始单位和审计；不作学习 ID |
 
 类别型未来协变量先由包 schema 展开成已声明数值列；不能在 forecast 临时增加列。真实来源读取器不属于首轮，标准包与合成生成器属于首轮。
 
@@ -110,7 +114,7 @@ manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前�
 
 ### 2.4 scaler、缺失与新实体
 
-- 连续观测和静态数值按 `(group, feature)` 在训练分区真实适用观测上统计，不按实体拟合；target 使用独立统计；协变量只使用训练 origin 可见的记录。
+- 连续观测和静态数值按 `(group, feature)` 在训练分区真实适用观测上统计，不按实体拟合；target 使用独立统计；协变量只使用训练 origin 可见的记录。AIDC 还必须限于训练站点训练时段，留出验证／测试站点的全部数据不能参与拟合。
 - 标准化均值与总体标准差存为 float64 元数据，模型输入 float32。标准差小于 `1e-6` 用 1；完全没有训练观测的已声明数值特征报错，不默默创建假统计。
 - 标准化后未观测或不适用位置填 0，同时传 observed／applicable。首版不前向填充，不用未来插值。
 - 新实体复用组级 scaler。未知属性类别映射 UNK，不添加新参数；保留数据质量计数，不声称已验证未知类别精度。
@@ -123,6 +127,8 @@ manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前�
 训练／验证／测试按 target-anchored 协议：`history=[t-L+1,t]`、`labels=[t+1,t+H]`，所有标签落在同一 split；历史可来自更早 split。首轮各 split stride=1，训练形成窗口后可 shuffle。未来未知观测绝不参与 origin 可用性选择。
 
 该规则对应配置 `split_mode=target_index`，需要严格递增 split_index。机制 collection 用 `split_mode=episode_family`、`split_index=null`，从 manifest 取 family split，并只选各长度 L+H episode 的 origin=L-1；拒绝同时提供 target_index 边界。不要把 base 的 320 行边界复制到 30 行的机制 episode。
+
+AIDC collection 使用第三种 `split_mode=site_time`，有 split_index、site_split 和每站独立时间轴。00–07 的训练／未来验证／未来测试与 08–09 未见验证、10–11 未见测试按 synthetic_aidc §4.3 分配；样本不跨站点。训练采用先均匀选站点再选 origin，epoch 的总抽样数等于所有训练站点合法窗口数（有放回），随机状态进入 checkpoint；valid/test 不抽样、不 shuffle，使用 profile 明确 stride。各 profile 的完整配置与样本数随产物保存。
 
 推理至少提供规则时间轴上的 L 个位置；实体级值可以缺失，不允许少行后偷偷改变 L。请求最后一时刻必须等于 origin。有效目标为零的监督 batch 不优化；整轮无有效主目标报错。
 
@@ -148,7 +154,7 @@ manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前�
 
 1. 对每时刻的实体 GRU 输出（静态组为属性 token）加入组内摘要 token，执行组内 TransformerEncoderLayer（Post-LN、GELU、FFN=`4*d_s`）。摘要 token 始终有效。
 2. 提取真实实体输出，按 schema 拼接各组实体轴。关系 attention 只消费实体 token，不让组内摘要成为未声明的跨组通信边。
-3. 关系层采用 `nn.MultiheadAttention` + residual/Post-LN + FFN；attention 的 query 行是接收方，key 列是发送方。self、子接收父、父接收子有效，其他为负无穷；每种业务关系的两个方向各有一个按 head 的可学习偏置。
+3. 关系层采用 `nn.MultiheadAttention` + residual/Post-LN + FFN；query 行是接收方，key 列是发送方。self、注册的源→目标及 reverse_message 允许的反向通信有效，其他为负无穷；每种业务关系的两个方向各有按 head 的可学习偏置。同端点多类型偏置相加；未连接位置不能因零偏置被误开放。偏置／mask 按 batch、时刻、head 对齐，禁止不同站点间建立边。
 4. padding／未生效 query 仅开放其 self 作为数值安全通路，其他有效 query 不得读取这些 key；该 query 输出随后置零，不参加池化。这避免全遮罩 softmax 的 NaN。
 5. 两层关系交互使用同时更新的上一层状态，不能原位按遍历顺序更新节点。
 6. 每组用独立的可学习读出 query 对关系增强实体做一次 cross-attention；补一个可学习空组 token 作为始终有效的 key。拼接 `log1p(有效实体数)`、当前动态观测覆盖率，再经 Linear 映射到 `d_z`、LayerNorm，得到规范 latent。仅动态组生成 latent 目标。
@@ -159,7 +165,7 @@ manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前�
 
 ### 3.3 静态条件 c
 
-独立静态适配器只读静态数值／类别、mask、归属度数、起点有效实体集合，不读动态值。按组对属性表示取 masked mean；另拼静态数值的 masked mean、masked sum、有效数量及 `log1p(节点数)`，每组 Linear→GELU 映射至 `d_z`；拼全部组后投影至 `d_t` 得到 c。空组均值置零，数量为零。
+独立静态适配器只读静态数值／类别、mask、按类型与方向分别统计的关系度数、起点有效实体集合，不读动态值。按组对属性表示取 masked mean；另拼静态数值的 masked mean、masked sum、有效数量及 `log1p(节点数)`，每组 Linear→GELU 映射至 `d_z`；拼全部组后投影至 `d_t` 得到 c。空组均值置零，数量为零。
 
 静态链与动态链分别建模块，B 阶段一起冻结。数量／sum 保留规模信息，但不构成总功率守恒或严格单调性保证。
 
@@ -228,7 +234,7 @@ A/direct 的第 k 步和 AR 的第 k 步都使用 p[:,k]，并能通过该表示
 标签是**带缺失条件的可用信息表示**，不是完整物理状态。允许部分观测，质量只软加权，不设全系统 all-observed 门槛：
 
 1. 对动态组 g 的时刻 s，r[g,s] 为最近 L 步内所有 present、非 padding、applicable 动态单元的 observed 比例；窗口起点早于本请求历史时截断到已编码起点。分母为零时 r=0。
-2. V[g,s] 为从 g 的有效实体沿至多两条归属通信边可达的其他动态组集合。r_neighbor 为这些组 r 的算术均值；集合为空取 1。
+2. V[g,s] 为从 g 的有效实体沿至多两条已启用类型通信边可达的其他动态组集合（按组去重）。r_neighbor 为这些组 r 的算术均值；集合为空取 1。
 3. `q[g,s]=r[g,s]*(0.5+0.5*r_neighbor)`；组在 s 为空时 q=0。r 与 q 只由真实 mask／图计算，禁止用可学习 attention 权重提高自己的监督权重。
 4. 该 q 是有界质量启发式，不是统计置信度，不覆盖全部组内混合造成的依赖；部分缺失 teacher 仍是噪声目标。记录 q 分布、有效率和缺失率敏感性，不能宣称缺失已完全解决。
 5. 未来 q 与 mask 仅进入 loss／诊断，生产生成 token 仍用 generated=true、coverage=0，不泄漏未来观测质量。
@@ -249,6 +255,8 @@ latent 统计只取训练 split 的每个唯一 `(episode, origin)` **最后一�
 标签 mask 不能作为 rollout 的 future 输入。生成态没有真实 coverage，不用未来真实 mask 来构造它的输入质量标记。
 
 验证选优指标为标准化的 horizon-macro MSE：先在整个 split 累积各 horizon 残差和计数，再求各 horizon 均值的平均，不平均 batch loss。最终 H 任一 horizon 无有效 valid 标签时拒绝选优；test 可报告缺项，不能伪称完整 H 指标。合成验收的 valid/test 每步都有标签。
+
+AIDC profile 使用 `valid_site_macro_mse`：先在每站内按上述方法算 horizon-macro，再对所有验证站点等权。A/B 都使用该选择指标，表 §6 中的 valid 指标随 profile 解析。训练 batch 仍按 §5 的 loss reduction，站点平衡通过 sampler 实现，不误称 batch 平均就是 split 选优指标。
 
 ## 6. 两阶段训练状态机与恢复
 
@@ -295,13 +303,14 @@ H=1 时三个 B 阶段仍依序执行，前两个只作固定 warmup，最终阶
 | `layers/gslaformer/entity_history.py` | `EntityHistoryEncoder`，共享 GRU、ID 对齐后的逐实体状态和 present 重置 |
 | `layers/gslaformer/relations.py` | `RelationAttention`、方向 bias 与 mask 生成后的消费 |
 | `layers/gslaformer/temporal.py` | `TemporalEncoder`、`FuturePathEncoder`、`ConditionFusion`、确定性时间／lead 编码 |
-| `data_provider/spatial_temporal/schema.py` | `GroupSchema`、`ForecastInput`、`Supervision`、`ForecastResult`；形状／类型校验 |
+| `data_provider/spatial_temporal/schema.py` | `GroupSchema`、`ForecastInput`、`Supervision`、`ForecastResult`；schema 3、形状／站点／目标／类型校验 |
+| `data_provider/spatial_temporal/aidc_mapping.py` | 设备／测点／端口／单位映射及覆盖审计；不猜测现场接线 |
 | `data_provider/spatial_temporal/config.py` | JSON 解析、禁止未知键、默认值与参数约束 |
 | `data_provider/spatial_temporal/dataset.py` | manifest/NPZ 加载、as-of 选择、窗口、batch collate、关系端点映射 |
 | `data_provider/spatial_temporal/scaling.py` | 组级数值／target／协变量 scaler、训练词表及 artifact 校验 |
 | `exp/exp_gslaformer_forecasting.py` | `Exp_GSLAformer_Forecast`，复用 Exp_Basic 设备／模型发现，训练状态机与运行分派 |
 | `exp/gslaformer_support.py` | 损失 reduction、latent 标签／统计、指标、checkpoint 序列化；不复制旧实验类 |
-| `scripts/dev/generate_gslaformer_fixture.py` | 确定性 synthetic 标准包与新增实体请求生成器 |
+| `scripts/dev/generate_gslaformer_fixture.py` | base、M1–M5、AIDC synthetic 标准包、oracle 与新增实体／新站请求 |
 | `scripts/smoke/gslaformer_functional.json` | §8 的完整功能配置 |
 | `scripts/smoke/smoke_gslaformer.sh` | synthetic 生成、train/test/forecast、重载验收 |
 | `scripts/smoke/compare_gslaformer.py` | 最小基线／消融运行与统一表格，不推导虚假性能 |
@@ -327,7 +336,7 @@ H=1 时三个 B 阶段仍依序执行，前两个只作固定 warmup，最终阶
 
 为 GSLAformer 加隔离参数解析分支：预解析发现 `--model GSLAformer` 后走其专用配置与模式校验，不要求虚假的 `--enc_in/--dec_in/--root_path` 参数；其他模型保持当前 parser、required 参数和 run 逻辑。GSLAformer 禁止旧 `is_training/is_testing/is_forecasting` 混用，冲突报错；不扩大修改旧入口的范围。
 
-`run(args)` 对 GSLAformer 先分派并返回，不进入旧 setting 和“全零即最终训练”。`_select_experiment_class` 增加明确路由；专用参数适配成 Exp_Basic 所需 `use_gpu/gpu_type/devices`。模型发现保持 `Model` 入口，不另造注册框架。
+`run(args)` 对 GSLAformer 先分派并返回，不进入旧 setting 和“全零即最终训练”。`_select_experiment_class` 增加明确路由；专用参数适配成 Exp_Basic 所需 `use_gpu/gpu_type/devices/use_multi_gpu`。明确请求 MPS/CUDA 时先检查可用性，禁止继承基类的静默 CPU 回退。模型发现保持 `Model` 入口，不另造注册框架。
 
 配置拥有模型、数据、训练、设备设置；CLI 只提供运行模式、配置路径、run_id、checkpoint 和请求路径，不允许散落 CLI 覆盖模型参数。相对 config 的 data.package 路径以 config 所在目录为基准；results_root 以仓库根目录为基准。生产请求路径由 CLI 指定，不修改训练 schema。
 
@@ -336,7 +345,7 @@ H=1 时三个 B 阶段仍依序执行，前两个只作固定 warmup，最终阶
 | 情况 | 行为 |
 | --- | --- |
 | schema／单位／特征／关系类型不兼容 | ValueError，指出字段和期望，不尝试自动猜测 |
-| 关系环、悬空端点、full 起点无边 | ValueError；无关系仅显式消融／基线 |
+| 违反类型无环规则、悬空／跨站端点、full 起点无边 | ValueError；跨类型合并形成的合法环不拒绝，无关系仅显式消融／基线 |
 | 新实体 ID、节点顺序变化 | 接受，按请求元数据映射，不改变权重 |
 | 未来信息发布晚于 origin | as-of 屏蔽，不使用；冲突版本报错 |
 | 推理输入出现标签字段 | ValueError，而非忽略后假装干净输入 |
@@ -350,11 +359,11 @@ H=1 时三个 B 阶段仍依序执行，前两个只作固定 warmup，最终阶
 
 ### 8.1 完整配置样例
 
-以下 JSON 将在实施时落到 `scripts/smoke/gslaformer_functional.json`。当前只是文档样例，所有数值是功能测试初值。schema_version 不匹配或未知键必须拒绝。
+以下 JSON 将在实施时落到 `scripts/smoke/gslaformer_functional.json`，是已转换至 schema 3 的通用周期 smoke，不是 AIDC 业务配置。六组 AIDC 完整设计样例见 [aidc_profile.example.json](aidc_profile.example.json)，其新增配置键含义见 input_output、integration 和 synthetic_aidc；两种 profile 不共用权重。所有数值是功能初值，schema_version 不匹配或未知键必须拒绝。
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "experiment": {
     "model": "GSLAformer",
     "variant": "full",
@@ -384,8 +393,8 @@ H=1 时三个 B 阶段仍依序执行，前两个只作固定 warmup，最终阶
       {"name": "sites", "dynamic": [], "static_numeric": ["capacity"], "static_category": []}
     ],
     "relation_types": [
-      {"name": "asset_in_zone", "child_group": "assets", "parent_group": "zones"},
-      {"name": "zone_in_site", "child_group": "zones", "parent_group": "sites"}
+      {"name": "asset_in_zone", "src_groups": ["assets"], "dst_groups": ["zones"], "acyclic": true, "reverse_message": true},
+      {"name": "zone_in_site", "src_groups": ["zones"], "dst_groups": ["sites"], "acyclic": true, "reverse_message": true}
     ],
     "known_future": ["scheduled_activity"]
   },
@@ -435,6 +444,8 @@ H=1 时三个 B 阶段仍依序执行，前两个只作固定 warmup，最终阶
 
 limits 是参考实现的安全边界，不是已测性能承诺：包括 batch padding 后的真实节点轴，不通过截断节点满足限制。分配前按 `4*B*L*relation_heads*N_total^2` 估算单个显式 FP32 分数张量，再检查各组空间层及时间层；任一超过字节上限时报错，显示估算。它不等于峰值内存估算，forward/backward 仍须实测；OOM 不能捕获后静默降级。上调 limit 需独立容量验证，首轮不宣称无限扩展。
 
+以上 L≤96/H≤24 仅为周期 smoke 配置。AIDC 拟议 profile 明确采用 L≤168/H≤72、batch=2，支持小时至三天的验收目标；这些更大限额仍需实跑，不能把配置存在当性能通过。15 分钟／万级服务器属于另行容量验证范围，不截断输入或隐式预聚合来满足限额。
+
 ### 8.2 周期 smoke 与机制任务的分工
 
 下面保留 R2 周期夹具，仅做 baseline/oracle、数据流程和对照代码 smoke；它的季节性 naive 理论上可零误差，**不得单独作为机制验收或 full 模型拟合有效性的证据**。生成器使用 NumPy `default_rng(2023)`，时间轴 320 个小时，从 `2020-01-01T00:00:00Z` 开始，所有值为 synthetic arbitrary_unit。
@@ -451,6 +462,8 @@ limits 是参考实现的安全边界，不是已测性能承诺：包括 batch 
 新增实体请求分为有历史与无历史：以 origin=最后观测时刻，增加 `asset_new`（capacity=1.6、kind=even、归 zone1），一份提供同公式但新相位的历史，一份观测 mask 全 false；不把新实体加入训练统计。另生成 `zone_new + asset_new_parent` 请求验证新增父子节点。所有请求仍须提供历史 target，不能用未来 target。
 
 首轮必须另外生成 [机制任务 M1–M5](mechanism_tests.md)，分别覆盖轨迹、关系、状态／计划、规模／新实体和缺失／版本安全。每个任务的 manifest 显式定义 schema，不将测试任务硬塞入不相符的 base schema。生成器产出对应完整 JSON 配置，不隐式覆盖根配置；周期 base 不满足机制任务验收。
+
+R4 还必须生成 [多 AIDC 场景](synthetic_aidc.md)，分别覆盖多级计量、暖通热惯性、任务执行偏差、点位稀疏与站点留出。M1–M5 的数学定义保留，仅包结构升至 schema 3；不得让 AIDC 周期数据替代成对机制任务。
 
 episode 可有独立实体轴与数据文件，manifest 的 episodes 数组逐项指向同格式的包及 split；批次 collate 才做 padding，窗口不得跨 episode。同一机制任务成对样本视为不可拆的 episode-family，整族划分 train/valid/test，避免把成对变体拆到不同分区。首轮不读取真实业务文件。
 
@@ -581,6 +594,8 @@ checkpoint 按 variant 保存所需 schema、scaler、词表、latent 统计、�
 
 `predictions.csv` 至少含 run_id、data_kind、origin、target_time、horizon（1-based）、y_pred、y_true（forecast 空）、target_valid、unit、new_entity_count、no_history_entity_count。latent 单独 NPZ，保留动态组顺序，禁止把其维度伪装成实际物理特征。
 
+AIDC 另要求 site_id、target_id、boundary_id、freq_seconds、新站／质量／负值标记，以及 site_split.json、scenario_metrics.json、generation_audit.json 和 input_output §7 的 metadata。输入源单位先在 mapping 转为 profile 标准单位，AIDC y 的“原始量纲”统一指标准 kW，不恢复成各采集器混杂的 W/MW。
+
 运行状态为 `running/completed/failed/interrupted`，与项目任务 Todo/Doing/Done 不混用。写临时文件后原子替换；全部必需产物可读取且校验通过后才能 completed。
 
 已存在 run_id 一律拒绝新训练；使用明确 checkpoint 续训时，必须处于非 completed 状态且 config/schema/数据一致。test／forecast 必须新 run_id，不能覆盖训练结果。变更节点快照属于新请求，不改变权重 schema；数据 fingerprint 记录新值而不触发“实体必须等于训练清单”的错误限制。
@@ -605,3 +620,5 @@ run_id 和 episode_id 必须是单一安全名称（字母、数字、下划线�
 每个包的记录必须包含实际命令、退出码、测试计数、产物路径和偏差；任何预算调整／失败原因追加到设计 §12.1，不回改成“原本就如此”。
 
 当前状态：I1–I6 均未实施。用户已确定功能范围，剩余业务目标、真实数据路径、生产预算属于后续业务验证的输入，不是继续追问首轮功能参数的理由。
+
+R4 将 input_output、synthetic_aidc、integration 的补项并入 I1–I6 的完成定义；只完成旧三组 smoke 或 M1–M5 不能称完整 AIDC 功能交付。本轮 DOC-003 只登记文档产物。

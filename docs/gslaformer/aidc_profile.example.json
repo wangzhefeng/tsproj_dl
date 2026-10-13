@@ -1,0 +1,155 @@
+{
+  "schema_version": 3,
+  "experiment": {
+    "model": "GSLAformer",
+    "variant": "full",
+    "profile": "aidc_hourly_day",
+    "data_kind": "synthetic",
+    "seed": 2023,
+    "device": "cpu",
+    "results_root": "./results/gslaformer"
+  },
+  "data": {
+    "package": "../../results/gslaformer/fixtures/aidc",
+    "timezone": "UTC",
+    "freq_seconds": 3600,
+    "seq_len": 168,
+    "pred_len": 24,
+    "train_stride": 1,
+    "valid_stride": 24,
+    "test_stride": 24,
+    "split_mode": "site_time",
+    "split_index": [0, 864, 1152, 1440],
+    "site_split": {
+      "train": ["aidc_00", "aidc_01", "aidc_02", "aidc_03", "aidc_04", "aidc_05", "aidc_06", "aidc_07"],
+      "heldout_valid": ["aidc_08", "aidc_09"],
+      "heldout_test": ["aidc_10", "aidc_11"]
+    },
+    "sampler": "uniform_site_then_origin",
+    "batch_size": 2,
+    "num_workers": 0,
+    "target_name": "facility_total",
+    "target_unit": "kW",
+    "target_quantity": "facility_demand",
+    "interval_label": "right",
+    "target_aggregation": "time_weighted_mean",
+    "groups": [
+      {
+        "name": "compute",
+        "dynamic": ["active_jobs", "queued_jobs", "allocated_gpu_count", "throughput"],
+        "static_numeric": ["gpu_capacity"],
+        "static_category": ["workload_kind", "aggregation_level"]
+      },
+      {
+        "name": "it_power",
+        "dynamic": ["active_power_kw", "cpu_utilization", "gpu_utilization", "online_fraction"],
+        "static_numeric": ["rated_power_kw", "represented_count"],
+        "static_category": ["entity_type", "hardware_kind"]
+      },
+      {
+        "name": "distribution",
+        "dynamic": ["active_power_kw", "load_ratio"],
+        "static_numeric": ["rated_power_kw"],
+        "static_category": ["entity_type", "port", "coverage_kind"]
+      },
+      {
+        "name": "hvac",
+        "dynamic": ["active_power_kw", "on_fraction", "frequency_hz", "flow_m3h", "supply_temp_c", "return_temp_c"],
+        "static_numeric": ["rated_power_kw", "rated_flow_m3h", "cooling_capacity_kw"],
+        "static_category": ["entity_type", "cooling_kind"]
+      },
+      {
+        "name": "space",
+        "dynamic": ["active_power_kw", "temperature_c", "relative_humidity"],
+        "static_numeric": ["area_m2", "it_design_capacity_kw"],
+        "static_category": ["space_level", "cooling_kind"]
+      },
+      {
+        "name": "environment",
+        "dynamic": ["temperature_c", "relative_humidity"],
+        "static_numeric": [],
+        "static_category": ["sensor_kind"]
+      }
+    ],
+    "feature_units": {
+      "active_jobs": "count",
+      "queued_jobs": "count",
+      "allocated_gpu_count": "count",
+      "throughput": "jobs/hour",
+      "gpu_capacity": "count",
+      "active_power_kw": "kW",
+      "rated_power_kw": "kW",
+      "cpu_utilization": "fraction",
+      "gpu_utilization": "fraction",
+      "online_fraction": "fraction",
+      "represented_count": "count",
+      "load_ratio": "fraction",
+      "on_fraction": "fraction",
+      "frequency_hz": "Hz",
+      "flow_m3h": "m3/hour",
+      "rated_flow_m3h": "m3/hour",
+      "supply_temp_c": "degC",
+      "return_temp_c": "degC",
+      "cooling_capacity_kw": "kW",
+      "temperature_c": "degC",
+      "relative_humidity": "fraction",
+      "area_m2": "m2",
+      "it_design_capacity_kw": "kW",
+      "planned_gpu_count": "count",
+      "forecast_outdoor_temp_c": "degC"
+    },
+    "relation_types": [
+      {"name": "contains", "src_groups": ["space"], "dst_groups": ["space", "it_power", "distribution", "hvac", "compute"], "acyclic": true, "reverse_message": true},
+      {"name": "supplies", "src_groups": ["distribution", "it_power"], "dst_groups": ["distribution", "it_power", "hvac"], "acyclic": true, "reverse_message": true},
+      {"name": "meter_covers", "src_groups": ["space", "distribution", "it_power"], "dst_groups": ["space", "distribution", "it_power", "hvac"], "acyclic": true, "reverse_message": true},
+      {"name": "cools", "src_groups": ["hvac"], "dst_groups": ["space", "it_power", "hvac"], "acyclic": false, "reverse_message": true},
+      {"name": "runs_on", "src_groups": ["compute"], "dst_groups": ["it_power", "space"], "acyclic": false, "reverse_message": true},
+      {"name": "associated_env", "src_groups": ["environment"], "dst_groups": ["space", "hvac"], "acyclic": false, "reverse_message": true}
+    ],
+    "known_future": ["planned_gpu_count", "forecast_outdoor_temp_c"]
+  },
+  "model": {
+    "spatial_dim": 32,
+    "latent_dim": 32,
+    "temporal_dim": 64,
+    "spatial_heads": 4,
+    "relation_heads": 4,
+    "temporal_heads": 4,
+    "spatial_layers": 1,
+    "entity_history_layers": 1,
+    "relation_layers": 2,
+    "temporal_layers": 2,
+    "future_path_layers": 1,
+    "dropout": 0.1,
+    "category_embedding_dim": 8,
+    "lead_dim": 16
+  },
+  "limits": {
+    "max_total_nodes": 128,
+    "max_history_steps": 168,
+    "max_horizon_steps": 72,
+    "max_explicit_attention_bytes": 268435456
+  },
+  "training": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "clip_grad_norm": 1.0,
+    "latent_weight": 0.1,
+    "stage_a_max_epochs": 20,
+    "stage_a_patience": 5,
+    "b_short_epochs": 2,
+    "b_medium_epochs": 2,
+    "b_full_max_epochs": 20,
+    "b_full_patience": 5,
+    "min_delta": 0.000001,
+    "amp": false,
+    "truncate_rollout_grad": false
+  },
+  "evaluation": {
+    "selection_metric": "valid_site_macro_mse",
+    "seasonal_period": 24,
+    "compare_seed": 2023,
+    "report_by": ["site_id", "site_role", "horizon", "scenario"]
+  }
+}

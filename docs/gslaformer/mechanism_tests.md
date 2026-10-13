@@ -4,6 +4,8 @@
 >
 > 数据与数值均为人为构造的机制示例，不代表真实功率或业务规律。首轮不启动真实数据验证，不要求 full 在所有任务胜过对照。
 
+R4 衔接：本文件保留 R3 的 M1–M5 数学任务；实现时数据包统一使用 implementation 的 schema 3、typed src/dst 和 site 元数据，任务的归属方向与公式不变。多站点业务模拟另见 [synthetic_aidc.md](synthetic_aidc.md)，不从本文件的机制结果推断跨真实 AIDC 精度。
+
 ## 1. 为什么需要独立机制任务
 
 R2 周期 base 可以用季节性 naive 几乎精确预测，只适合检查读写、窗口、指标、保存与重载。R3 分开三类证据：
@@ -25,6 +27,8 @@ R2 周期 base 可以用季节性 naive 几乎精确预测，只适合检查读�
 - `mechanisms/M5/`：数据契约和数值边界夹具，不训练独立模型；
 - `mechanisms/suite.json`：任务 ID、数据包、配置路径、预期断言、split 与 family 清单；
 - `new_entity_cold/` 等请求：供 base 入口 smoke，不代替 M4。
+
+R4 的 `--suite all` 另输出 `aidc/` 及各小时级完整 profile，按 synthetic_aidc 的 site_time 协议切分，不套用下面 M1–M5 的单 origin family 规则。
 
 每个 family 是一组只在指定因素上不同的成对或多变体 episode；同 family 全部进入同一 split。每任务采用 48 个 train family、16 个 valid family、16 个 test family。编号 0..47/48..63/64..79，split 规则在 manifest 中写明，不能依据结果重新分配。
 
@@ -157,7 +161,7 @@ u 为非周期的已知 Bernoulli 计划（概率 0.5），origin 后的计划�
 - 统计每个训练 episode/origin 只采最后 z 一次；不重复计入窗口内部时间点，valid/test 和未来 teacher 不参与统计。
 - horizon 有效数量不同，分别核算 micro 与 macro；验证选优必须用全 split macro，不平均 batch loss。
 - 父级在历史中切换，逐时刻使用对应边；发布晚于 origin 的边或计划不可见。未来已知结构变化明确拒绝，不错误声称能自动模拟变化。
-- 安全坏输入：ID 重复、悬空边、循环、错误单位、无穷值、未知 schema、路径越界、对象 NPZ、维度超过 limits；必须明确失败，不能静默截断或重拟合。
+- 安全坏输入：ID 重复、悬空／跨站边、违反该类型无环约束的循环、错误单位、无穷值、未知 schema、路径越界、对象 NPZ、维度超过 limits；必须明确失败，不能静默截断或重拟合。R4 另断言不同关系类型合并形成的合法环不被误拒绝。
 
 ## 8. 运行范围、预算与判定
 

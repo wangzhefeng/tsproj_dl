@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "b2dde440-fc1f-46c6-80e0-aa34d0d683e1",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/wangzf/projects/tsproj_dl/docs/gslaformer/architecture/architecture.json",
+  "output": "/Users/wangzf/projects/tsproj_dl/docs/gslaformer/architecture/architecture.html",
+  "specification": {
+    "sha256": "46afcae079eee95b39963ea61450721b505c5b4cf949f2d6b56e26ad04a1fa1f",
+    "bytes": 3512
+  },
+  "artifact": {
+    "sha256": "ddcbdb40b22a126a78249132bbc2f061dc48a643222e821e5d260d579b9c89cf",
+    "bytes": 763536
+  }
+}

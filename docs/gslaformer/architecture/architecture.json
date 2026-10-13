@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "GSLAformer · 跨 AIDC 总负荷预测设计",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": "docs/gslaformer/architecture/architecture.html",
+    "legend": {"mode": "hidden"}
+  },
+  "components": [
+    {"id":"computing","type":"external","label":"算力任务与运行指标","sublabel":"任务池 · 服务器利用率 · 已到达记录","pos":[40,50],"size":[290,76]},
+    {"id":"electrical","type":"external","label":"IT 与多级电力测点","sublabel":"服务器至进线 · 总表历史 · 空间对象","pos":[400,50],"size":[290,76]},
+    {"id":"cooling","type":"external","label":"暖通设备与环境观测","sublabel":"冷机 · 塔 · 泵 · 温度 · 流量","pos":[760,50],"size":[290,76]},
+    {"id":"alignment","type":"backend","label":"统一对象与可用数据","sublabel":"单位 · 时刻 · 身份 · 缺失 · 类型关系","pos":[400,220],"size":[290,76]},
+    {"id":"entity-memory","type":"backend","label":"保留每个对象的历史","sublabel":"同类共享记忆 · 不固定设备数量","pos":[400,390],"size":[290,76]},
+    {"id":"spatial","type":"backend","label":"同组与跨关系信息交互","sublabel":"供电 · 计量 · 归属 · 冷却 · 任务部署","pos":[760,390],"size":[290,76]},
+    {"id":"readout","type":"backend","label":"各组摘要组成状态序列","sublabel":"保留数量与覆盖率 · 不累加多级功率","pos":[760,560],"size":[290,76]},
+    {"id":"total-history","type":"external","label":"目标总表的可用历史","sublabel":"独立目标口径 · 总功率及缺失标记","pos":[40,390],"size":[290,76]},
+    {"id":"temporal","type":"backend","label":"按时间推演系统状态","sublabel":"因果时间建模 · 总表历史 · 日历","pos":[400,560],"size":[290,76]},
+    {"id":"conditions","type":"external","label":"静态条件与已知未来路径","sublabel":"属性摘要 · 计划 · 天气预报及其版本","pos":[400,900],"size":[290,76]},
+    {"id":"heads","type":"backend","label":"融合条件并预测下一步","sublabel":"双输出：总负荷与分组隐状态","pos":[400,730],"size":[290,76]},
+    {"id":"feedback","type":"backend","label":"预测值回灌状态窗口","sublabel":"负荷与隐状态 · 标记为生成值","pos":[40,730],"size":[290,76]},
+    {"id":"forecast","type":"frontend","label":"未来数小时至数天负荷","sublabel":"单站总功率曲线 · 原始量纲 · 质量标记","pos":[760,730],"size":[290,76]}
+  ],
+  "connections": [
+    {"id":"compute-input","from":"computing","to":"alignment"},
+    {"id":"power-input","from":"electrical","to":"alignment"},
+    {"id":"cooling-input","from":"cooling","to":"alignment"},
+    {"id":"aligned-history","from":"alignment","to":"entity-memory"},
+    {"id":"history-to-space","from":"entity-memory","to":"spatial"},
+    {"id":"space-to-summary","from":"spatial","to":"readout"},
+    {"id":"summary-to-time","from":"readout","to":"temporal"},
+    {"id":"total-input","from":"total-history","to":"temporal","fromSide":"bottom","toSide":"top"},
+    {"id":"time-to-heads","from":"temporal","to":"heads"},
+    {"id":"known-conditions","from":"conditions","to":"heads"},
+    {"id":"load-output","from":"heads","to":"forecast"},
+    {"id":"generated-state","from":"heads","to":"feedback","variant":"dashed"},
+    {"id":"state-feedback","from":"feedback","to":"temporal","variant":"dashed","fromSide":"top","toSide":"left"}
+  ]
+}
