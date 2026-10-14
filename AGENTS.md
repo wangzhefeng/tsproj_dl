@@ -82,7 +82,7 @@
 
 ### 在建区
 
-- GSLAformer：按 `docs/gslaformer/` 开始 I1–I6；模型、独立数据流及入口尚未实现，完整模拟验收未运行，不属于可用主线。
+- GSLAformer：I1 在建，已实现配置校验、标准包读取、测点／关系检查与输入质量计算；scaling、batching、生成器尚未实现，模型与主入口未接入，完整模拟验收未运行，不属于可用主线。当前数据基础模块的本地测试 16 项通过；整组测试因缺少 scaling 模块导入失败，按用户确认仅提交在建版本。
 - `exp/exp_forecasting_rnns.py`、`exp/exp_short_term_forecasting.py`（待决定是否继续维护）
 - `exp/dl_todo/*`
 - `scripts/ETTm1_script/*`
@@ -121,7 +121,7 @@
 | DOC-003 | Done | MC | `docs/gslaformer/` | R4 补齐跨 AIDC 输入输出、类型关系、模拟场景、源码复用与框架接入；根 `.venv` 文档／JSON／链接检查及定向 diff 检查通过，架构图 showcase 9/9、浏览器与看图检查通过；证据见 [validation_r4.md](docs/gslaformer/archive/validation_r4.md)；仅文档，模型未实现 |
 | DOC-004 | Done | MC | `docs/gslaformer/architecture/` | 15 份既有图示资产归档，含 v4.0.png；引用与输出路径同步，80 处本地链接和定向 diff 检查通过，新路径绘图／浏览器验证通过；图片、HTML 与历史证据内容不变，记录见 architecture/migration.json |
 | DOC-005 | Done | MC | `docs/gslaformer/` | 文档职责收口：统一数据契约，接入并入 implementation，机制与 AIDC 验收并入 acceptance，样例外置与历史归档；根 .venv 核对 144 处链接／锚点、两份配置值与路径、公式／核心协议保全通过，19 份图示资产哈希不变，定向 diff 检查通过；证据见 [整理记录](docs/gslaformer/archive/reorganization.md)，仅文档，模型未开发 |
-| GSLA-001 | Doing | MC | `docs/gslaformer/`, `data_provider/spatial_temporal/`, `layers/gslaformer/`, `models/transformer/GSLAformer.py`, `exp/`, `run.py`, `scripts/`, `tests/test_gslaformer_*.py` | 先固定标准包／模拟器／质量字段，再实现 I1–I6；完整 train/valid/test/无标签 forecast、重载、M1–M5、AIDC H=6/24/72、CPU/MPS 与旧入口回归均须实际证据；用户暂不允许修改 .gitignore，新增测试暂不受版本控制；模型／入口／验证分别记账 |
+| GSLA-001 | Doing | MC | `docs/gslaformer/`, `data_provider/spatial_temporal/`, `layers/gslaformer/`, `models/transformer/GSLAformer.py`, `exp/`, `run.py`, `scripts/`, `tests/test_gslaformer_*.py` | I1 数据基础模块以在建版本提交，定向测试 16 项通过，整组因缺少 scaling 导入失败；scaling/batching/生成器、模型与入口均未完成，验证命令见数据包 README。完整 train/valid/test/无标签 forecast、重载、M1–M5、AIDC H=6/24/72、CPU/MPS 与旧入口回归仍须实际证据；保持 .gitignore 不变，新增测试仅本地保留；模型／入口／验证分别记账 |
 | EXP-001 | Doing | TBD | `exp/exp_forecasting_rnns.py`, `exp/exp_short_term_forecasting.py` | 已完成主要工具接口对齐；下一步需明确旧实验分支是继续维护还是转入暂缓区 |
 | EXP-002 | Done | Codex | `exp/exp_basic.py`, `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_factory.py`, `tests/` | `PatchTST.sh` 已完成 ETTh1 train/valid/test smoke；相关 unittest 通过 |
 | EXP-003 | Done | Codex | `data_provider/TFs_type/data_factory.py`, `tests/test_tfs_data_provider.py` | 数据集 flag 仅使用 `valid`，不再兼容 `val` |
