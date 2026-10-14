@@ -35,26 +35,26 @@
 | design §12 进度 | [唯一工作包](../implementation.md#work-packages)；根 AGENTS 仍管项目状态 |
 | design §12.1 | [演进记录](design_history.md)：保留历史表、D/E/R3/R4 修订和过程事实 |
 | design §13–14 | 设计保留全部参考来源，结论收束到功能／业务成功的区别 |
-| implementation §1 | 设计集中 D1–D5；[整体验收](../acceptance.md#implementation-1-2)集中完成条件 |
-| implementation §2 | [标准包与 batch](../input_output.md#implementation-2)，含 scaler、版本、监督隔离与 split |
+| implementation §1 | 设计集中 D1–D5；[整体验收](../acceptance.md#completion-definition)集中完成条件 |
+| implementation §2 | [标准包与 batch](../input_output.md#standard-package)，含 scaler、版本、监督隔离与 split |
 | implementation §3 | [模型计算](../implementation.md#implementation-3)，原精确规则保留 |
-| implementation §4.1 / §4.2 | [rollout](../implementation.md#implementation-4-1)／[新实体断言](../acceptance.md#implementation-4-2) |
+| implementation §4.1 / §4.2 | [rollout](../implementation.md#implementation-4-1)／[新实体断言](../acceptance.md#new-entity-checks) |
 | implementation §5–6 | [损失与统计](../implementation.md#implementation-5)／[训练恢复](../implementation.md#implementation-6) |
 | implementation §7.1–7.2 | 实施规格唯一文件/API/CLI 定义，合入 integration 的补项 |
-| implementation §7.3 | [拒绝行为](../input_output.md#implementation-7-3) |
+| implementation §7.3 | [拒绝行为](../input_output.md#error-contract) |
 | implementation §8.1 | [配置约定](../implementation.md#configuration)与[外置 base 样例](../examples/functional_profile.example.json) |
-| implementation §8.2 | [周期 base](../acceptance.md#implementation-8-2)：公式、数据与新实体请求规则保留 |
-| implementation §9 | [通用断言](../acceptance.md#implementation-9-1)、[阈值](../acceptance.md#implementation-9-2)、[拟议命令](../acceptance.md#implementation-9-3) |
-| implementation §10.1 / §10.2 | [对照定义](../acceptance.md#implementation-10-1)／[指标算法](../implementation.md#implementation-10-2) |
+| implementation §8.2 | [周期 base](../acceptance.md#base-fixture)：公式、数据与新实体请求规则保留 |
+| implementation §9 | [通用断言](../acceptance.md#contract-assertions)、[阈值](../acceptance.md#fit-thresholds)、[拟议命令](../acceptance.md#planned-commands) |
+| implementation §10.1 / §10.2 | [对照定义](../acceptance.md#variants)／[指标算法](../implementation.md#implementation-10-2) |
 | implementation §11–12 | 产物生命周期和统一工作包；输出字段交给输入输出契约 |
 | input_output §1–2 | 输入输出保留目标口径、六组目录与资产／实体／测点／特征区别 |
-| input_output §3.1 / §3.2 | [类型业务合同](../input_output.md#input-output-3-1)／[关系计算](../implementation.md#implementation-3-2)；两跳、反向通信与非物理求解边界保留 |
+| input_output §3.1 / §3.2 | [类型业务合同](../input_output.md#relation-contract)／[关系计算](../implementation.md#implementation-3-2)；两跳、反向通信与非物理求解边界保留 |
 | input_output §4 | [来源映射](../input_output.md#input-output-4-1)、[时间单位](../input_output.md#input-output-4-3)、标准包；同主题只保留一个明细定义 |
-| input_output §5 | 标准 batch 增补 AIDC G/Gd、边界实体、类型变化和未来隐藏量限制；[缺失](../input_output.md#input-output-5-2)、[任务计划](../input_output.md#input-output-5-3)独立解释 |
-| input_output §6 | [兼容性](../input_output.md#input-output-6)；采样算法移到实施训练章节 |
-| input_output §7.1 | [AIDC profiles](../acceptance.md#input-output-7-1)，15 分钟仍只是后续容量目标 |
-| input_output §7.2–7.3 | [输出合同](../input_output.md#input-output-7-2)与请求示例；schema/单位/质量语义不弱化 |
-| input_output §8 | [AIDC 断言](../acceptance.md#input-output-8)，澄清留出验证与留出测试的不同角色 |
+| input_output §5 | 标准 batch 增补 AIDC G/Gd、边界实体、类型变化和未来隐藏量限制；[缺失](../input_output.md#missing-semantics)、[任务计划](../input_output.md#future-plan-availability)独立解释 |
+| input_output §6 | [兼容性](../input_output.md#site-data-rules)；采样算法移到实施训练章节 |
+| input_output §7.1 | [AIDC profiles](../acceptance.md#aidc-profiles)，15 分钟仍只是后续容量目标 |
+| input_output §7.2–7.3 | [输出合同](../input_output.md#output-contract)与请求示例；schema/单位/质量语义不弱化 |
+| input_output §8 | [AIDC 断言](../acceptance.md#aidc-assertions)，澄清留出验证与留出测试的不同角色 |
 | integration §1 | 设计工程归属和实施隔离接入，不新增另一训练框架 |
 | integration §2–3 | [组件复用](../implementation.md#integration-2)、[基础设施](../implementation.md#integration-3)；保留源码事实与限制，明确是 DOC-003 核查位置 |
 | integration §4 | 文件/API/配置/CLI/产物职责合入实施；真实源目录只是建议，不创建或承诺生产导入器 |

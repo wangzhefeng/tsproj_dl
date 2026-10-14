@@ -6,11 +6,11 @@
 
 ## 1. 阅读导航与证据层次
 
-- [整体完成定义](#implementation-1-2)与[通用断言](#implementation-9-1)：所有路线适用的工程门禁。
-- [周期 base](#implementation-8-2)：文件、入口、保存与重载的流程 smoke。
+- [整体完成定义](#completion-definition)与[通用断言](#contract-assertions)：所有路线适用的工程门禁。
+- [周期 base](#base-fixture)：文件、入口、保存与重载的流程 smoke。
 - [M1–M5](#mechanism-tests-2)：可证伪机制、负对照与成对小集拟合。
 - [多 AIDC 场景](#synthetic-aidc-2)：组合机制、站点留出及小时至天级链路。
-- [对照定义](#implementation-10-1)、[阈值](#implementation-9-2)、[命令](#implementation-9-3)及各层运行矩阵。
+- [对照定义](#variants)、[阈值](#fit-thresholds)、[命令](#planned-commands)及各层运行矩阵。
 
 三层数据的通过结论分别记账：base 不能替代机制，机制不能替代 AIDC，合成结果不能替代真实业务验证。每项记录 passed/failed/not_run；运行子集不得把整体标为 passed。
 
@@ -20,7 +20,7 @@
 | M1–M5 机制任务 | 单独检验轨迹、关系、计划、规模、缺失和版本 | 可以构造可证伪反例；不是电气／暖通仿真 |
 | `aidc_scenarios` | 联合多站点、多设备、多负荷模式和小时至天级预测 | 可以检验标准合同、组合泛化与工程闭环；不等于真实 AIDC 泛化 |
 
-<a id="implementation-1-2"></a>
+<a id="completion-definition"></a>
 
 ## 2. 整体完成定义
 
@@ -37,7 +37,7 @@
 
 没有真实数据实验时只报告 synthetic 功能结论。文档与代码完成度分别记录，不把本规格的存在计入模型完成度。
 
-<a id="implementation-9-1"></a>
+<a id="contract-assertions"></a>
 
 ## 3. 通用契约与模型断言
 
@@ -69,7 +69,7 @@
 
 CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比较 `atol=1e-4, rtol=1e-3`。不要求跨设备逐位相同。受控“应变化”测试先证明输入差异到达指定模块，再以差异大于 CPU 容差断言，不依赖任意随机模型恰好敏感。
 
-<a id="implementation-4-2"></a>
+<a id="new-entity-checks"></a>
 
 ### 3.1 同权重新实体检查
 
@@ -79,7 +79,7 @@ CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比�
 - 不要求新增实体使总负荷必然增大；本架构无硬单调性，能预测不等于准确预测。
 - 冷启动请求记录 `new_entity_count`、`no_history_entity_count`、`unknown_category_count`、`orphan_count`；不伪装为正常分布精度。
 
-<a id="input-output-8"></a>
+<a id="aidc-assertions"></a>
 
 ## 4. AIDC 外部契约补充断言
 
@@ -95,7 +95,7 @@ CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比�
 
 以上为待实现验收，不是本轮已经运行的模型结果。
 
-<a id="implementation-10-1"></a>
+<a id="variants"></a>
 
 ## 5. 基线、消融与诊断定义
 
@@ -122,7 +122,7 @@ CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比�
 
 首轮单种子 2023，结论仅限功能数据。不得声称统计显著或业务 SOTA。多 seed 和真实数据后续另行批准。
 
-<a id="implementation-9-2"></a>
+<a id="fit-thresholds"></a>
 
 ## 6. 小集拟合阈值与设备 smoke
 
@@ -131,7 +131,7 @@ CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比�
 - 完整 CPU smoke 使用 [配置定义与设计实例](implementation.md#configuration) 配置与所有阶段；MPS smoke 使用同一 schema，但 A=1、B-short=1、B-medium=1、B-full=1 epoch，batch_size=2，完整 H，单独 run_id。缩短预算明确标记，不用于精度比较。
 - synthetic test 输出有限值和正确时间索引；forecast 数据包没有未来目标，重载同一 best 完成新实体请求。
 
-<a id="implementation-8-2"></a>
+<a id="base-fixture"></a>
 
 ## 7. 周期 base：只验流程
 
@@ -217,7 +217,7 @@ x_{i,s+1}=x_{i,s}+\max(x_{i,s}-x_{i,s-1},0),\quad y_s=\sum_i x_{i,s}.
 - 只交换 origin 时刻数值并保持 ID 不变，代表不同轨迹；模型必须具有区分它们的参数路径。
 - `no_entity_history` 在该对上的每帧不变池化表示应相同，构成结构性负对照。full 不要求任意初始化自动正确，但受控历史编码与实际小集拟合必须能够区分。
 
-小集：train 最前 8 个 family 的成对样本，目标为全部 H。A 与 B-full 按 [小集拟合阈值与设备 smoke](acceptance.md#implementation-9-2) 训练；每对预测差与真实差同号，并且每个预测值误差小于该对相应 horizon 目标差绝对值的一半，才算不再把两种情况压成一个答案。
+小集：train 最前 8 个 family 的成对样本，目标为全部 H。A 与 B-full 按 [小集拟合阈值与设备 smoke](acceptance.md#fit-thresholds) 训练；每对预测差与真实差同号，并且每个预测值误差小于该对相应 horizon 目标差绝对值的一半，才算不再把两种情况压成一个答案。
 
 valid/test 的同项指标完整报告；首轮不以全体泛化胜出为交付硬门槛，但必须报告成对区分率与误差，不能只报 pooled MSE。
 
@@ -355,7 +355,7 @@ u 为非周期的已知 Bernoulli 计划（概率 0.5），origin 后的计划�
 
 ### 14.2 候选验收阈值的边界
 
-小集采用 [小集拟合阈值与设备 smoke](acceptance.md#implementation-9-2) 的 1000 update 预算、绝对误差或相对下降标准；M1/M2 另需成对区分。它们是实现前声明的候选标准，当前未训练验证可达性。
+小集采用 [小集拟合阈值与设备 smoke](acceptance.md#fit-thresholds) 的 1000 update 预算、绝对误差或相对下降标准；M1/M2 另需成对区分。它们是实现前声明的候选标准，当前未训练验证可达性。
 
 - 失败必须区分：信息路径缺失、错误标签／mask、梯度问题、表达能力限制、优化预算不足。
 - 不能为交付临时删掉成对断言，或在看到 test 后调整数据生成器让模型更容易。
@@ -372,7 +372,7 @@ u 为非周期的已知 Bernoulli 计划（概率 0.5），origin 后的计划�
 
 当前没有生成正式任务包，没有训练模型，也没有 M1–M5 模型验收结果。独立公式探针和文档校验记录在 [review_r3.md](archive/review_r3.md)，只证明数学示例和文档规则，不能越级。
 
-<a id="input-output-7-1"></a>
+<a id="aidc-profiles"></a>
 
 ## 16. AIDC horizon profiles
 
@@ -596,7 +596,7 @@ AIDC 使用 `valid_site_macro_mse` 选优，其 reduction 由[实施规格](impl
 
 功能验收要求：生成 oracle 通过，全部必需训练／test／forecast／重载和契约断言真实执行，结果有限且时间对齐，错误输入被拒绝，产物可追溯。不要求 full 超过 direct 或 naive，但必须完整报告失败和负面结果。
 
-未见站点上“能运行”只证明结构兼容；误差报告证明在**该生成分布**下的表现。生产迁移后还需要：现场目标口径确认、真实点位映射、数据质量核查、时间回测、站点留出、必要时源站联合重训或目标站微调。它们不是本次已完成的部分。
+未见站点上“能运行”只证明结构兼容；误差报告证明在**该生成分布**下的表现。生产迁移所需的真实口径、点表、质量核查与回测边界以[设计 §8](design.md#capability-boundary) 为准，本协议不重复列举。
 
 <a id="synthetic-aidc-6"></a>
 
@@ -606,9 +606,9 @@ AIDC profile 初始采用 CPU、batch=2、节点上限 128、历史上限 168、
 
 首轮是缩小的 AIDC 功能场景，**不声称可直接吞入生产中全部服务器点位**。大规模方案需另评估按电力／空间分区的局部注意力、层级读出与稀疏算子；这些不是当前已实现路径，也不以预聚合静默替代用户要求的逐点输入。
 
-所有正式产物进 `results/gslaformer/`：每个数据包和 run 独立命名，保存参数／拓扑／映射、切分清单、oracle_report、完整 resolved_config、scaler／词表、checkpoint、预测、分层指标、质量与容量日志。新增 `site_split.json`、`scenario_metrics.json`、`generation_audit.json`；状态 not_run/failed/passed 分开。
+所有正式产物进 `results/gslaformer/`；各模式必需文件、AIDC 附加文件（`site_split.json`/`scenario_metrics.json`/`generation_audit.json`/`metadata.json`）与冲突规则由[产物生命周期](implementation.md#implementation-11)唯一维护，本节不复制清单。状态 not_run/failed/passed 分开记账。
 
-<a id="implementation-9-3"></a>
+<a id="planned-commands"></a>
 
 ## 22. 拟议执行命令
 

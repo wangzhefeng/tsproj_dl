@@ -90,7 +90,7 @@ A/direct 的第 k 步和 AR 的第 k 步都使用 p[:,k]，并能通过该表示
 路径编码在一次请求中只算一次；训练时缓存的是当前计算图 tensor，不 detach；不同 origin 的计划版本不同，禁止跨请求复用。为了公平，训练 K 步课程仍编码完整 H 条件，但仅对前 K 步计算 loss；这只是使用原本已知的计划，不引入 H 步真实标签。
 
 
-AIDC 类型关系的业务方向和合法性以[输入输出契约](input_output.md#input-output-3-1)为准；q 的两跳集合从全部启用类型通信图计算。
+AIDC 类型关系的业务方向和合法性以[输入输出契约](input_output.md#relation-contract)为准；q 的两跳集合从全部启用类型通信图计算。
 
 <a id="implementation-4-1"></a>
 
@@ -123,12 +123,14 @@ AIDC 类型关系的业务方向和合法性以[输入输出契约](input_output
 标签是**带缺失条件的可用信息表示**，不是完整物理状态。允许部分观测，质量只软加权，不设全系统 all-observed 门槛：
 
 1. 对动态组 g 的时刻 s，r[g,s] 为最近 L 步内所有 present、非 padding、applicable 动态单元的 observed 比例；窗口起点早于本请求历史时截断到已编码起点。分母为零时 r=0。
-2. V[g,s] 为从 g 的有效实体沿至多两条已启用类型通信边可达的其他动态组集合（按组去重）。r_neighbor 为这些组 r 的算术均值；集合为空取 1。
+2. V[g,s] 为从 g 的有效实体沿通信图至多两条边可达的其他动态组集合（按组去重，不含 g 自身）。通信图由全部启用关系类型的有向边（src→dst）构成，`reverse_message=true` 的类型另加入反向边；self 边不参与。r_neighbor 为这些组 r 的算术均值；集合为空取 1。
 3. `q[g,s]=r[g,s]*(0.5+0.5*r_neighbor)`；组在 s 为空时 q=0。r 与 q 只由真实 mask／图计算，禁止用可学习 attention 权重提高自己的监督权重。
 4. 该 q 是有界质量启发式，不是统计置信度，不覆盖全部组内混合造成的依赖；部分缺失 teacher 仍是噪声目标。记录 q 分布、有效率和缺失率敏感性，不能宣称缺失已完全解决。
 5. 未来 q 与 mask 仅进入 loss／诊断，生产生成 token 仍用 generated=true、coverage=0，不泄漏未来观测质量。
 
 latent 统计只取训练 split 的每个唯一 `(episode, origin)` **最后一个历史 z** 一次，并存该请求数据／版本 fingerprint；不收集重叠窗口中的其他 z，也不收集未来 teacher z。重复键内容不一致时报错。各维以 origin 的 q 作为权重计算均值和总体方差；该组至少有两个 q>0 的训练 origin，否则无法估计而报错。B 不重拟合。
+
+`latent_stats.npz` 布局：每动态组三个键 `{group}__mean [d_z] float64`、`{group}__variance [d_z] float64`、`{group}__count`（q>0 的 `(episode, origin)` 数，int64 标量）。辅助维度权重 w 在加载时按上式 `1/(variance+0.01)` 重算并截断到 100，不单独落盘；NPZ 以 allow_pickle=False 读写。
 
 辅助维度权重固定为 `w[g,j]=1/(variance[g,j]+0.01)`，连续且不超过 100。近常量维仍有限加权，不突然把权重改为 1。单个组全部维度方差低于 `1e-8` 只告警并保留常量目标；全部动态组均如此才暂停 full 训练、报告 representation_degenerate，交由机制任务定位，不静默改模型。权重只用于 loss，不改预测值与回灌坐标。
 
@@ -256,7 +258,8 @@ AIDC 先均匀选训练站点再选该站训练 origin，epoch 总抽样数等�
 | `data_provider/spatial_temporal/schema.py` | `GroupSchema`、`ForecastInput`、`Supervision`、`ForecastResult`；schema 3、形状／站点／目标／类型校验 |
 | `data_provider/spatial_temporal/aidc_mapping.py` | 设备／测点／端口／单位映射及覆盖审计；不猜测现场接线 |
 | `data_provider/spatial_temporal/config.py` | JSON 解析、禁止未知键、默认值与参数约束 |
-| `data_provider/spatial_temporal/dataset.py` | manifest/NPZ 加载、as-of 选择、窗口、batch collate、关系端点映射 |
+|| `data_provider/spatial_temporal/dataset.py` | manifest/NPZ 加载、as-of 选择、窗口、关系端点映射 |
+|| `data_provider/spatial_temporal/batching.py` | `collate_samples`：变长实体轴 padding、逐样本关系边列表与元数据组装；规则唯一见 [batch 组装](input_output.md#batch-contract) |
 | `data_provider/spatial_temporal/scaling.py` | 组级数值／target／协变量 scaler、训练词表及 artifact 校验 |
 | `exp/exp_gslaformer_forecasting.py` | `Exp_GSLAformer_Forecast`，复用 Exp_Basic 设备／模型发现，训练状态机与运行分派 |
 | `exp/gslaformer_support.py` | 损失 reduction、latent 标签／统计、指标、checkpoint 序列化；不复制旧实验类 |
@@ -277,6 +280,12 @@ AIDC 先均匀选训练站点再选该站训练 origin，epoch 总抽样数等�
 - `rollout(inputs, horizon) -> ForecastResult`：所有预测调用唯一闭环，正式请求 horizon 等于 checkpoint 配置 H，future_time／known 同长；若只展示前几步，在完整 H 计算后截取，不改变 FuturePathEncoder 的信息集。课程 K 只限制训练 rollout 的步数，不裁剪原始 H 条件。
 - `predict_direct(inputs) -> [B,H,1]`：A／直接对照，不回灌。
 - `build_latent_labels(supervision, origin_context, entity_memory_copy, frozen_encoder)` 位于实验支持层，返回 z、quality，不位于生产 forecast 接口。
+
+边界对象字段（首版固定，变更须先改本节）：
+
+- `EncodedHistory`：`z [B,L,Gd,d_z]`、逐动态组逐时刻 `observed_coverage [B,L,Gd]`、逐 token `generated [B,L]`（真实历史全 false）、静态条件 `c [B,d_t]`、按组末端实体 memory `{group: [B,N_g,d_s]}`、逐请求 `entity_ids` 元数据。
+- `RolloutState`：当前窗口 token（`z`、`y`、`y_observed`、`y_generated`、组 `observed_coverage`、组 `generated`）、原 origin 与 lead 基准；不含标签与 teacher memory。窗口移位只移除最早 token 并重算窗口位置编码，不重跑实体编码器。
+- `StepPrediction`：`y [B,1]`（target 标准化坐标）、`z [B,Gd,d_z]`（规范坐标）。
 
 <a id="implementation-7-2"></a>
 
@@ -304,14 +313,14 @@ AIDC 先均匀选训练站点再选该站训练 origin，epoch 总抽样数等�
 | schema_version | 输入输出契约的数据／模型版本，不与绘图格式版本混用 |
 | experiment | model 固定 GSLAformer；variant 见验收对照表；profile 标识独立任务，data_kind 为 synthetic；seed/device/results_root 明确保存 |
 | data.package / timezone / freq / target / groups / relation_types / known_future / feature_units | 输入输出契约的来源、单位、对象与外部数据 schema；relative package 按实际配置文件目录解析 |
-| data.seq_len / pred_len / stride / split_mode / split_index / site_split | 输入输出定义切窗与分区语义，验收协议唯一维护各任务的具体值及站点角色 |
+|| data.seq_len / pred_len / train_stride / valid_stride / test_stride / split_mode / split_index / site_split | 输入输出定义切窗与分区语义，验收协议唯一维护各任务的具体值及站点角色；字段集合以 `config.py` 校验为准 |
 | data.sampler / batch_size / num_workers | 本文的训练采样、设备与恢复约束；参数实例见完整配置 |
 | model | 本文的实体／空间／关系／时间／未来路径计算；不得用字段偷偷切换另一架构 |
 | limits | 本节安全分配规则；实例限额不是峰值内存或性能承诺 |
 | training | 本文的优化器、损失、课程、早停与梯度规则 |
 | evaluation | 本文定义指标算法，验收定义选择指标、报告粒度、季节周期与比较种子 |
 
-固定规范：FFN 倍数=4、Post-LN、GELU、组级 scaler、单层实体 GRU、两层关系注意力、单层未来路径编码、窗口正弦编码、[标签、损失与缺失规则](implementation.md#implementation-5) 质量加权与有界方差权重。layers 字段只允许上述首版值，不默默引入另一种架构。维度整除 head 数；L/H 正整数；至少一个动态组；组／特征唯一；variant 限 [基线、消融与诊断定义](acceptance.md#implementation-10-1)。
+固定规范：FFN 倍数=4、Post-LN、GELU、组级 scaler、单层实体 GRU、两层关系注意力、单层未来路径编码、窗口正弦编码、[标签、损失与缺失规则](implementation.md#implementation-5) 质量加权与有界方差权重。layers 字段只允许上述首版值，不默默引入另一种架构。维度整除 head 数；L/H 正整数；至少一个动态组；组／特征唯一；variant 限 [基线、消融与诊断定义](acceptance.md#variants)。
 
 limits 是参考实现的安全边界，不是已测性能承诺：包括 batch padding 后的真实节点轴，不通过截断节点满足限制。分配前按 `4*B*L*relation_heads*N_total^2` 估算单个显式 FP32 分数张量，再检查各组空间层及时间层；任一超过字节上限时报错，显示估算。它不等于峰值内存估算，forward/backward 仍须实测；OOM 不能捕获后静默降级。上调 limit 需独立容量验证，首轮不宣称无限扩展。
 
@@ -357,7 +366,7 @@ Python 使用项目根 .venv；核心基于已有 PyTorch，无新账号或外�
 
 checkpoint 按 variant 保存所需 schema、scaler、词表、latent 统计、冻结清单和模型状态；训练目录的旁车用于审计，存在时校验一致。test/forecast 可只用完整自包含 checkpoint，不强求来源目录旁车仍存在。缺该 variant 的必需内容才拒绝加载。仅加载用户认可的本地模型 artifact，不从不可信来源反序列化任意对象。
 
-predictions、latent 与 metadata 的字段及物理含义唯一见[输出合同](input_output.md#input-output-7-2)，不在本节复制字段表。
+predictions、latent 与 metadata 的字段及物理含义唯一见[输出合同](input_output.md#output-contract)，不在本节复制字段表。`scalers.json`／`category_vocab.json` 的字段级格式唯一见[落盘格式](input_output.md#scaling-artifacts)；`latent_stats.npz` 布局唯一见 [latent 标签与统计](implementation.md#implementation-5-1)。
 
 AIDC 额外保存 `site_split.json`、`scenario_metrics.json`、`generation_audit.json` 与 `metadata.json`；具体字段、单位和质量语义只由输出合同定义。
 
@@ -385,6 +394,8 @@ run_id 和 episode_id 必须是单一安全名称（字母、数字、下划线�
 
 每个包记录实际命令、退出码、测试计数、产物路径和偏差；没有证据不能标 Done。训练 run 的 running/completed 等状态与项目任务状态分开。预算、阈值或算法变更先留依据与批准记录，再实施，不追改历史成“原本如此”。偏差追加到[设计演进记录](archive/design_history.md)。
 
-本次已完成的窄切片：input_output §6.6 固定标准包与指纹、§10 固定质量标记；acceptance §18.6 固定 aidc-v1 模拟假设；schema.py 已实现严格 JSON、规范 JSON 指纹和单请求质量计算。先运行定向测试观察到缺模块的预期红灯，再实现并运行 `env -u PYTHONPATH TMPDIR=/Users/wangzf/.hermes/profiles/coder/cache/scratch .venv/bin/python -m unittest discover -s tests -p 'test_gslaformer_data.py' -v`：3 项通过、退出码 0。它们不证明标准包加载、模型或 I1 全部完成；tests 仍按用户决定被忽略，不擅改 .gitignore。
+本节是 GSLAformer 实施进度与测试计数的唯一记账位置；`data_provider/spatial_temporal/README.md` 只保留命令并链接到本节，不单独记账。
+
+I1 当前证据（2026-10-14，gslaformer 分支）：已实现 `schema.py`（严格 JSON、规范指纹、单请求质量）、`config.py`（schema 3 配置校验）、`dataset.py`（标准包校验、as-of、窗口与监督隔离）、`aidc_mapping.py`（单位／端口／关系合法性）；`scaling.py`、`batching.py` 未实现。运行 `env -u PYTHONPATH .venv/bin/python -m unittest discover -s tests -p 'test_gslaformer_*.py'`：17 项，16 通过，1 项预期导入错误（`test_gslaformer_scaling.py` 依赖未实现的 scaling/batching），属预期红灯。这些不证明模型或 I1 全部完成。tests 按用户决定仍被 .gitignore 忽略、不随代码提交，验收证据无法远端复现；I5 前需重新裁决 tests 版本化，否则 I6 的"可追溯产物"要求无法满足。
 
 实施前重新检查分支、目录规则和源码漂移。新增 tests 的版本化例外须精准处理，不删除已有测试；不盲目 import 全仓重依赖模型。普通 parser／模型发现／TFs_type 路由只做受影响的定向回归。根 README 在功能实际完成后补运行说明，不在文档阶段宣称可运行。

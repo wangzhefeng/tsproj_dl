@@ -83,7 +83,7 @@ R4 的 AIDC 标准 profile 固定六组：`compute`、`it_power`、`distribution
 
 同一设备的功率和温度一般是同一实体的不同特征；设备及其独立电表是否合并由 mapping 声明。冗余传感器按主备规则选择或明确融合，不能因两个点名不同就当成两份独立负荷。对混合粒度的服务器／机柜观测保留 `entity_type` 与 `represented_count`，不把机柜伪装成一台大服务器。
 
-<a id="input-output-3-1"></a>
+<a id="relation-contract"></a>
 
 ## 3. 类型关系的业务合同
 
@@ -98,7 +98,7 @@ R4 将 `relations.json` 的通用端点改为 `src_group/src_id/dst_group/dst_id
 | `runs_on` | 稳定任务池 → 已确认部署的服务器／机柜／空间 | 多对多；只按实际可得粒度建立，未知部署不猜测 |
 | `associated_env` | 环境观测实体 → 代表空间／暖通实体 | 显式关联，不能用近邻点名自动认定 |
 
-这些关系使图示中的关系分支真实可计算，但**不是热水管网或交流潮流仿真器**。管网循环本身不入当前 attention 契约；若需要物理有环电气网络，先作显式适配／扩展，不冒充已支持。
+这些关系使图示中的关系分支真实可计算；管网循环与有环电气网络求解不入当前 attention 契约（非承诺的统一清单见[设计 §8](design.md#capability-boundary)）。若需要物理有环电气网络，先作显式适配／扩展。
 
 每种关系的允许端点类型、是否无环与 `reverse_message` 写入 schema。首版允许多来源／多目标，contains 仍按空间层级检查同层归属唯一性；不把所有关系都命名成父子。拒绝跨站点边、自环源记录、同类型重复边、悬空端点和违反该类型约束的循环；**不要求所有类型合并后仍是 DAG**。供电与冷却等不同类型叠加形成环可以合法。
 
@@ -136,11 +136,11 @@ R4 将 `relations.json` 的通用端点改为 `src_group/src_id/dst_group/dst_id
 - 室温／流量：按各特征的时序语义对齐；温度缺失不能由未来插值填上。
 - 标签缺失：mask 屏蔽，不为训练方便生成假总表真值。
 
-<a id="implementation-2"></a>
+<a id="standard-package"></a>
 
 ## 6. 标准包、请求快照与 batch
 
-<a id="implementation-2-1"></a>
+<a id="package-format"></a>
 
 ### 6.1 首轮持久化格式
 
@@ -164,9 +164,9 @@ manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前�
 
 历史动态观测首版一个单元格只存一个值及其到达时间，不自动选择历史修订；真实数据若有版本修订，必须先做 as-of 来源适配，不直接导入最终修订宽表。未来协变量支持同一起点可见的多版本记录，按 `published_at <= origin` 选最近版本，时间相同再按显式 revision 排序；完全同键的冲突记录报错。
 
-关系 schema 声明 `name/src_groups/dst_groups/acyclic/reverse_message`，允许同组边、多来源和多目标，不把任意类型都解释成父子。业务方向与逐类型合法性见 [类型关系的业务合同](input_output.md#input-output-3-1)；acyclic=true 的类型单独拒绝循环，不要求所有类型合并后仍为 DAG。拒绝源记录自环、同类型重复边、跨站边和悬空端点；模型再生成 self 与显式反向通信，不把双向消息当物理反向供电。full 每个请求至少一条有效边；孤立实体允许 self，但记录 orphan 数量。AIDC 的 contains 还需按实体 space_level 验证方向；supplies 按端口／设备类型验证，组级白名单不是全部约束。
+关系 schema 声明 `name/src_groups/dst_groups/acyclic/reverse_message`，允许同组边、多来源和多目标，不把任意类型都解释成父子。业务方向与逐类型合法性见 [类型关系的业务合同](input_output.md#relation-contract)；acyclic=true 的类型单独拒绝循环，不要求所有类型合并后仍为 DAG。拒绝源记录自环、同类型重复边、跨站边和悬空端点；模型再生成 self 与显式反向通信，不把双向消息当物理反向供电。full 每个请求至少一条有效边；孤立实体允许 self，但记录 orphan 数量。AIDC 的 contains 还需按实体 space_level 验证方向；supplies 按端口／设备类型验证，组级白名单不是全部约束。
 
-<a id="implementation-2-2"></a>
+<a id="request-snapshot"></a>
 
 ### 6.2 有效期、历史版本与请求快照
 
@@ -176,7 +176,7 @@ manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前�
 - 未来的属性、成员和关系固定为 origin 上下文；若起点已知 horizon 内有变化，拒绝该请求。历史内变化不触发此限制，新起点立即可用最新已知版本，无需重训。
 - latent 标签使用起点快照和同一实体集合，仅未来动态值用作监督；不能读取后来才公布的父级、新节点或静态修订。
 
-<a id="implementation-2-3"></a>
+<a id="batch-contract"></a>
 
 ### 6.3 标准 batch
 
@@ -221,7 +221,14 @@ B 是独立请求的 batch，F_g 是固定 schema 的组内动态特征数；该
 
 历史属性、present 和边采用统一实体轴；origin 静态条件取最后历史位置的属性及 present。未来 teacher 使用 origin 在册集合与固定上下文，不能引入起点不存在的节点。未来标签的 observed 表示离线标签快照的可观测性，不要求 available_at<=origin，否则真正未来标签都会被屏蔽；该标签快照只用于监督，不参加推理输入选择。
 
-<a id="implementation-2-4"></a>
+**batch 组装（collate）规则**：不同样本的实体集合与数量不同，collate 将一个 batch 内每组 `N_g` 补齐到该组在本 batch 的最大实体数，不产生跨样本共享的实体轴：
+
+- 补齐行 `padding=true`，`values/static_numeric_history` 填 0，`observed/present/applicable/static_numeric_mask` 全 false，`static_category_history` 填 PAD(0)；补齐行不向其他实体贡献信息（屏蔽规则见[关系计算](implementation.md#implementation-3-2)）。
+- `relations_history` 与 `relations_origin` 保持每样本独立的边列表，端点为**样本内**实体索引；不跨样本拼接成统一图，不引入全局节点编号。
+- `entity_ids/site_ids/target_contract` 逐样本作为元数据列表传递，不进入张量。
+- 同组内实体顺序在单请求内固定（与关系端点索引一致），batch 维不要求不同样本顺序对齐。
+
+<a id="scaling-missing"></a>
 
 ### 6.4 scaler、缺失与新实体
 
@@ -233,7 +240,7 @@ B 是独立请求的 batch，F_g 是固定 schema 的组内动态特征数；该
 - 未声明列、单位变化、新分组、新关系类型报错；同 schema 新 ID 和新合法边必须接受。
 - 缺测但存在的实体仍以属性和 mask 参与 attention；padding 和未生效实体不向其他实体贡献信息。
 
-<a id="implementation-2-5"></a>
+<a id="window-split"></a>
 
 ### 6.5 窗口与 split
 
@@ -269,7 +276,17 @@ NPZ 数值在 observed=true 处必须有限；未观测位置允许 NaN，但进
 
 指纹使用 SHA-256：JSON 先 `sort_keys=True, separators=(",",":"), ensure_ascii=False, allow_nan=False` 转为 UTF-8。schema 指纹只包含上述 schema 对象；不包含实体 ID、数量、关系快照、站点切分或绝对路径。数据指纹包含 schema 指纹、entity_order、所有文件字节 hash 及 collection 切分／子包指纹。模型兼容性另验证 L/H、model 配置、variant、schema 和冻结 scaler／词表；不同节点快照改变数据指纹，但不据此拒绝同 schema 新实体预测。指纹算法版本固定为 `sha256-canonical-json-v1`。
 
-<a id="input-output-5-2"></a>
+<a id="scaling-artifacts"></a>
+
+### 6.7 scaler 与词表落盘格式
+
+统计语义由 [scaler、缺失与新实体](input_output.md#scaling-missing) 定义；本节唯一固定训练产物的字段级格式，checkpoint 校验与 test/forecast 重载只认本格式，不现场重拟合。
+
+- `scalers.json`：`{"version": 1, "schema_fingerprint": hex, "groups": {group: {"dynamic": {feature: {"mean": number, "std": number}}, "static_numeric": {feature: {"mean", "std"}}}}, "target": {"mean", "std"}, "known_future": {feature: {"mean", "std"}}}`。均值／总体标准差以 JSON number 保存 float64 值；标准差小于 `1e-6` 存 1。完全没有训练观测的已声明数值特征**不写入**该文件；加载时发现声明特征缺统计即报错，不默默补假统计。`known_future` 只含 K>0 时已声明协变量。
+- `category_vocab.json`：`{"version": 1, "groups": {group: {feature: [token, ...]}}}`。索引 0 固定为 PAD、1 固定为 UNK；其余 token 取自训练分区可见版本，按字典序排列以保证可复现。推理期未见类别映射 UNK，不追加词表、不新增参数。
+- 两文件均按本节规范 JSON 规则编码（拒绝重复键、NaN、Infinity），其规范指纹随 checkpoint 保存并在 test/forecast 校验一致。
+
+<a id="missing-semantics"></a>
 
 ## 7. 缺失与设备存续语义
 
@@ -284,7 +301,7 @@ NPZ 数值在 observed=true 处必须有限；未观测位置允许 NaN，但进
 
 全缺失组使用空组／质量机制得到有限输出，但若站点没有任何历史总表且没有可用内部动态观测，AIDC full 请求直接拒绝；不以纯静态猜测伪装成正常预测。有部分数据的低质量预测须标注 `degraded_input`，不保证精度。
 
-<a id="input-output-5-3"></a>
+<a id="future-plan-availability"></a>
 
 ## 8. 任务与未来计划的可用边界
 
@@ -294,25 +311,19 @@ NPZ 数值在 observed=true 处必须有限；未观测位置允许 NaN，但进
 
 已发布计划是条件，不保证必定执行；模拟器和评估需覆盖计划偏离。不存在可靠计划时 mask=false，不能使用未来实际任务量填补。可新增的协变量必须在训练 schema 中预声明并有训练证据，forecast 不临时加列。
 
-<a id="input-output-6"></a>
+<a id="site-data-rules"></a>
 
-## 9. 跨站点与 schema 兼容性
+## 9. 跨站点数据规则与 schema 兼容性
 
-| 能力层次 | 本轮设计要求 | 不应推出的结论 |
-| --- | --- | --- |
-| 数据通用 | 原始点名映射为统一单位／类型／关系合同 | 所有站点电力架构相同 |
-| 结构通用 | 同 schema、可变实体数、空组、未知 ID 可运行 | 任意新对象类型都免重训 |
-| 参数共享 | 多个模拟站点共同训练一套模型 | 多站点一定比单站模型准确 |
-| 未见站点推理 | 冻结权重／词表／scaler，对独立留出站点预测并报告 | 新站无需校准就有生产精度 |
-| 真实迁移 | 将来用真实站点独立回测与可选适配 | 模拟数据能够“确保”真实泛化 |
+能力分层（数据通用 → 结构通用 → 参数共享 → 未见站点 → 真实迁移）及“不应推出的结论”统一见[设计 §8](design.md#capability-boundary)，本节只维护数据侧规则。
 
-训练统计量按组／特征跨训练站点真实观测拟合，目标 scaler 也只用训练站点训练时间；不用每个新站测试数据重新估均值。训练采样算法由实施规格定义。原始 kW 目标的 MSE 仍可能偏向大负荷站点，这是已知边界；同时报告各站点误差和归一化误差，不用 pooled 数字掩盖小站失败。
+训练统计量按组／特征跨训练站点真实观测拟合，目标 scaler 也只用训练站点训练时间；不用每个新站测试数据重新估均值。原始 kW 目标的 MSE 仍可能偏向大负荷站点，这是已知边界；同时报告各站点误差和归一化误差，不用 pooled 数字掩盖小站失败。
 
 站点规模通过额定容量、represented_count、有效实体数量及静态统计被模型消费。跨层额定容量的 sum 只是分组描述量，不解释成设施总额定功率。首版不引入额外按站 scaler，不靠归一化偷偷抹去规模差异。
 
 联合训练、同站新实体、留出新站测试分别记账。新类型／新列／不同目标口径／不同采样间隔意味着新 schema 或独立 profile，需要重新训练／验证。改变设备数量和合法关系快照不改变 schema fingerprint。
 
-<a id="input-output-7-2"></a>
+<a id="output-contract"></a>
 
 ## 10. 业务输出、诊断与审计字段
 
@@ -324,7 +335,7 @@ NPZ 数值在 observed=true 处必须有限；未观测位置允许 NaN，但进
 - `new_site/new_entity_count/no_history_entity_count/unknown_category_count`；
 - `input_coverage/degraded_input/negative_prediction/plan_available`。
 
-`latents.npz` 保存隐状态与组顺序，只用于研究诊断。`metadata.json` 保存 schema／数据／关系／checkpoint fingerprint、目标合同、输入截至时刻与版本、站点留出角色。质量字段不是概率置信区间。
+`latents.npz` 保存隐状态与组顺序，只用于研究诊断。`metadata.json` 保存 schema／数据／关系／checkpoint fingerprint、目标合同、输入截至时刻与版本、站点留出角色。
 
 总负荷头沿用线性输出，可能产生负值；保留原始预测并记录负值计数，不在评分前偷偷裁成零。若业务要非负输出，需将约束作为训练／输出规则的显式版本变化；当前不宣称物理约束已实现。
 
@@ -341,9 +352,9 @@ NPZ 数值在 observed=true 处必须有限；未观测位置允许 NaN，但进
 
 输出 y 逆 target scaler 回到标准包的单位；AIDC mapping 已将源端 W/MW 转为 kW，因此 AIDC 的原始量纲是标准 kW，不恢复成混杂源单位。是否要求该模式生成 metrics、checkpoint 或 latents，以及文件名、原子写入和冲突规则，由[产物生命周期](implementation.md#implementation-11)维护。
 
-H 必须等于 checkpoint 配置的训练 H；若只展示前几步，应完整推理后截取，不能裁剪 FuturePathEncoder 的条件改变信息集。各模拟 profile 的 L/H 与容量范围由[验收协议](acceptance.md#input-output-7-1)维护。
+H 必须等于 checkpoint 配置的训练 H；若只展示前几步，应完整推理后截取，不能裁剪 FuturePathEncoder 的条件改变信息集。各模拟 profile 的 L/H 与容量范围由[验收协议](acceptance.md#aidc-profiles)维护。
 
-<a id="input-output-7-3"></a>
+<a id="request-example"></a>
 
 ## 11. 请求示例
 
@@ -352,9 +363,11 @@ H 必须等于 checkpoint 配置的训练 H；若只展示前几步，应完整�
 组内设备顺序可以一致重排；整个历史的 ID、属性、mask、关系必须同步重排。站点 A 与 B 的数据可以组成 B=2 的 batch，但不能把它们的设备连成一个“超大 AIDC”。
 
 
-<a id="implementation-7-3"></a>
+<a id="error-contract"></a>
 
 ## 12. 错误输入与拒绝行为
+
+> 本节是外部可见错误行为的唯一权威表；前文各节只定义正常语义，遇到冲突以本节为准并显式修正。
 
 | 情况 | 行为 |
 | --- | --- |
