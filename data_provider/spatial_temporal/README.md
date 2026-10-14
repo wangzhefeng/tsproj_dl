@@ -28,4 +28,4 @@ env -u PYTHONPATH .venv/bin/python -m unittest discover -s tests -p 'test_gslafo
 env -u PYTHONPATH .venv/bin/python -m unittest discover -s tests -p 'test_gslaformer_*.py' -v
 ```
 
-`tests/` 仍被现有 `.gitignore` 忽略，以上测试仅在本地保留、未随代码提交；远端检出不包含这些验证文件。未运行完整模拟验收、CPU/MPS 模型验证或旧入口回归。
+`tests/` 已纳入版本控制（含预期红灯的 `test_gslaformer_scaling.py`），远端检出可直接复现上述验证。未运行完整模拟验收、CPU/MPS 模型验证或旧入口回归。

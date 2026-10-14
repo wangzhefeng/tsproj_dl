@@ -396,6 +396,6 @@ run_id 和 episode_id 必须是单一安全名称（字母、数字、下划线�
 
 本节是 GSLAformer 实施进度与测试计数的唯一记账位置；`data_provider/spatial_temporal/README.md` 只保留命令并链接到本节，不单独记账。
 
-I1 当前证据（2026-10-14，gslaformer 分支）：已实现 `schema.py`（严格 JSON、规范指纹、单请求质量）、`config.py`（schema 3 配置校验）、`dataset.py`（标准包校验、as-of、窗口与监督隔离）、`aidc_mapping.py`（单位／端口／关系合法性）；`scaling.py`、`batching.py` 未实现。运行 `env -u PYTHONPATH .venv/bin/python -m unittest discover -s tests -p 'test_gslaformer_*.py'`：17 项，16 通过，1 项预期导入错误（`test_gslaformer_scaling.py` 依赖未实现的 scaling/batching），属预期红灯。这些不证明模型或 I1 全部完成。tests 按用户决定仍被 .gitignore 忽略、不随代码提交，验收证据无法远端复现；I5 前需重新裁决 tests 版本化，否则 I6 的"可追溯产物"要求无法满足。
+I1 当前证据（2026-10-14，gslaformer 分支）：已实现 `schema.py`（严格 JSON、规范指纹、单请求质量）、`config.py`（schema 3 配置校验）、`dataset.py`（标准包校验、as-of、窗口与监督隔离）、`aidc_mapping.py`（单位／端口／关系合法性）；`scaling.py`、`batching.py` 未实现。运行 `env -u PYTHONPATH .venv/bin/python -m unittest discover -s tests -p 'test_gslaformer_*.py'`：17 项，16 通过，1 项预期导入错误（`test_gslaformer_scaling.py` 依赖未实现的 scaling/batching），属预期红灯。这些不证明模型或 I1 全部完成。tests 已随用户决定于 2026-10-14 纳入版本控制（.gitignore 移除 `tests/`），验收证据可远端复现；预期红灯的 scaling 测试保留，不以缩小范围宣称整组通过。
 
 实施前重新检查分支、目录规则和源码漂移。新增 tests 的版本化例外须精准处理，不删除已有测试；不盲目 import 全仓重依赖模型。普通 parser／模型发现／TFs_type 路由只做受影响的定向回归。根 README 在功能实际完成后补运行说明，不在文档阶段宣称可运行。
