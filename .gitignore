@@ -162,3 +162,5 @@ checkpoints/
 time-series-features/
 time-series-forecast/
 tests/
+
+.hermes/
