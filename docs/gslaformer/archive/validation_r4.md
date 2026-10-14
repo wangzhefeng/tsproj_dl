@@ -4,7 +4,7 @@
 >
 > 当前记录：文档结构／示例检查与图示检查均已通过，最终范围与未验证事项见 §5。
 
-> 归档补记：DOC-004 将全部图示资产移入 [architecture/](architecture/README.md)。以下命令、计数、哈希及回执中的绝对路径保留为首次 R4 检查的历史事实；当前路径的绘图回执见 [迁移后验证](architecture/diagram_evidence/relocation/architecture.finalize-summary.json)。`validation_checks.json` 同为迁移前历史记录，不冒称本次重新执行。
+> 归档补记：DOC-004 将全部图示资产移入 [architecture/](../architecture/README.md)。以下命令、计数、哈希及回执中的绝对路径保留为首次 R4 检查的历史事实；当前路径的绘图回执见 [迁移后验证](../architecture/diagram_evidence/relocation/architecture.finalize-summary.json)。`validation_checks.json` 同为迁移前历史记录，不冒称本次重新执行。
 
 ## 1. 变更范围与历史衔接
 
@@ -80,7 +80,7 @@ node /Users/wangzf/.hermes/profiles/coder/skills/creative/archify/bin/archify.mj
 | architecture.html | `ddcbdb40b22a126a78249132bbc2f061dc48a643222e821e5d260d579b9c89cf` |
 | architecture.png | `27a9f8b6251f84d1b5ebdfb944b1496eb58a71bce17e24f3795a58ed7deaedd4` |
 
-迁移前完整证据（仅链接随文件位置更新）：[finalize 回执](architecture/diagram_evidence/architecture.finalize-summary.json)、[浏览器回执](architecture/diagram_evidence/architecture.browser-check.json)、[截图联系表](architecture/diagram_evidence/visual/architecture.visual-check.html)。
+迁移前完整证据（仅链接随文件位置更新）：[finalize 回执](../architecture/diagram_evidence/architecture.finalize-summary.json)、[浏览器回执](../architecture/diagram_evidence/architecture.browser-check.json)、[截图联系表](../architecture/diagram_evidence/visual/architecture.visual-check.html)。
 
 ## 4. 保留风险
 

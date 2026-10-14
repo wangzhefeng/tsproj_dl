@@ -1,6 +1,6 @@
 # GSLAformer R3：对抗性文档审查
 
-> R4 导航补记：以下为 R3 会话的历史审查记录，正文结论和数值证据不改写。当前 design／implementation 已由 DOC-003 扩展为 R4，路径指向的是新文本，不是 R3 固定快照；新增 AIDC 合同、类型关系和图示不属于本报告已审范围。R4 变更见 [design.md §12.1](design.md#121-设计澄清与偏差记录)，验证记录见 [validation_r4.md](validation_r4.md)。
+> R4 导航补记：以下为 R3 会话的历史审查记录，正文结论和数值证据不改写。当前 design／implementation 已由 DOC-003 扩展为 R4，路径指向的是新文本，不是 R3 固定快照；新增 AIDC 合同、类型关系和图示不属于本报告已审范围。R4 变更见 [design.md §12.1](design_history.md)，验证记录见 [validation_r4.md](validation_r4.md)。
 
 > 审查对象：本轮未提交的 `docs/gslaformer/` 设计、实施规格、机制任务和入口说明。
 >

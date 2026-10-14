@@ -1,0 +1,76 @@
+{
+  "schema_version": 3,
+  "experiment": {
+    "model": "GSLAformer",
+    "variant": "full",
+    "data_kind": "synthetic",
+    "seed": 2023,
+    "device": "cpu",
+    "results_root": "./results/gslaformer"
+  },
+  "data": {
+    "package": "../../../results/gslaformer/fixtures/base",
+    "timezone": "UTC",
+    "freq_seconds": 3600,
+    "seq_len": 24,
+    "pred_len": 6,
+    "train_stride": 1,
+    "valid_stride": 1,
+    "test_stride": 1,
+    "split_mode": "target_index",
+    "split_index": [0, 192, 256, 320],
+    "batch_size": 8,
+    "num_workers": 0,
+    "target_name": "synthetic_total",
+    "target_unit": "arbitrary_unit",
+    "groups": [
+      {"name": "assets", "dynamic": ["load", "utilization"], "static_numeric": ["capacity"], "static_category": ["kind"]},
+      {"name": "zones", "dynamic": ["temperature"], "static_numeric": ["capacity"], "static_category": []},
+      {"name": "sites", "dynamic": [], "static_numeric": ["capacity"], "static_category": []}
+    ],
+    "relation_types": [
+      {"name": "asset_in_zone", "src_groups": ["assets"], "dst_groups": ["zones"], "acyclic": true, "reverse_message": true},
+      {"name": "zone_in_site", "src_groups": ["zones"], "dst_groups": ["sites"], "acyclic": true, "reverse_message": true}
+    ],
+    "known_future": ["scheduled_activity"]
+  },
+  "model": {
+    "spatial_dim": 32,
+    "latent_dim": 32,
+    "temporal_dim": 64,
+    "spatial_heads": 4,
+    "relation_heads": 4,
+    "temporal_heads": 4,
+    "spatial_layers": 1,
+    "entity_history_layers": 1,
+    "relation_layers": 2,
+    "temporal_layers": 2,
+    "future_path_layers": 1,
+    "dropout": 0.1,
+    "category_embedding_dim": 8,
+    "lead_dim": 16
+  },
+  "limits": {
+    "max_total_nodes": 128,
+    "max_history_steps": 96,
+    "max_horizon_steps": 24,
+    "max_explicit_attention_bytes": 268435456
+  },
+  "training": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "clip_grad_norm": 1.0,
+    "latent_weight": 0.1,
+    "stage_a_max_epochs": 20,
+    "stage_a_patience": 5,
+    "b_short_epochs": 2,
+    "b_medium_epochs": 2,
+    "b_full_max_epochs": 20,
+    "b_full_patience": 5,
+    "min_delta": 0.000001,
+    "amp": false,
+    "truncate_rollout_grad": false
+  },
+  "evaluation": {"selection_metric": "valid_macro_mse", "seasonal_period": 24, "compare_seed": 2023}
+}

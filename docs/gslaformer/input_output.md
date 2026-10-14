@@ -1,18 +1,22 @@
-# GSLAformer R4：AIDC 业务对象与输入输出契约
+# GSLAformer R4：业务对象与输入输出契约
 
-> 状态：设计规格，未实现。R4 将 R3 的通用分组机制具体化为跨 AIDC 总负荷预测；不是既有生产数据清单。
+> 本文唯一维护业务对象、数据包、外部张量、时间／单位／可用性和输出字段。网络内部计算见[实施规格](implementation.md)，模拟场景与验收见[验收协议](acceptance.md)。
 >
-> 上位设计：[design.md](design.md)；计算规格：[implementation.md](implementation.md)；模拟协议：[synthetic_aidc.md](synthetic_aidc.md)。
->
-> 本文的设备类型是候选标准目录；生产站点的实际点位、数量、连接和计量边界尚未核实。示例均为 synthetic，不代表现场参数。
+> 状态：待实现。设备目录是候选标准，不是已经核实的生产点表；schema_version=3，无旧模型产物迁移。真实来源适配仍需后续授权。
+
+<a id="input-output-1"></a>
 
 ## 1. 要预测什么
+
+<a id="input-output-1-1"></a>
 
 ### 1.1 一个样本对应一个 AIDC、一个起点、一个总负荷口径
 
 目标不是“预测所有设备”，而是用不同数量的内部对象及其历史，预测一个 AIDC 在未来各时间区间的总有功功率。一个 batch 可包含多个 AIDC 的独立请求；**B 是样本轴，不是跨站点通信轴**。站点之间共享模型参数，不建立跨 AIDC attention 边。
 
 主输出为 `y_pred[B,H,1]`。设备／测点数量变化的是输入的 `N_g`，不是输出的最后一维。内部 `z_pred[B,H,Gd,d_z]` 是辅助隐状态，不是服务器或机房功率，不能逆变换成设备功率。
+
+<a id="input-output-1-2"></a>
 
 ### 1.2 总负荷与市电净购电量不能混称
 
@@ -28,7 +32,11 @@
 
 > **核心认识：多层功率可以共同作为解释信息，但不能把服务器、机柜、UPS、变压器、楼宇和市电功率全部相加得到总负荷。**
 
+<a id="input-output-2"></a>
+
 ## 2. 从原图的三组扩展为业务对象目录
+
+<a id="input-output-2-1"></a>
 
 ### 2.1 电力层级是观察线索，不是已核实的现场接线图
 
@@ -42,6 +50,8 @@
 - 电气供电方向通常从上游供电设备到下游负载；原描述是由细到粗的观测顺序，二者不能混用。
 - 双路供电、跨房间支路、冗余 UPS、母联切换、多变压器服务同一楼宇，都需要现场关系表。
 - 缺少某级测点时允许跳级关系，但关系必须来自资料确认，不能自动补造中间设备或观测。
+
+<a id="input-output-2-2"></a>
 
 ### 2.2 固定组类型、可变实体数
 
@@ -60,6 +70,8 @@ R4 的 AIDC 标准 profile 固定六组：`compute`、`it_power`、`distribution
 
 配电室 UPS 输入／输出属于同一资产的不同计量边界，不能把两路数值互相覆盖。允许表示成两个有 `asset_id` 关联的计量实体，或在明确的固定 schema 中建不同端口特征；AIDC profile 采用前者，以统一 `active_power_kw` 语义。
 
+<a id="input-output-2-3"></a>
+
 ### 2.3 资产、点位、特征不是同一个概念
 
 | 对象 | 为什么需要 | 简单示例（示意） |
@@ -71,9 +83,9 @@ R4 的 AIDC 标准 profile 固定六组：`compute`、`it_power`、`distribution
 
 同一设备的功率和温度一般是同一实体的不同特征；设备及其独立电表是否合并由 mapping 声明。冗余传感器按主备规则选择或明确融合，不能因两个点名不同就当成两份独立负荷。对混合粒度的服务器／机柜观测保留 `entity_type` 与 `represented_count`，不把机柜伪装成一台大服务器。
 
-## 3. 按类型保存关系，而不是建一棵万能树
+<a id="input-output-3-1"></a>
 
-### 3.1 关系注册表
+## 3. 类型关系的业务合同
 
 R4 将 `relations.json` 的通用端点改为 `src_group/src_id/dst_group/dst_id/type`，另带 `valid_from/valid_to/available_at/revision`。`src/dst` 的业务方向由下表固定，反向信息边由模型显式构造，不反写源表。
 
@@ -90,19 +102,12 @@ R4 将 `relations.json` 的通用端点改为 `src_group/src_id/dst_group/dst_id
 
 每种关系的允许端点类型、是否无环与 `reverse_message` 写入 schema。首版允许多来源／多目标，contains 仍按空间层级检查同层归属唯一性；不把所有关系都命名成父子。拒绝跨站点边、自环源记录、同类型重复边、悬空端点和违反该类型约束的循环；**不要求所有类型合并后仍是 DAG**。供电与冷却等不同类型叠加形成环可以合法。
 
-### 3.2 关系如何进入模型
 
-1. 原始业务边经 as-of 版本选择，映射到每个请求自己的实体轴。
-2. 每种类型生成两个通信方向及各 head 的类型偏置，self 始终可用。
-3. attention 的行是接收方、列是发送方；方向不是物理电流方向。
-4. 同一对节点若有多种关系，允许项的偏置相加，重复同类型记录已在数据层拒绝。没有任何类型允许且非 self 的位置为负无穷。
-5. R3 的两层关系交互保留，质量 q 的两跳可达集合改为从全部启用类型的通信图计算；`no_relation_all` 同时移除所有类型、类型度数和关系质量旁路。
+关系在实体读出前参与计算；query/key 方向、偏置叠加、两层消息与质量旁路的精确定义见[关系计算](implementation.md#implementation-3-2)。它不是电气／热力求解器，也不保证全网络仅沿关系边通信。
 
-两层消息仅直接传播两跳，**不声称完整遍历服务器到进线的全部层级**。所有层级仍分别进入组内编码与最终读出。关系深度收益须由深层链／重连试验评价；如以后改层数或做分层局部编码，必须另登记变体、实测容量，而不是偷偷折叠数据。
+<a id="input-output-4-1"></a>
 
-## 4. 源数据保存与标准数据包
-
-### 4.1 原始接入层
+## 4. 来源表与映射
 
 生产来源暂未整理，以下是接入合同，不是现有文件。
 
@@ -118,19 +123,9 @@ R4 将 `relations.json` 的通用端点改为 `src_group/src_id/dst_group/dst_id
 
 保留原始来源，不用清洗结果覆盖原始文件。标准化值只是模型输入表示，正式结果必须保留物理单位和输入版本。
 
-### 4.2 R4 标准包版本
+<a id="input-output-4-3"></a>
 
-`schema_version=3` 表示 R4 数据与模型契约。它不是数据库 schema 迁移；当前没有模型产物。本文和 implementation 的设计样例已显式改为 schema 3；R3 schema 2 仅保留在历史说明中，运行时不静默兼容／猜测版本。
-
-沿用 JSON+NPZ 和 `allow_pickle=False`，增加 `measurements.json`（映射与来源）、`site.json`（站点属性与目标合同）。`manifest.json` 绑定二者与 entities、relations、observations、known_future 的校验值。多站点 collection 的 episode 项加 `site_id`、`topology_family_id`、`time_split`；普通 M1–M5 的 `episode_family` 协议继续保留。
-
-- `single_episode`：一个站点的一段连续时间，独立实体轴。
-- `episode_collection`：引用同 schema 的多个 single_episode；不同站点／episode 不连时间轴，不跨界取窗。
-- `site_time`：按 [模拟协议](synthetic_aidc.md) 双轴划分站点和时间，不与 `episode_family` 的一个 origin 规则混用。
-- `(site_id, group, entity_id)` 为唯一身份；模型数值侧不使用 site_id 或 entity_id 查表。
-- 属性和关系仍按事件时刻有效、预测起点可见的版本选择；未来结构仍固定起点快照。已知 horizon 内变化时拒绝请求，不声称会自动推演。
-
-### 4.3 时间对齐与单位规则
+## 5. 时间对齐与单位
 
 统一时间索引为 UTC 秒，本地时区只用于日历。AIDC 示例采用区间右端标记：时刻 `t` 的功率代表 `(t-Δ,t]` 的平均 kW；预测 `o+kΔ` 对应 `(o+(k-1)Δ,o+kΔ]`。origin 是最后一个历史区间末端，实际读取还要求 available_at 不晚于 origin。
 
@@ -141,32 +136,142 @@ R4 将 `relations.json` 的通用端点改为 `src_group/src_id/dst_group/dst_id
 - 室温／流量：按各特征的时序语义对齐；温度缺失不能由未来插值填上。
 - 标签缺失：mask 屏蔽，不为训练方便生成假总表真值。
 
-## 5. 结构化模型输入
+<a id="implementation-2"></a>
 
-### 5.1 张量、元数据与监督分离
+## 6. 标准包、请求快照与 batch
 
-以下继承 implementation 的 batch 规则，并补入站点合同。`G=6` 是 AIDC profile 的固定组数；各组动态列固定，因此该 profile `Gd=6`，某站点空组仍占固定 latent 槽位且质量为零。
+<a id="implementation-2-1"></a>
 
-| 输入 | 形状／类型 | 含义 |
+### 6.1 首轮持久化格式
+
+采用标准库 JSON + NumPy NPZ；不为配置增加 YAML 依赖，不使用允许对象反序列化的 NPZ。
+
+一个数据包由以下文件构成，路径相对包根目录解析，拒绝越界引用：
+
+| 文件 | 内容 |
+| --- | --- |
+| `manifest.json` | `schema_version=3`、`data_kind=synthetic`、episode 清单、时区、频率、单位、分组 schema、分区边界、文件校验值 |
+| `entities.json` | 分组内唯一 ID、数值／类别属性、有效区间、available_at、revision；ID 仅为字符串元数据 |
+| `relations.json` | `src_group/src_id/dst_group/dst_id/type/valid_from/valid_to/available_at/revision`；业务方向由类型规定 |
+| `site.json` | site_id、目标计量合同、站点角色；机制任务使用 synthetic_site，仍不作数值 ID 输入 |
+| `measurements.json` | 测点到实体／特征／端口的显式映射、来源单位及转换、冗余策略；纯机制夹具也声明直接生成的映射 |
+| `observations.npz` | `timestamps`、各组 values／observed／applicable／present／available_at、target／target_observed／target_available_at |
+| `known_future.npz` | 每条记录的 origin、target_time、feature index、value、observed、published_at、revision；无协变量时为空记录 |
+
+manifest 的 `layout` 必须是 `single_episode` 或 `episode_collection`。前者包含上表文件；后者包含 `episodes:[{id,family_id,site_id,split,path}]`，path 指向完整 single_episode 子包。episode_family 模式的 split 限 train/valid/test，同一 family_id 不得跨 split。site_time 模式的 split 为 null，另附 topology_family_id、time_split 与 site_split，按[验收协议的 AIDC 双轴切分](acceptance.md#synthetic-aidc-4-3)生成窗口，不能给整个站点套一个时间分区。collection 根不伪造合并 observations，不把不同实体轴强拼成一个时间序列。
+
+`timestamps` 为严格递增、等间隔 UTC int64 秒；本地日历使用 manifest 的时区生成。首轮 synthetic 使用 UTC，避免把时间转换问题与模型测试混在一起。
+
+历史动态观测首版一个单元格只存一个值及其到达时间，不自动选择历史修订；真实数据若有版本修订，必须先做 as-of 来源适配，不直接导入最终修订宽表。未来协变量支持同一起点可见的多版本记录，按 `published_at <= origin` 选最近版本，时间相同再按显式 revision 排序；完全同键的冲突记录报错。
+
+关系 schema 声明 `name/src_groups/dst_groups/acyclic/reverse_message`，允许同组边、多来源和多目标，不把任意类型都解释成父子。业务方向与逐类型合法性见 [类型关系的业务合同](input_output.md#input-output-3-1)；acyclic=true 的类型单独拒绝循环，不要求所有类型合并后仍为 DAG。拒绝源记录自环、同类型重复边、跨站边和悬空端点；模型再生成 self 与显式反向通信，不把双向消息当物理反向供电。full 每个请求至少一条有效边；孤立实体允许 self，但记录 orphan 数量。AIDC 的 contains 还需按实体 space_level 验证方向；supplies 按端口／设备类型验证，组级白名单不是全部约束。
+
+<a id="implementation-2-2"></a>
+
+### 6.2 有效期、历史版本与请求快照
+
+- 每个请求独立解析起点可见的实体／静态属性／关系，实体数量可以不同。
+- 历史每个时刻 s 使用 `valid_from <= s < valid_to` 且 `available_at <= origin` 的版本，重叠有效期按可见 revision 选择，冲突报错。属性和父级可在历史内切换；绝不把 origin 的新父级覆盖到全部历史。
+- 允许实体在历史中途出现：其生效前 `present=false`，没有观测和消息；生效后才应用该实体的边。新实体没有历史时，其历史观测 mask 全 false，不能回填虚构观测。
+- 未来的属性、成员和关系固定为 origin 上下文；若起点已知 horizon 内有变化，拒绝该请求。历史内变化不触发此限制，新起点立即可用最新已知版本，无需重训。
+- latent 标签使用起点快照和同一实体集合，仅未来动态值用作监督；不能读取后来才公布的父级、新节点或静态修订。
+
+<a id="implementation-2-3"></a>
+
+### 6.3 标准 batch
+
+记 `G` 为固定分组类型数，`Gd` 为动态组数，`N_g` 为当前 batch 补齐后的组内节点数，`L` 为历史，`H` 为预测长度。组顺序由 schema 固定；节点顺序每次由元数据映射处理，不进入模型位置编码。
+
+\[
+X^{(g)}\in\mathbb R^{B\times L\times N_g\times F_g}
+\]
+
+B 是独立请求的 batch，F_g 是固定 schema 的组内动态特征数；该张量对应下表 groups[g].values。
+
+| 字段 | dtype / shape | 说明 |
 | --- | --- | --- |
-| `groups[g].values` | float32 `[B,L,N_g,F_g]` | 动态观测，组内固定特征、实体数量可变 |
-| `observed` | bool，同 values | 起点已收到且质量合格 |
-| `applicable` | bool `[B,N_g,F_g]` | 特征对该实体是否有意义；类型变化须分新实体或拒绝跨变更窗口 |
-| `present` | bool `[B,L,N_g]` | 对象在相应时刻已生效 |
-| `padding` | bool `[B,N_g]` | batch 对齐用假行，不参加汇总 |
-| `static_numeric_history`／mask | `[B,L,N_g,S_g]` | 数值属性版本，不是动态观测 |
-| `static_category_history` | `[B,L,N_g,C_g]` | 类型、端口、冷却方式等；未知类别 UNK |
-| `relations_history/origin` | 逐样本／时刻的 typed edge 列表 | 不跨 batch 样本通信 |
-| `target_history`／observed | `[B,L,1]` | 目标总表历史，独立于内部各组 |
-| `history_time/future_time` | `[B,L]`／`[B,H]` | 与 Δ、origin 一致的区间末端 |
-| `future_known`／mask | `[B,H,K]` | 起点已发布的站点级条件；无外部条件 K=0 |
-| `site_ids/target_contract` | 元数据 | 评估、校验、审计；ID 不进入可学习表 |
+| `groups[g].values` | float32 `[B,L,N_g,F_g]` | 变换后有限值；纯静态组 `F_g=0` |
+| `groups[g].observed` | bool，同 values | 起点可见的真实观测 |
+| `groups[g].applicable` | bool `[B,N_g,F_g]` | 不适用不是缺失，也不是零观测 |
+| `groups[g].present` | bool `[B,L,N_g]` | 当时是否存续；缺测实体仍可为 true |
+| `groups[g].padding` | bool `[B,N_g]` | true 表示 batch 补齐，不是真实实体 |
+| `groups[g].static_numeric_history` | float32 `[B,L,N_g,S_g]` | 历史有效版本，按组标准化；纯常量可在加载时广播 |
+| `groups[g].static_numeric_mask` | bool，同 static_numeric_history | 缺失数值属性 |
+| `groups[g].static_category_history` | int64 `[B,L,N_g,C_g]` | 历史属性类别，PAD=0、UNK=1 |
+| `groups[g].entity_ids` | 字符串元数据 | 不传给 embedding lookup |
+| `relations_history` | B×L 个边索引／类型集合 | 历史逐时刻版本；统一历史实体轴，不能独立逐帧重编号 |
+| `relations_origin` | B 个边集合 | 历史最后时刻的边，用作固定未来上下文 |
+| `target_history` | float32 `[B,L,1]` | 使用独立 target scaler |
+| `target_history_observed` | bool `[B,L,1]` | 真实历史可用性 |
+| `history_time` | int64 `[B,L]` | UTC 秒 |
+| `future_time` | int64 `[B,H]` | 从起点按频率递增 |
+| `future_known` | float32 `[B,H,K]` | 已声明通用连续协变量，`K=0` 合法 |
+| `future_known_mask` | bool `[B,H,K]` | 在起点是否可用 |
+| `origins` | int64 `[B]` | 最后一个历史时刻 |
+| `site_ids/target_contract` | B 份元数据 | 站点隔离、目标边界、原始单位和审计；不作学习 ID |
 
-site 级数值／类别属性作为 `space` 组中唯一 `aidc_boundary` 实体的静态属性进入独立静态条件链，不新增 site ID embedding。该边界实体可承载总表动态特征，但主目标输入仍单列 `target_history`；重复提供不等于重复计量。
+类别型未来协变量先由包 schema 展开成已声明数值列；不能在 forecast 临时增加列。真实来源读取器不属于首轮，标准包与合成生成器属于首轮。
 
-`Supervision` 另外包含未来 y、mask、未来内部观测，后者只用于冻结 teacher 的 latent 标签。无标签 forecast 包不含这三类字段。生成器内部热状态、真实未来天气、最终任务执行量、实际完成时间不得混进预测输入。
+监督结构与模型输入分离：
 
-### 5.2 缺失、缺设备和没装传感器
+- `Supervision.target`: float32 `[B,H,1]`；`target_mask` 同形。
+- `Supervision.future_groups`: 各组 `[B,H,N_g,F_g]` 和对应 mask，仅供冻结编码器构造标签。
+- `LatentLabels.z`: float32 `[B,H,Gd,d_z]`，`quality`: float32 `[B,H,Gd]` 在 `[0,1]`；由 quality>0 导出 valid。
+- `ForecastInput` 不含上述三项。`forecast()` 不接受 Supervision；测试主动更改标签，预测必须不变。
+
+历史属性、present 和边采用统一实体轴；origin 静态条件取最后历史位置的属性及 present。未来 teacher 使用 origin 在册集合与固定上下文，不能引入起点不存在的节点。未来标签的 observed 表示离线标签快照的可观测性，不要求 available_at<=origin，否则真正未来标签都会被屏蔽；该标签快照只用于监督，不参加推理输入选择。
+
+<a id="implementation-2-4"></a>
+
+### 6.4 scaler、缺失与新实体
+
+- 连续观测和静态数值按 `(group, feature)` 在训练分区真实适用观测上统计，不按实体拟合；target 使用独立统计；协变量只使用训练 origin 可见的记录。AIDC 还必须限于训练站点训练时段，留出验证／测试站点的全部数据不能参与拟合。
+- 标准化均值与总体标准差存为 float64 元数据，模型输入 float32。标准差小于 `1e-6` 用 1；完全没有训练观测的已声明数值特征报错，不默默创建假统计。
+- 标准化后未观测或不适用位置填 0，同时传 observed／applicable。首版不前向填充，不用未来插值。
+- 新实体复用组级 scaler。未知属性类别映射 UNK，不添加新参数；保留数据质量计数，不声称已验证未知类别精度。
+- 属性变更记录去重后按训练可见版本统计，不按广播到每个时间格的次数重复拟合；episode 不同源数据分别记录键，归一化总体统计只使用训练 split。
+- 未声明列、单位变化、新分组、新关系类型报错；同 schema 新 ID 和新合法边必须接受。
+- 缺测但存在的实体仍以属性和 mask 参与 attention；padding 和未生效实体不向其他实体贡献信息。
+
+<a id="implementation-2-5"></a>
+
+### 6.5 窗口与 split
+
+训练／验证／测试按 target-anchored 协议：`history=[t-L+1,t]`、`labels=[t+1,t+H]`，所有标签落在同一 split；历史可来自更早 split。周期 base 各 split stride=1，AIDC 的 stride 由验收 profile 明确，不能套用 base 值。训练形成窗口后可 shuffle；未来未知观测绝不参与 origin 可用性选择。
+
+该规则对应配置 `split_mode=target_index`，需要严格递增 split_index。机制 collection 用 `split_mode=episode_family`、`split_index=null`，从 manifest 取 family split，并只选各长度 L+H episode 的 origin=L-1；拒绝同时提供 target_index 边界。不要把 base 的 320 行边界复制到 30 行的机制 episode。
+
+AIDC collection 使用第三种 `split_mode=site_time`，有 split_index、site_split 和每站独立时间轴。00–07 的训练／未来验证／未来测试与 08–09 未见验证、10–11 未见测试按 [时间轴与合法窗口](acceptance.md#synthetic-aidc-4-3) 分配；样本不跨站点。站点平衡采样算法见[训练状态机](implementation.md#implementation-6)；valid/test 保序且按 profile 的 stride 取窗，各 profile 的完整配置与样本数随产物保存。
+
+推理至少提供规则时间轴上的 L 个位置；实体级值可以缺失，不允许少行后偷偷改变 L。请求最后一时刻必须等于 origin。有效目标为零的监督 batch 不优化；整轮无有效主目标报错。
+
+AIDC profile 固定 G=6，六组都声明动态列，因此 Gd=6；合法空组仍占固定 latent 槽位且质量为零。`(site_id, group, entity_id)` 为唯一身份，site_id 与 entity_id 都不进入可学习查表。
+
+站点级属性通过 space 组中唯一 aidc_boundary 实体进入独立静态链。该实体可承载总表特征，但 target_history 仍是单列目标历史；重复提供解释信息不等于重复计量。类型变化若改变 applicable，须分新实体或拒绝跨变更窗口，不在请求中改变特征含义。
+
+生成器热状态、真实未来天气、最终任务执行量和实际完成时间不能混进 ForecastInput。无标签请求不含未来目标、目标 mask 或内部未来观测；监督包与请求包隔离。
+
+### 6.6 落盘编码与版本指纹（实施补充）
+
+以下固定首版 JSON/NPZ 的精确编码，不依赖 Python 对象序列化。文件统一 UTF-8；JSON 拒绝重复键、NaN 和 Infinity；所有时间为 UTC int64 秒。
+
+- `entities.json` 为 `{"groups": {group: [record, ...]}}`。record 必含 `id/valid_from/valid_to/available_at/revision/numeric/category`；numeric/category 为按 schema 特征名索引的对象。缺失数值为 null，缺失类别为 null（映射 UNK）；valid_to=null 表示无上界。同 ID 可以有多个版本，但 `(id,valid_from,revision)` 不得重复。数组轴与记录顺序无关。
+- `relations.json` 为 `{"edges": [record, ...]}`。record 必含原类型关系合同的端点、type、有效期、available_at、revision；同逻辑边的历史版本允许，起点选择后不得出现同类型重复边。
+- `site.json` 为 `{"site_id": string, "target_contract": object}`，目标合同遵守 §1.2。站点角色来自 collection 切分表，不进入学习输入。
+- `measurements.json` 为 `{"mappings": [record, ...]}`。record 含 `measurement_id/source_name/group/entity_id/feature/source_unit/scale/offset/role`；转换为 `value*scale+offset`，role 为 primary 或 backup，同实体特征至多一个 primary。标准 observations 已完成转换，不重复乘系数；冗余源只用于来源审计。
+- `manifest.json` 的单 episode 必含 `schema_version/data_kind/layout/schema/entity_order/files`。schema 包含 `timezone/freq_seconds/groups/relation_types/known_future/target_name/target_unit`，AIDC 另包含 feature_units、target_quantity、interval_label、target_aggregation。`entity_order[group]` 是唯一 ID 列表，精确绑定所有组数组的 N 轴；files 将固定文件名映射到该文件原始字节 SHA-256。
+- collection manifest 使用相同 schema，episodes 每项含 `id/family_id/site_id/split/path`；site_time 另有 topology_family_id，根保存 `split_mode/split_index/site_split`。子包路径必须留在 collection 根内；不允许重复 episode ID。每个子包仍独立验证文件 hash。
+- `observations.npz` 固定公共键为 `timestamps/target/target_observed/target_available_at`，shape 分别为 `[T]`、`[T,1]`、`[T,1]`、`[T,1]`。每组以 `group + "__" + field` 命名：values/observed/available_at 为 `[T,N,F]`，applicable 为 `[N,F]`，present 为 `[T,N]`。values/target 用 float32，mask 用 bool，到达时间用 int64。组名只允许字母、数字、下划线且禁止双下划线，避免键歧义。零特征／零实体轴保留形状，不存对象 dtype。
+- `known_future.npz` 是列式记录，固定键 `origin/target_time/feature_index/value/observed/published_at/revision`，均为 `[R]`；时间、index、revision 为 int64，value 为 float32，observed 为 bool。记录 origin 是请求的原点；先筛 origin 相等，再按 `(target_time,feature_index)` 取 published_at 不晚于原点的最新版本；同发布时间以 revision 最大者优先。K=0 时仍保存这些零长度数组。
+- 无标签请求使用与单 episode 相同的历史文件结构，timestamps 最后值为请求原点且至少 L 行，manifest 另记 `purpose="forecast"`。target 只包含历史总表，不是未来标签；future_target/future_groups 等字段拒绝。未来条件由 known_future 提供，不在 observations 中附加未来行。
+
+NPZ 数值在 observed=true 处必须有限；未观测位置允许 NaN，但进入模型前按 mask 置零。available_at 仍逐单元筛选，不能只验证最后一个时间戳。manifest 声明的实体顺序与注册 ID 集必须一致；历史结束后失效实体可以在轴上，但 present 和边必须按有效时刻屏蔽。
+
+指纹使用 SHA-256：JSON 先 `sort_keys=True, separators=(",",":"), ensure_ascii=False, allow_nan=False` 转为 UTF-8。schema 指纹只包含上述 schema 对象；不包含实体 ID、数量、关系快照、站点切分或绝对路径。数据指纹包含 schema 指纹、entity_order、所有文件字节 hash 及 collection 切分／子包指纹。模型兼容性另验证 L/H、model 配置、variant、schema 和冻结 scaler／词表；不同节点快照改变数据指纹，但不据此拒绝同 schema 新实体预测。指纹算法版本固定为 `sha256-canonical-json-v1`。
+
+<a id="input-output-5-2"></a>
+
+## 7. 缺失与设备存续语义
 
 | 情况 | 表达 | 为什么不能都填零 |
 | --- | --- | --- |
@@ -179,7 +284,9 @@ site 级数值／类别属性作为 `space` 组中唯一 `aidc_boundary` 实体�
 
 全缺失组使用空组／质量机制得到有限输出，但若站点没有任何历史总表且没有可用内部动态观测，AIDC full 请求直接拒绝；不以纯静态猜测伪装成正常预测。有部分数据的低质量预测须标注 `degraded_input`，不保证精度。
 
-### 5.3 任务数据与未来计划的可用边界
+<a id="input-output-5-3"></a>
+
+## 8. 任务与未来计划的可用边界
 
 历史任务指标优先按稳定资源池汇总，避免大量短生命作业导致未来成员变化与 R3 固定未来拓扑冲突。任务开始／结束是计数和利用率变化，不是每个 horizon 更换实体轴。
 
@@ -187,7 +294,9 @@ site 级数值／类别属性作为 `space` 组中唯一 `aidc_boundary` 实体�
 
 已发布计划是条件，不保证必定执行；模拟器和评估需覆盖计划偏离。不存在可靠计划时 mask=false，不能使用未来实际任务量填补。可新增的协变量必须在训练 schema 中预声明并有训练证据，forecast 不临时加列。
 
-## 6. 跨 AIDC 的通用性究竟指什么
+<a id="input-output-6"></a>
+
+## 9. 跨站点与 schema 兼容性
 
 | 能力层次 | 本轮设计要求 | 不应推出的结论 |
 | --- | --- | --- |
@@ -197,28 +306,15 @@ site 级数值／类别属性作为 `space` 组中唯一 `aidc_boundary` 实体�
 | 未见站点推理 | 冻结权重／词表／scaler，对独立留出站点预测并报告 | 新站无需校准就有生产精度 |
 | 真实迁移 | 将来用真实站点独立回测与可选适配 | 模拟数据能够“确保”真实泛化 |
 
-训练统计量按组／特征跨训练站点真实观测拟合，目标 scaler 也只用训练站点训练时间；不用每个新站测试数据重新估均值。训练采样先均匀选站点，再从该站训练 origin 取样，避免长记录站点独占优化。原始 kW 目标的 MSE 仍可能偏向大负荷站点，这是已知边界；同时报告各站点误差和归一化误差，不用 pooled 数字掩盖小站失败。
+训练统计量按组／特征跨训练站点真实观测拟合，目标 scaler 也只用训练站点训练时间；不用每个新站测试数据重新估均值。训练采样算法由实施规格定义。原始 kW 目标的 MSE 仍可能偏向大负荷站点，这是已知边界；同时报告各站点误差和归一化误差，不用 pooled 数字掩盖小站失败。
 
 站点规模通过额定容量、represented_count、有效实体数量及静态统计被模型消费。跨层额定容量的 sum 只是分组描述量，不解释成设施总额定功率。首版不引入额外按站 scaler，不靠归一化偷偷抹去规模差异。
 
 联合训练、同站新实体、留出新站测试分别记账。新类型／新列／不同目标口径／不同采样间隔意味着新 schema 或独立 profile，需要重新训练／验证。改变设备数量和合法关系快照不改变 schema fingerprint。
 
-## 7. 预测区间与输出合同
+<a id="input-output-7-2"></a>
 
-### 7.1 小时至数天的具体含义
-
-| profile（示意） | Δ | L | H | 业务含义 |
-| --- | --- | --- | --- | --- |
-| `aidc_hourly_short` | 1 小时 | 48 | 6 | 历史两天，预测未来六小时 |
-| `aidc_hourly_day` | 1 小时 | 168 | 24 | 历史一周，预测未来一天 |
-| `aidc_hourly_multiday` | 1 小时 | 168 | 72 | 历史一周，预测未来三天 |
-| `aidc_15min_day`（后续容量目标） | 15 分钟 | 672 | 96 | 历史一周，预测未来一天 |
-
-前三个为模拟验收拟议 profile，各自完整配置、训练／验证与 checkpoint；不拿 H=6 的权重直接声称可预测 H=72。每次正式请求 H 等于 checkpoint 的训练 H；展示前几小时可在完整 H 推理后截取，不能裁剪 FuturePathEncoder 的已知条件后声称同一结果。
-
-15 分钟 profile 展示接口如何表示业务范围，不纳入初始全链资源验收。它的 L/H 已超出 R3 限额，需要独立容量测试和授权后启用，不能只改上限宣称完成。
-
-### 7.2 输出分为业务曲线、诊断和审计
+## 10. 业务输出、诊断与审计字段
 
 `predictions.csv` 每行保留：
 
@@ -232,22 +328,43 @@ site 级数值／类别属性作为 `space` 组中唯一 `aidc_boundary` 实体�
 
 总负荷头沿用线性输出，可能产生负值；保留原始预测并记录负值计数，不在评分前偷偷裁成零。若业务要非负输出，需将约束作为训练／输出规则的显式版本变化；当前不宣称物理约束已实现。
 
-### 7.3 用一条请求贯通理解（示意）
+`predictions.csv` 的 target_valid 对 test 表示真值有效性；forecast 的 y_true 为空且不将缺少真值当成预测失败。隐状态文件保留 `[B,H,Gd,d_z]` 对应的组顺序，不能伪装为设备物理量。
+
+质量字段按请求计算，在各 horizon 行重复保存，不当作概率置信区间：
+
+- `input_coverage`：历史 L 步中，所有动态组 present、非 padding、applicable 单元的起点可见 observed 数／这些适用单元总数；分母零取 0。采用单元加权，不按组宏平均，不包含历史总表。
+- `target_history_coverage`：L 个历史目标位置中起点可见有效值的比例，单独写 metadata，不与内部覆盖率混算。
+- `plan_available`：K>0 且至少一个 `[H,K]` 条件单元在原点可用。K=0 或全部缺失均 false；日历不算外部计划。
+- `plan_coverage`：K>0 时可用条件单元数／(H*K)，K=0 时为 null；写 metadata。部分计划可用不会被伪装成完整路径。
+- `degraded_input`：内部适用单元不完整，或 target_history_coverage<1，或存在无历史实体，或 unknown_category_count>0，或 orphan_count>0，或 K>0 且 plan_coverage<1，则为 true。无内部适用单元时也为 true；若同时无总表历史则按 §7 拒绝。该标记仅表示输入合同不完整，不代表低于某个经验精度阈值。
+- `new_site`：site_id 不在 checkpoint 的训练站点溯源集合中；ID 重命名只改变审计标记，不改变数值推理。`negative_prediction` 按各 horizon 逆变换后的 y_pred<0 独立判断。
+
+输出 y 逆 target scaler 回到标准包的单位；AIDC mapping 已将源端 W/MW 转为 kW，因此 AIDC 的原始量纲是标准 kW，不恢复成混杂源单位。是否要求该模式生成 metrics、checkpoint 或 latents，以及文件名、原子写入和冲突规则，由[产物生命周期](implementation.md#implementation-11)维护。
+
+H 必须等于 checkpoint 配置的训练 H；若只展示前几步，应完整推理后截取，不能裁剪 FuturePathEncoder 的条件改变信息集。各模拟 profile 的 L/H 与容量范围由[验收协议](acceptance.md#input-output-7-1)维护。
+
+<a id="input-output-7-3"></a>
+
+## 11. 请求示例
 
 站点 A 有服务器、机柜、UPS、两类泵及机房，站点 B 只有机柜级功率、另一套暖通设备和楼宇总表。二者按同一标准 schema 映射：服务器缺席不是伪造零服务器，缺失特征带 mask，实际关系各自提供。以同一 `aidc_hourly_day` 模型分别读取各站点历史与起点已知条件，输出各自 `[1,24,1]` 的 kW 曲线。
 
 组内设备顺序可以一致重排；整个历史的 ID、属性、mask、关系必须同步重排。站点 A 与 B 的数据可以组成 B=2 的 batch，但不能把它们的设备连成一个“超大 AIDC”。
 
-## 8. 实施验收补项
 
-在 R3 机制测试之外，AIDC 扩展至少验证：
+<a id="implementation-7-3"></a>
 
-1. 六组 schema 映射、同组多类型／端口、合法空组、重复传感器拒绝／显式主备；
-2. 多类型关系、同组边、多关系同端点偏置合成；每类单独约束和跨类型合法环；
-3. 服务器—机柜—配电多层同时输入不触发重复求和；目标始终来自明确边界；
-4. 多站点 batch 不串数据；身份／站点 ID 重命名不改变数值；
-5. 留出站点不参与 scaler、词表、选模和训练；同权重新站无标签推理；
-6. 小时／天级 profile 的 train/valid/test/forecast、重载和逐 horizon 索引；
-7. 每个 profile 的真实资源测量、参数及 scaler 不变检查、失败状态和完整结果文件。
+## 12. 错误输入与拒绝行为
 
-以上为待实现验收，不是本轮已经运行的模型结果。
+| 情况 | 行为 |
+| --- | --- |
+| schema／单位／特征／关系类型不兼容 | ValueError，指出字段和期望，不尝试自动猜测 |
+| 违反类型无环规则、悬空／跨站端点、full 起点无边 | ValueError；跨类型合并形成的合法环不拒绝，无关系仅显式消融／基线 |
+| 新实体 ID、节点顺序变化 | 接受，按请求元数据映射，不改变权重 |
+| 未来信息发布晚于 origin | as-of 屏蔽，不使用；冲突版本报错 |
+| 推理输入出现标签字段 | ValueError，而非忽略后假装干净输入 |
+| checkpoint 缺统计或 schema | 拒绝预测，不现场拟合 |
+| 全部动态组为空／全静态配置 | 拒绝；单个空组由 empty token 处理 |
+| 单 batch 全无主标签 | 跳过并计数；整 epoch 无主标签报错 |
+| 显式指定 MPS 但不可用 | 报错，不把 CPU 回退记作 MPS 成功 |
+| 请求含未来关系切换 | 拒绝首版不支持的语义 |

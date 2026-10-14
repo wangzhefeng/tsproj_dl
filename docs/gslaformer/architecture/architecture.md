@@ -92,7 +92,7 @@ PNG 是已验证 HTML 的浅色浏览器渲染截取，方便 Markdown 阅读；
 ## 6. 图示之外的工程边界
 
 - 原始映射、分区、scaler、配置解析、checkpoint 与 CSV/NPZ 保存由数据／实验框架承担，不放入模型方框伪装成网络层。
-- 模型通过现有 `run.py` 独立路由接入；普通时序模型继续走现有主链。详见 [integration.md](../integration.md)。
+- 模型通过现有 `run.py` 独立路由接入；普通时序模型继续走现有主链。详见 [实施规格中的组件复用与接入](../implementation.md#integration-2)。
 - 模拟数据是图的输入来源之一，不是网络在线自生成训练真值的路径。
 - 小时至三天要按对应完整 profile 验收；图中没有表示无限 horizon 或无限设备数。
 - 绘图校验／浏览器检查只证明图示可读、连接可渲染，不能证明这些模型组件已经实现。
@@ -101,4 +101,4 @@ PNG 是已验证 HTML 的浅色浏览器渲染截取，方便 Markdown 阅读；
 
 修改 `architecture.json` 后重新执行 Archify 的完整 finalize，再检查真实浏览器渲染；不要直接改生成 HTML。图源、HTML、PNG 与证据绑定在同一版本，不能拿旧截图证明新图通过。
 
-首次绘图命令与历史校验结果记录在 [validation_r4.md](../validation_r4.md)，迁移前回执保留在 [diagram_evidence/architecture.finalize-summary.json](diagram_evidence/architecture.finalize-summary.json)。新路径的当前回执位于 [diagram_evidence/relocation/architecture.finalize-summary.json](diagram_evidence/relocation/architecture.finalize-summary.json)，目录约定见 [README.md](README.md)。图源不绑定仓库已有模型实现的虚假 source 行号：这是设计图，代码复用事实由 integration 文档单独列出。
+首次绘图命令与历史校验结果记录在 [R4 历史验证](../archive/validation_r4.md)，迁移前回执保留在 [diagram_evidence/architecture.finalize-summary.json](diagram_evidence/architecture.finalize-summary.json)。新路径的当前回执位于 [diagram_evidence/relocation/architecture.finalize-summary.json](diagram_evidence/relocation/architecture.finalize-summary.json)，目录约定见 [README.md](README.md)。图源不绑定仓库已有模型实现的虚假 source 行号：这是设计图，代码复用依据由实施规格集中维护。

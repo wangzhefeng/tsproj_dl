@@ -18,7 +18,7 @@
 - `diagram_evidence/` 保留迁移前的回执和截图，文件内容不篡改；其中绝对路径为当时运行位置，不代表当前路径有效。
 - `diagram_evidence/relocation/` 保存本次新路径的自动验证回执。
 - 原始 `v4.0.png` 与静态 `architecture.png` 只移动，不重画、不改像素。
-- 上级 `validation_r4.md`、`validation_checks.json` 是整个 R4 文档任务的历史证据，保留在上级目录，不混入纯绘图资产。
+- [R4 验证报告](../archive/validation_r4.md)与[机器回执](../archive/validation_checks.json)是整个 R4 文档任务的历史证据，保存在上级 archive/，不混入纯绘图资产。
 
 ## 新路径验证命令
 

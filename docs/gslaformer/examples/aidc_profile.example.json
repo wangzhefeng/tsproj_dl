@@ -10,7 +10,7 @@
     "results_root": "./results/gslaformer"
   },
   "data": {
-    "package": "../../results/gslaformer/fixtures/aidc",
+    "package": "../../../results/gslaformer/fixtures/aidc",
     "timezone": "UTC",
     "freq_seconds": 3600,
     "seq_len": 168,
