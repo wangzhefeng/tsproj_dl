@@ -108,7 +108,7 @@ CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比�
 | `no_spatial` | 保留实体 GRU，移除组内／关系 attention，用 masked mean 读出 | 同一内部信息；静态关系度数清零；重新训练 |
 | `no_relation_message` | 移除关系层，保留组内 attention 和静态度数 | 只检验显式消息交互，不称无关系信息 |
 | `no_relation_all` | 移除关系层，所有度数／关系派生输入清零 | 检验模型可消费的全部归属信息，重新训练 |
-| `direct` | 完整关系空间编码 + A 式直接 H 输出 | 最多 44 epoch，patience=5；记录实际 update 与训练耗时 |
+| `direct` | 完整关系空间编码 + A 式直接 H 输出 | 最多 44 epoch（= A 20 + B-short 2 + B-medium 2 + B-full 20，与 full 的总 epoch 上限对齐，见[训练状态机](implementation.md#implementation-6-1)），patience=5；记录实际 update 与训练耗时 |
 | `no_latent_loss` | 完整 AR 架构、latent_weight=0 | 从相同 best_A 初始化 B；仅多步主损失训练状态头 |
 | `full` | 完整 GSLAformer | A/B 完整运行 |
 
@@ -121,6 +121,11 @@ CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比�
 同权重诊断单列 `diagnostics.json`：固定最近真实 z 回灌、固定最近有效 y 回灌、teacher z 回灌；固定替代保留 generated 标记。teacher 使用未来观测，标为 oracle，不排名、不用于选模，也不保证成为严格数学上界。比较诊断误差只能提示依赖路径，不能代替重训消融。
 
 首轮单种子 2023，结论仅限功能数据。不得声称统计显著或业务 SOTA。多 seed 和真实数据后续另行批准。
+
+**候选补充（待确认，批准前不进入必需矩阵，不改变上述单种子决定）**：
+
+- `flat_summary`（候选变体）：每个动态组的 masked mean／sum 与 observed coverage 作为外生通道，连同 target 历史、日历与同一已知未来协变量，由仓库已有的 TiDE 或 TimeXer 类结构做直接 H 输出；同 split、同选择指标、同 epoch 上限。用途是区分“内部信息收益”与“GSLA 结构收益”：full 与 total_only 的差只说明前者。拟只在 AIDC 一天 profile 运行；需先在 `config.py` 的 variant 清单与本节登记后才可执行。
+- M1/M2 成对断言的多 seed（候选）：拟用 seed 2023/2024/2025，要求成对区分方向一致，报告均值与极差，仍不做显著性结论；预算增加约 3 倍，仅限机制任务。
 
 <a id="fit-thresholds"></a>
 
@@ -593,6 +598,8 @@ AIDC 使用 `valid_site_macro_mse` 选优，其 reduction 由[实施规格](impl
 <a id="synthetic-aidc-5-3"></a>
 
 ### 20.3 完成条件与真实迁移边界
+
+**诊断触发门槛（候选，待确认；倍数须实跑前登记，不得看到 test 后调整）**：任一 AIDC profile 上，full 的 test `micro_mae` 超过 `2 × min(persistence, seasonal_naive)`，或 per-horizon MAE 中第 H 步与第 1 步之比超过各 naive 同比值的 2 倍时，该 profile 状态记为 `needs_diagnosis`，必须附 §5 同权重诊断（固定 z、固定 y、teacher z 回灌）定位编码或回灌问题后才能记 passed。它只区分“疑似实现错误”，不是排名或优于对照的要求。
 
 功能验收要求：生成 oracle 通过，全部必需训练／test／forecast／重载和契约断言真实执行，结果有限且时间对齐，错误输入被拒绝，产物可追溯。不要求 full 超过 direct 或 naive，但必须完整报告失败和负面结果。
 

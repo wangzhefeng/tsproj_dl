@@ -180,6 +180,7 @@ H=1 时三个 B 阶段仍依序执行，前两个只作固定 warmup，最终阶
 
 - B 冻结实体／空间／关系／读出／静态链，并在父模型 `.train()` 后仍强制 frozen_modules.eval()；未来路径编码器属于可训练预测链，不误冻结。
 - rollout K 步保留所有生成 z 与 y 回灌梯度，不 detach。验证和推理使用 no_grad。
+- 冻结链的梯度上下文（候选规则，待确认）：B 阶段训练前向中，冻结的实体／空间／关系／读出／静态链拟在 `torch.no_grad()` 下产出历史 z 与 c，再进入可训练时间链；`.eval()` 只关闭 dropout，不阻止建图。确认后在 `tests/test_gslaformer_training.py` 断言冻结链输出无 `grad_fn`、优化器参数清单不含冻结参数。该规则只减少无效激活，不改变 §3.1 teacher 路径与回灌梯度不 detach 的既定规则。
 - 不启用 AMP、scheduled sampling、KV cache 或截断反向传播。功能配置容量较小；若资源超限，报告并修订配置，而不是静默改变训练算法。
 - 每轮记录主损失、分组 latent loss／计数、梯度范数、latent 标准差、历史负荷依赖诊断；不能仅凭有方差就宣称空间信息有效。
 
@@ -258,8 +259,8 @@ AIDC 先均匀选训练站点再选该站训练 origin，epoch 总抽样数等�
 | `data_provider/spatial_temporal/schema.py` | `GroupSchema`、`ForecastInput`、`Supervision`、`ForecastResult`；schema 3、形状／站点／目标／类型校验 |
 | `data_provider/spatial_temporal/aidc_mapping.py` | 设备／测点／端口／单位映射及覆盖审计；不猜测现场接线 |
 | `data_provider/spatial_temporal/config.py` | JSON 解析、禁止未知键、默认值与参数约束 |
-|| `data_provider/spatial_temporal/dataset.py` | manifest/NPZ 加载、as-of 选择、窗口、关系端点映射 |
-|| `data_provider/spatial_temporal/batching.py` | `collate_samples`：变长实体轴 padding、逐样本关系边列表与元数据组装；规则唯一见 [batch 组装](input_output.md#batch-contract) |
+| `data_provider/spatial_temporal/dataset.py` | manifest/NPZ 加载、as-of 选择、窗口、关系端点映射 |
+| `data_provider/spatial_temporal/batching.py` | `collate_samples`：变长实体轴 padding、逐样本关系边列表与元数据组装；规则唯一见 [batch 组装](input_output.md#batch-contract) |
 | `data_provider/spatial_temporal/scaling.py` | 组级数值／target／协变量 scaler、训练词表及 artifact 校验 |
 | `exp/exp_gslaformer_forecasting.py` | `Exp_GSLAformer_Forecast`，复用 Exp_Basic 设备／模型发现，训练状态机与运行分派 |
 | `exp/gslaformer_support.py` | 损失 reduction、latent 标签／统计、指标、checkpoint 序列化；不复制旧实验类 |
@@ -268,9 +269,14 @@ AIDC 先均匀选训练站点再选该站训练 origin，epoch 总抽样数等�
 | `scripts/smoke/smoke_gslaformer.sh` | synthetic 生成、train/test/forecast、重载验收 |
 | `scripts/smoke/compare_gslaformer.py` | 最小基线／消融运行与统一表格，不推导虚假性能 |
 | `tests/test_gslaformer_data.py` | schema、split、as-of、mask、scaler |
+| `tests/test_gslaformer_package.py` | 标准包真实落盘边界：时间、来源、版本与监督隔离，不 mock loader |
+| `tests/test_gslaformer_mapping.py` | 测点单位与业务类型图的来源边界 |
+| `tests/test_gslaformer_scaling.py` | 组级 scaler／词表与 artifact 校验；依赖未实现的 scaling/batching，当前为预期红灯 |
 | `tests/test_gslaformer_model.py` | shape、因果、关系、重排、新实体、条件消费 |
 | `tests/test_gslaformer_training.py` | 冻结、梯度、loss、状态机、resume、过拟合 |
 | `tests/test_gslaformer_integration.py` | CLI、产物、重载、synthetic E2E 和 MPS |
+
+文件现状（2026-10-14 只读核对，以 [开发工作包与进度证据](implementation.md#work-packages) 为记账位置）：已存在 `data_provider/spatial_temporal/` 的 `schema.py`、`config.py`、`dataset.py`、`aidc_mapping.py`，以及 `tests/test_gslaformer_{data,package,mapping,scaling}.py`；表中其余文件仍为拟议。本段只描述存在性，不替代进度记账。
 
 模型接口语义：
 
@@ -313,7 +319,7 @@ AIDC 先均匀选训练站点再选该站训练 origin，epoch 总抽样数等�
 | schema_version | 输入输出契约的数据／模型版本，不与绘图格式版本混用 |
 | experiment | model 固定 GSLAformer；variant 见验收对照表；profile 标识独立任务，data_kind 为 synthetic；seed/device/results_root 明确保存 |
 | data.package / timezone / freq / target / groups / relation_types / known_future / feature_units | 输入输出契约的来源、单位、对象与外部数据 schema；relative package 按实际配置文件目录解析 |
-|| data.seq_len / pred_len / train_stride / valid_stride / test_stride / split_mode / split_index / site_split | 输入输出定义切窗与分区语义，验收协议唯一维护各任务的具体值及站点角色；字段集合以 `config.py` 校验为准 |
+| data.seq_len / pred_len / train_stride / valid_stride / test_stride / split_mode / split_index / site_split | 输入输出定义切窗与分区语义，验收协议唯一维护各任务的具体值及站点角色；字段集合以 `config.py` 校验为准 |
 | data.sampler / batch_size / num_workers | 本文的训练采样、设备与恢复约束；参数实例见完整配置 |
 | model | 本文的实体／空间／关系／时间／未来路径计算；不得用字段偷偷切换另一架构 |
 | limits | 本节安全分配规则；实例限额不是峰值内存或性能承诺 |
@@ -330,6 +336,46 @@ limits 是参考实现的安全边界，不是已测性能承诺：包括 batch 
 实施时生成 `scripts/smoke/gslaformer_functional.json`，以及同目录的 `gslaformer_aidc_hourly_short.json`、`gslaformer_aidc_hourly_day.json`、`gslaformer_aidc_hourly_multiday.json` 三份完整物理配置。不依赖隐式继承或 CLI 模型参数覆盖；准确 L/H、stride 与运行范围见验收。examples/ 比目标 scripts/smoke/ 多一层，相对 data.package 必须重新解析并改写；复制 JSON 后不改路径会指错目录。
 
 Python 使用项目根 .venv；核心基于已有 PyTorch，无新账号或外部服务。若确需依赖，按项目规则以 uv add 管理并说明必要性。新目录添加职责 README，不建抽象空壳。
+
+<a id="hyperparameters"></a>
+
+### 9.1 首版超参取值表
+
+`config.py` 要求所有键显式给出、不提供默认值；下表汇总两份设计样例的现值，便于审阅，不新增任何决策。“已定”指本文其他节或 `config.py` 已锁定；“候选”指仅出现在样例中、尚无独立依据，修改前先登记。
+
+| 键 | 周期 base 样例 | AIDC 样例 | 状态 | 依据／锁定位置 |
+| --- | --- | --- | --- | --- |
+| model.spatial_dim（d_s） | 32 | 32 | 候选 | 仅样例；需整除 spatial_heads／relation_heads（`config.py`） |
+| model.latent_dim（d_z） | 32 | 32 | 候选 | 仅样例；Gd=6 时时间 token 的 z 部分为 192 维 |
+| model.temporal_dim（d_t） | 64 | 64 | 候选 | 仅样例；需整除 temporal_heads |
+| model.spatial_heads / relation_heads / temporal_heads | 4 / 4 / 4 | 4 / 4 / 4 | 候选 | 仅样例 |
+| model.spatial_layers / entity_history_layers / relation_layers / temporal_layers / future_path_layers | 1 / 1 / 2 / 2 / 1 | 1 / 1 / 2 / 2 / 1 | 已定（temporal_layers 除外为候选） | §1 与 §9 固定规范：单层 GRU、两层关系、单层未来路径 |
+| model.dropout | 0.1 | 0.1 | 候选 | 小集拟合另用 0（[验收 §6](acceptance.md#fit-thresholds)） |
+| model.category_embedding_dim / lead_dim | 8 / 16 | 8 / 16 | 已定 | §1.1 宽度 8、§1.5 16 维 lead |
+| training.optimizer / learning_rate / weight_decay | AdamW / 0.001 / 0.0001 | 同左 | 已定 | §4.1 |
+| training.clip_grad_norm | 1.0 | 1.0 | 已定 | §3.2；`config.py` 拒绝其他值 |
+| training.latent_weight（λ） | 0.1 | 0.1 | 已定 | §3.2，首轮不搜索；`no_latent_loss` 为 0 |
+| training.stage_a / b_short / b_medium / b_full epochs | 20(p=5) / 2 / 2 / 20(p=5) | 同左 | 已定 | §4.1 |
+| training.min_delta / amp / truncate_rollout_grad | 1e-6 / false / false | 同左 | 已定 | §4.2–4.3 |
+| data.batch_size | 8 | 2 | 候选 | AIDC batch=2 见 §9 与验收 §21 |
+| limits.max_total_nodes / history / horizon | 128 / 96 / 24 | 128 / 168 / 72 | 已定（作为安全上限） | §9；不是性能承诺 |
+| limits.max_explicit_attention_bytes | 268435456（256 MiB） | 同左 | 候选 | 仅样例；见 §9.2 估算 |
+
+<a id="complexity"></a>
+
+### 9.2 复杂度与显存估算（候选，待实测）
+
+以下为按本文计算规格推导的量级估算，不是实测，也不替代 §9 的“forward/backward 仍须实测”。记 N 为 batch padding 后的真实节点总数、h 为 relation_heads。
+
+| 组件 | 计算量主项 | 需保留激活的主项（训练） |
+| --- | --- | --- |
+| 实体 GRU（§1.1） | O(B·L·N·d_s²)，L 步串行 | O(B·L·N·d_s) |
+| 组内空间 attention（§1.2） | O(B·L·Σ_g N_g²·d_s) | 每层分数 O(B·L·heads·Σ_g N_g²) |
+| 类型关系 attention（§1.2，两层） | O(B·L·N²·d_s) | 每层分数与加性 mask 各约 4·B·L·h·N² 字节 |
+| 时间 Transformer（§1.4） | 每次 O(L²·d_t+L·d_t²) | A：一次；B-full：H 次完整窗口前向（无 KV cache），图全部保留 |
+| 未来路径编码（§1.5） | O(H²·d_t) | 一次 |
+
+按 §9 单张分数张量公式 `4*B*L*h*N^2`（h=4、N=128 上限）：周期 base（B=8、L=24）约 48 MiB；AIDC 六小时（B=2、L=48）约 24 MiB；AIDC 一天／三天（B=2、L=168）约 84 MiB，均低于样例 256 MiB 上限。判断（待实测）：A 阶段两层关系注意力需同时保留分数、softmax 输出、dropout mask 与加性 bias，仅此部分在 L=168 时可能达到数百 MiB；B-full 的主要增量来自 H=72 次时间链前向的保留图，若冻结链按 §4.2 候选规则在 no_grad 下运行，则不含实体／关系激活。I4/I5 实跑时按 profile 与阶段记录峰值内存（CPU RSS／MPS 当前分配）与 wall time，回填本表实测列后再讨论是否调整 limits。
 
 <a id="implementation-10-2"></a>
 
