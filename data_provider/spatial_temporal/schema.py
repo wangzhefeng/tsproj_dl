@@ -28,6 +28,19 @@ def read_json(path):
         return json.load(stream, object_pairs_hook=pairs, parse_constant=constant)
 
 
+def orphan_entity_count(groups, relations_origin):
+    """单请求 origin 的孤立有效实体数；padding／未生效对象不计入。"""
+    active = {(name, index) for name, group in groups.items()
+              for index in range(len(group["padding"]))
+              if group["present"][-1, index] and not group["padding"][index]}
+    connected = set()
+    for sg, si, dg, di, _ in relations_origin:
+        src, dst = (sg, si), (dg, di)
+        if src in active and dst in active and src != dst:
+            connected.update((src, dst))
+    return len(active - connected)
+
+
 def quality_flags(groups, target_observed, future_mask, *, no_history_entity_count=0,
                   unknown_category_count=0, orphan_count=0):
     """单请求质量；按适用单元计数，不将零列计划视为缺失计划。"""

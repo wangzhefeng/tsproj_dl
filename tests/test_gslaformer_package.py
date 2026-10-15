@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def small_config():
-    config = read_json(ROOT / "docs/gslaformer/examples/functional_profile.example.json")
+    config = read_json(ROOT / "scripts/smoke/gslaformer_functional.json")
     data = config["data"]
     data.update(seq_len=3, pred_len=2, split_index=[0, 6, 9, 12], batch_size=2)
     data["groups"] = [

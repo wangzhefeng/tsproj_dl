@@ -13,17 +13,18 @@ from data_provider.spatial_temporal.config import load_config, validate_config, 
 
 class ConfigTests(unittest.TestCase):
     def setUp(self):
-        self.path = Path(__file__).resolve().parents[1] / "docs/gslaformer/examples/functional_profile.example.json"
+        self.path = Path(__file__).resolve().parents[1] / "scripts/smoke/gslaformer_functional.json"
         self.config = read_json(self.path)
 
     def test_profiles_resolve_paths_and_preserve_schema(self):
         config = load_config(self.path)
-        self.assertEqual(Path(config["data"]["package"]), self.path.parents[3] / "results/gslaformer/fixtures/base")
+        self.assertEqual(Path(config["data"]["package"]), self.path.parents[2] / "results/gslaformer/fixtures/base")
         schema = schema_from_config(config)
         self.assertEqual(schema["groups"], self.config["data"]["groups"])
         self.assertNotIn("package", schema)
         self.assertNotIn("split_index", schema)
-        aidc = load_config(self.path.with_name("aidc_profile.example.json"))
+        aidc = load_config(self.path.with_name("gslaformer_aidc_hourly_day.json"))
+        self.assertEqual(Path(aidc["data"]["package"]), self.path.parents[2] / "results/gslaformer/fixtures/aidc")
         self.assertEqual(aidc["data"]["seq_len"], 168)
         self.assertEqual(aidc["evaluation"]["selection_metric"], "valid_site_macro_mse")
 
@@ -52,11 +53,11 @@ class ConfigTests(unittest.TestCase):
                 validate_config(config)
 
     def test_site_roles_must_be_disjoint_and_select_site_macro(self):
-        config = read_json(self.path.with_name("aidc_profile.example.json"))
+        config = read_json(self.path.with_name("gslaformer_aidc_hourly_day.json"))
         config["data"]["site_split"]["heldout_test"].append("aidc_00")
         with self.assertRaisesRegex(ValueError, "site_split"):
             validate_config(config)
-        config = read_json(self.path.with_name("aidc_profile.example.json"))
+        config = read_json(self.path.with_name("gslaformer_aidc_hourly_day.json"))
         config["evaluation"]["selection_metric"] = "valid_macro_mse"
         with self.assertRaisesRegex(ValueError, "selection_metric"):
             validate_config(config)

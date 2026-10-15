@@ -10,7 +10,7 @@ from data_provider.spatial_temporal.config import schema_from_config
 
 class MappingTests(unittest.TestCase):
     def setUp(self):
-        path = Path(__file__).resolve().parents[1] / "docs/gslaformer/examples/aidc_profile.example.json"
+        path = Path(__file__).resolve().parents[1] / "scripts/smoke/gslaformer_aidc_hourly_day.json"
         self.schema = schema_from_config(read_json(path))
         self.order = {g["name"]: [] for g in self.schema["groups"]}
         self.order["it_power"] = ["server"]

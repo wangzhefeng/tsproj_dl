@@ -87,6 +87,9 @@ def _set_output_dirs(args):
 
 
 def _select_experiment_class(args):
+    if args.model == "GSLAformer":
+        from exp.exp_gslaformer_forecasting import Exp_GSLAformer_Forecast
+        return Exp_GSLAformer_Forecast
     if args.task_name == "long_term_forecast" and args.model in RNN_TODO_MODELS:
         return Exp_RNN_Long_Term_Forecast
     if args.task_name == "long_term_forecast":
@@ -97,6 +100,30 @@ def _select_experiment_class(args):
 
 
 def args_parse():
+    probe = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    probe.add_argument('--model')
+    selected, _ = probe.parse_known_args()
+    if selected.model == 'GSLAformer':
+        parser = argparse.ArgumentParser(description='GSLAformer typed forecasting', allow_abbrev=False)
+        parser.add_argument('--model', required=True, choices=['GSLAformer'])
+        parser.add_argument('--gsla_config', required=True)
+        parser.add_argument('--gsla_mode', required=True, choices=['train', 'test', 'forecast', 'compare'])
+        parser.add_argument('--gsla_run_id', required=True)
+        parser.add_argument('--gsla_checkpoint')
+        parser.add_argument('--gsla_request')
+        args = parser.parse_args()  # 旧 is_training 等参数在此明确拒绝。
+        from data_provider.spatial_temporal.config import safe_name
+        try:
+            safe_name(args.gsla_run_id, 'gsla_run_id')
+        except ValueError as exc:
+            parser.error(str(exc))
+        if args.gsla_mode in {'test', 'forecast'} and not args.gsla_checkpoint:
+            parser.error('test/forecast 必须指定 --gsla_checkpoint')
+        if args.gsla_mode == 'compare' and args.gsla_checkpoint:
+            parser.error('compare 自行训练对照，不接受 checkpoint 覆盖')
+        if (args.gsla_mode == 'forecast') != bool(args.gsla_request):
+            parser.error('只有 forecast 必须提供 --gsla_request')
+        return args
     parser = argparse.ArgumentParser(description='Transformer Time Series Forecasting')
     # basic config
     parser.add_argument('--des', type=str, default='TimeSeries Forecasting Exp', help='exp description')
@@ -246,6 +273,22 @@ def args_parse():
 
 
 def run(args):
+    if args.model == 'GSLAformer':
+        from data_provider.spatial_temporal.config import load_config
+        config = load_config(args.gsla_config)
+        destination = Path(config['experiment']['results_root']) / args.gsla_run_id
+        if args.gsla_mode == 'compare':
+            from exp.gslaformer_comparison import run_comparison
+            result = run_comparison(config, destination)
+            if result['status'] != 'passed':
+                raise RuntimeError('比较任务存在失败，见 comparison.json')
+            return result
+        if args.gsla_mode == 'train':
+            experiment = _select_experiment_class(args)(config, destination, resume=args.gsla_checkpoint)
+            return experiment.train()
+        from exp.gslaformer_inference import evaluate_checkpoint
+        return evaluate_checkpoint(config, args.gsla_checkpoint, destination,
+                                   mode=args.gsla_mode, request=args.gsla_request)
     Exp = _select_experiment_class(args)
 
     if args.task_name == "short_term_forecast" and args.data == "m4":
@@ -337,7 +380,8 @@ def main():
     set_seed(seed = 2023)
     # 参数解析
     args = args_parse()
-    print_args_ts(args)
+    if args.model != 'GSLAformer':
+        print_args_ts(args)
     # 参数使用
     run(args)
 

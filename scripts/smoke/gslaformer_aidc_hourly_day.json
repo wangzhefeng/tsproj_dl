@@ -1,0 +1,302 @@
+{
+  "schema_version": 3,
+  "experiment": {
+    "model": "GSLAformer",
+    "variant": "full",
+    "data_kind": "synthetic",
+    "seed": 2023,
+    "device": "cpu",
+    "results_root": "./results/gslaformer"
+  },
+  "data": {
+    "package": "../../results/gslaformer/fixtures/aidc",
+    "timezone": "UTC",
+    "freq_seconds": 3600,
+    "seq_len": 168,
+    "pred_len": 24,
+    "train_stride": 1,
+    "valid_stride": 24,
+    "test_stride": 24,
+    "split_mode": "site_time",
+    "split_index": [
+      0,
+      864,
+      1152,
+      1440
+    ],
+    "batch_size": 2,
+    "num_workers": 0,
+    "target_name": "facility_demand_kw",
+    "target_unit": "kW",
+    "groups": [
+      {
+        "name": "compute",
+        "dynamic": [
+          "allocated_gpu",
+          "active_jobs",
+          "queue_depth",
+          "throughput",
+          "arrival_rate"
+        ],
+        "static_numeric": [
+          "gpu_capacity"
+        ],
+        "static_category": [
+          "pool_type"
+        ]
+      },
+      {
+        "name": "it_power",
+        "dynamic": [
+          "active_power_kw",
+          "cpu_utilization",
+          "gpu_utilization",
+          "online_fraction"
+        ],
+        "static_numeric": [
+          "rated_power_kw",
+          "represented_count"
+        ],
+        "static_category": [
+          "entity_type"
+        ]
+      },
+      {
+        "name": "distribution",
+        "dynamic": [
+          "active_power_kw",
+          "load_ratio"
+        ],
+        "static_numeric": [
+          "rated_capacity_kw"
+        ],
+        "static_category": [
+          "entity_type",
+          "port"
+        ]
+      },
+      {
+        "name": "hvac",
+        "dynamic": [
+          "active_power_kw",
+          "running_fraction",
+          "frequency_hz",
+          "flow_rate",
+          "supply_temp",
+          "return_temp"
+        ],
+        "static_numeric": [
+          "rated_power_kw",
+          "rated_flow_rate",
+          "design_cooling_kw"
+        ],
+        "static_category": [
+          "device_type"
+        ]
+      },
+      {
+        "name": "space",
+        "dynamic": [
+          "active_power_kw",
+          "room_temp",
+          "room_humidity"
+        ],
+        "static_numeric": [
+          "area_m2",
+          "it_capacity_kw"
+        ],
+        "static_category": [
+          "space_level"
+        ]
+      },
+      {
+        "name": "environment",
+        "dynamic": [
+          "dry_bulb_temp",
+          "humidity"
+        ],
+        "static_numeric": [],
+        "static_category": [
+          "station_type"
+        ]
+      }
+    ],
+    "relation_types": [
+      {
+        "name": "contains",
+        "src_groups": [
+          "space"
+        ],
+        "dst_groups": [
+          "space",
+          "it_power"
+        ],
+        "acyclic": true,
+        "reverse_message": true
+      },
+      {
+        "name": "supplies",
+        "src_groups": [
+          "distribution"
+        ],
+        "dst_groups": [
+          "distribution",
+          "it_power"
+        ],
+        "acyclic": true,
+        "reverse_message": false
+      },
+      {
+        "name": "meter_covers",
+        "src_groups": [
+          "space"
+        ],
+        "dst_groups": [
+          "space",
+          "distribution",
+          "it_power"
+        ],
+        "acyclic": true,
+        "reverse_message": false
+      },
+      {
+        "name": "cools",
+        "src_groups": [
+          "hvac"
+        ],
+        "dst_groups": [
+          "hvac",
+          "space",
+          "it_power"
+        ],
+        "acyclic": false,
+        "reverse_message": true
+      },
+      {
+        "name": "runs_on",
+        "src_groups": [
+          "compute"
+        ],
+        "dst_groups": [
+          "it_power"
+        ],
+        "acyclic": false,
+        "reverse_message": false
+      },
+      {
+        "name": "associated_env",
+        "src_groups": [
+          "environment"
+        ],
+        "dst_groups": [
+          "space",
+          "hvac"
+        ],
+        "acyclic": false,
+        "reverse_message": true
+      }
+    ],
+    "known_future": [
+      "planned_extra_utilization",
+      "forecast_temp"
+    ],
+    "sampler": "uniform_site_then_origin",
+    "site_split": {
+      "train": [
+        "aidc_00",
+        "aidc_01",
+        "aidc_02",
+        "aidc_03",
+        "aidc_04",
+        "aidc_05",
+        "aidc_06",
+        "aidc_07"
+      ],
+      "heldout_valid": [
+        "aidc_08",
+        "aidc_09"
+      ],
+      "heldout_test": [
+        "aidc_10",
+        "aidc_11"
+      ]
+    },
+    "feature_units": {
+      "allocated_gpu": "count",
+      "active_jobs": "count",
+      "queue_depth": "count",
+      "throughput": "count_per_hour",
+      "arrival_rate": "count_per_hour",
+      "gpu_capacity": "count",
+      "active_power_kw": "kW",
+      "cpu_utilization": "fraction",
+      "gpu_utilization": "fraction",
+      "online_fraction": "fraction",
+      "rated_power_kw": "kW",
+      "represented_count": "count",
+      "rated_capacity_kw": "kW",
+      "load_ratio": "fraction",
+      "running_fraction": "fraction",
+      "frequency_hz": "Hz",
+      "flow_rate": "m3_per_hour",
+      "supply_temp": "degree_celsius",
+      "return_temp": "degree_celsius",
+      "rated_flow_rate": "m3_per_hour",
+      "design_cooling_kw": "kW",
+      "room_temp": "degree_celsius",
+      "room_humidity": "fraction",
+      "area_m2": "m2",
+      "it_capacity_kw": "kW",
+      "dry_bulb_temp": "degree_celsius",
+      "humidity": "fraction",
+      "planned_extra_utilization": "fraction",
+      "forecast_temp": "degree_celsius"
+    },
+    "target_quantity": "facility_demand",
+    "interval_label": "right",
+    "target_aggregation": "time_weighted_mean"
+  },
+  "model": {
+    "spatial_dim": 32,
+    "latent_dim": 32,
+    "temporal_dim": 64,
+    "spatial_heads": 4,
+    "relation_heads": 4,
+    "temporal_heads": 4,
+    "spatial_layers": 1,
+    "entity_history_layers": 1,
+    "relation_layers": 2,
+    "temporal_layers": 2,
+    "future_path_layers": 1,
+    "dropout": 0.1,
+    "category_embedding_dim": 8,
+    "lead_dim": 16
+  },
+  "limits": {
+    "max_total_nodes": 128,
+    "max_history_steps": 168,
+    "max_horizon_steps": 72,
+    "max_explicit_attention_bytes": 268435456
+  },
+  "training": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "clip_grad_norm": 1.0,
+    "latent_weight": 0.1,
+    "stage_a_max_epochs": 20,
+    "stage_a_patience": 5,
+    "b_short_epochs": 2,
+    "b_medium_epochs": 2,
+    "b_full_max_epochs": 20,
+    "b_full_patience": 5,
+    "min_delta": 1e-06,
+    "amp": false,
+    "truncate_rollout_grad": false
+  },
+  "evaluation": {
+    "selection_metric": "valid_site_macro_mse",
+    "seasonal_period": 24,
+    "compare_seed": 2023
+  }
+}
