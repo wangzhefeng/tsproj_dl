@@ -2,7 +2,7 @@
 
 `tsproj_dl` 是一个面向时间序列预测任务的神经网络快速测试、训练、验证与推理项目。当前仓库以 PyTorch 为主，包含 Transformer、MLP、RNN、CNN、GNN 等多类模型实现，以及配套的数据处理、实验流程和脚本模板。
 
-项目治理、分支流转、模块状态和开发看板统一维护在 [AGENTS.md](/Users/wangzf/projects/tsproj_dl/AGENTS.md)。本文件只负责项目使用说明。
+项目治理、分支流转、模块状态和开发看板统一维护在 [AGENTS.md](AGENTS.md)。本文件只负责项目使用说明。
 
 ## 项目简介
 
@@ -38,28 +38,26 @@ source .venv/bin/activate
 示例 1：ETTh1 上运行 Transformer
 
 ```bash
-bash scripts/ETTh1_script/ETTh1_transformer.sh
+bash scripts/ETTh1_script/Transformer.sh
 ```
 
 示例 2：ETTh1 上运行已经补齐并验证过的 MLP 系列脚本
 
 ```bash
-bash scripts/ETTh1_script/ETTh1_tsmixer.sh
-bash scripts/ETTh1_script/ETTh1_nhits.sh
-bash scripts/ETTh1_script/ETTh1_nbeats.sh
+bash scripts/ETTh1_script/TSMixer.sh
+bash scripts/ETTh1_script/DLinear.sh
 ```
 
-示例 3：运行已经验证通过的 ETTh1 smoke 脚本
+示例 3：工程检查（全仓单元回归与静态 utils 引用审计，不启动长训练）
 
 ```bash
-bash scripts/smoke/smoke_etth1_dlinear.sh
-bash scripts/smoke/smoke_etth1_transformer.sh
+bash scripts/smoke/smoke_engineering_checks.sh
 ```
 
 示例 4：直接调用训练入口
 
 ```bash
-python run.py \
+env -u PYTHONPATH .venv/bin/python run.py \
     --task_name long_term_forecast \
     --des "Exp Transformer_24_12_24" \
     --is_training 1 \
@@ -100,6 +98,75 @@ python run.py \
     --gpu_type mps
 ```
 
+<a id="gslaformer-usage"></a>
+
+## GSLAformer：合成数据使用流程（在建）
+
+GSLAformer 使用独立的 JSON/NPZ 数据流与 CLI，不混用普通模型的 `--is_training` 等参数。核心链路已实现，但 **AIDC 完整矩阵尚未验收，不代表生产可用**。设计与边界见 [文档目录](docs/gslaformer/v1/README.md)，当前进度与实跑证据唯一见 [实施规格 §12](docs/gslaformer/v1/implementation.md#work-packages)。
+
+当前模型计算／checkpoint 版本为 **2**，数据 schema 仍为 **3**。旧版本权重不能继续训练或直接用于 test/forecast；请用新 run_id 重新训练，不覆盖旧实验，也不要把历史结果当作新版本结论。
+
+以下命令均从仓库根目录执行，使用同一根 `.venv`。run_id 必须唯一，不删除旧产物来重跑；示例名称首次使用后需换新名称。
+
+### 1. 生成数据（已有 fixtures 时跳过）
+
+```bash
+env -u PYTHONPATH .venv/bin/python scripts/dev/generate_gslaformer_fixture.py \
+  --output results/gslaformer/fixtures --seed 2023 --suite all
+```
+
+生成 base、M1–M5、AIDC 标准包和无标签请求，并执行生成器自检。目标目录必须尚不存在。使用其他输出目录时，需同步修改完整配置中的 `data.package`；该路径相对配置文件解析，`results_root` 则相对仓库根目录解析。
+
+### 2. 训练与续训
+
+```bash
+# base 完整 A/B 训练，不是 AIDC 长周期矩阵
+env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer \
+  --gsla_config scripts/smoke/gslaformer_functional.json \
+  --gsla_mode train --gsla_run_id demo_train
+
+# 仅用于非 completed 的同一 run；配置与数据必须和原训练一致
+env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer \
+  --gsla_config scripts/smoke/gslaformer_functional.json \
+  --gsla_mode train --gsla_run_id demo_train \
+  --gsla_checkpoint results/gslaformer/demo_train/checkpoints/last.pt
+```
+
+第二条是中断后的替代操作，不应在第一条已完成后紧接执行。只支持 epoch 边界恢复；中途停止的未保存 epoch 会重跑。`best_A.pt` 是阶段 A 选优产物；正式 test/forecast 使用完整训练后的 `best.pt`，不能把 A 权重当最终模型。
+
+### 3. 测试与无标签预测
+
+```bash
+env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer \
+  --gsla_config scripts/smoke/gslaformer_functional.json \
+  --gsla_mode test --gsla_run_id demo_test \
+  --gsla_checkpoint results/gslaformer/demo_train/checkpoints/best.pt
+
+env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer \
+  --gsla_config scripts/smoke/gslaformer_functional.json \
+  --gsla_mode forecast --gsla_run_id demo_cold \
+  --gsla_checkpoint results/gslaformer/demo_train/checkpoints/best.pt \
+  --gsla_request results/gslaformer/fixtures/requests/new_entity_cold
+```
+
+forecast 请求不含未来真值，复用 checkpoint 中的权重、scaler 和词表，不重新拟合。只加载可信的本地 checkpoint；请求的 schema、L/H、model 和 variant 须兼容。
+
+### 4. 比较与一键流程
+
+```bash
+# 当前 base 配置的规定对照：会新建训练任务，不是只读取旧结果
+env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer \
+  --gsla_config scripts/smoke/gslaformer_functional.json \
+  --gsla_mode compare --gsla_run_id demo_compare
+
+# 完整 base train/test + 四种请求；与上面分步命令任选一种
+bash scripts/smoke/smoke_gslaformer.sh demo_smoke
+```
+
+机制任务对照命令见 [smoke 使用说明](scripts/smoke/README.md)。AIDC 的 short/day/multiday 配置在同目录，分别预测 6/24/72 小时；它们不是快速 smoke，运行或续训前须确认资源预算。本流程不自动启动 AIDC 全矩阵。
+
+GSLAformer 输出位于 `results/gslaformer/<run_id>/`：训练保存配置、统计、阶段 checkpoint 和诊断；test 保存预测、真值与指标；forecast 保存无真值预测；compare 保存汇总和子 run 路径。`status.json` 的 completed 只代表该 run 完成，不等于整体模型验收完成。
+
 ## 结果输出
 
 - `logs/`：运行日志
@@ -128,17 +195,14 @@ python run.py \
 
 可以优先参考以下脚本理解当前使用方式：
 
-- `scripts/ETTh1_script/ETTh1_transformer.sh`
-- `scripts/ETTh1_script/ETTh1_dlinear.sh`
-- `scripts/ETTh1_script/ETTh1_tsmixer.sh`
-- `scripts/ETTh1_script/ETTh1_nhits.sh`
-- `scripts/ETTh1_script/ETTh1_nbeats.sh`
-- `scripts/smoke/smoke_etth1_transformer.sh`
-- `scripts/smoke/smoke_etth1_dlinear.sh`
+- `scripts/ETTh1_script/Transformer.sh`
+- `scripts/ETTh1_script/DLinear.sh`
+- `scripts/ETTh1_script/TSMixer.sh`
+- `scripts/smoke/smoke_gslaformer.sh`
 - `scripts/ETTh1_script/iTransformer/iTransformer_M.sh`
 - `scripts/smoke/smoke_engineering_checks.sh`
 
-历史风场业务脚本已归档到 [docs/archive_wind_forecast](/Users/wangzf/projects/tsproj_dl/docs/archive_wind_forecast)，不再作为当前主线可运行脚本维护。
+历史风场业务脚本不属于当前维护主线；旧说明中的 `docs/archive_wind_forecast/` 当前并不存在，不将其作为可用入口。
 
 ## RNN 系列续修记录
 
@@ -152,7 +216,7 @@ python run.py \
 - 递归预测暂未引入未来已知协变量接口。`MS` 模式默认只回填目标列，其他特征沿用窗口最后一行；需要未来外生变量时，应补充专门的数据输入与对齐逻辑。
 - `recursive_multi_step` 目前复用现有多步输出模型结构，并只训练/使用第一个 horizon head；后续可以为递归策略增加真正的一步输出 head，避免无用输出参数。
 - RNN 策略还缺少完整业务脚本覆盖。当前 LSTM/GRU smoke 可用于基础回归，但四类 `pred_method`、`S/MS/M` 组合还没有形成系统脚本矩阵。
-- RNN 相关测试文件位于 `tests/`，但当前 `.gitignore` 忽略了 `tests/`。如果希望测试随仓库版本化，需要先调整忽略规则，再补充并提交策略级测试。
+- RNN 相关测试位于 `tests/`，该目录已纳入版本控制；新增测试随对应实现审核和提交。
 
 ## 文档说明
 
@@ -162,4 +226,4 @@ python run.py \
 
 ## 项目优化
 
-项目治理、模块状态、里程碑和后续优化路线不再在本文件维护，请统一查看根目录 [AGENTS.md](/Users/wangzf/projects/tsproj_dl/AGENTS.md)。
+项目治理、模块状态、里程碑和后续优化路线不再在本文件维护，请统一查看根目录 [AGENTS.md](AGENTS.md)。

@@ -1,0 +1,128 @@
+{
+  "title": "GSLAformer：原始 v4.0 需求与当前实现",
+  "baseline": "docs/gslaformer/arch/model-v4.0.png",
+  "interpretation": "只把原图可辨认的节点与箭头当作原始要求；图未规定的池化、损失、实体身份等记为后续具体化或扩展，不倒推为原图缺陷。当前图以工作区 full 变体和 AIDC day profile 为主，不代表模型已完成全量验收。",
+  "rows": [
+    {
+      "id": "C01", "topic": "输入分组", "status": "演进",
+      "original": "用户层、机房层、楼宇层各有独立空间分支，图中省略号允许更多分支。",
+      "current": "AIDC profile 为算力、IT 电力、配电、暖通、空间、环境六组；机房与楼宇通过 space 的类别属性区分，用户／业务池映射到 compute，而非保留原来三个固定分支。",
+      "meaning": "保留按组建模思想，业务分类已变化。不能将当前图标成对原始三个分支的逐字复刻；模型一般性分组由 schema 决定。",
+      "sources": ["scripts/smoke/gslaformer_aidc_hourly_day.json:31-123", "docs/gslaformer/v1/input_output.md:56-71"]
+    },
+    {
+      "id": "C02", "topic": "空间位置编码", "status": "替代",
+      "original": "每组进入空间注意力前显式加 Space Positional Encoding；图未说明编码基于行号、身份、坐标还是拓扑。",
+      "current": "不加实体序号位置编码，也不使用实体 ID embedding。静态数值／类别与观测 mask 进入组适配器，拓扑通过类型关系注意力进入；只有 schema 声明的坐标特征才可能作为属性消费。",
+      "meaning": "不是漏画：原图独立加法式 Space PE 没有原样实现；R4 有意选择属性与关系归纳编码，以支持可变实体及同步重排不变性。不能说空间信息全部删除，也不能声称已有几何相对位置编码。",
+      "sources": ["layers/gslaformer/entity_history.py:19-43", "docs/gslaformer/v1/design.md:29-35", "docs/gslaformer/v1/implementation.md:13-27"]
+    },
+    {
+      "id": "C03", "topic": "池化前实体历史", "status": "新增",
+      "original": "图展示逐时刻的空间分支，再沿时间堆叠；没有独立实体循环单元。",
+      "current": "每个动态组先用属性适配器，再用同组实体共享的单层单向 GRUCell，生成逐实体因果历史表示；纯静态组无 GRU。",
+      "meaning": "当前模型不只是纯空间 Transformer 接时间 Transformer，而是实体 GRU→空间交互→系统时间建模，避免汇总前丢失实体轨迹。",
+      "sources": ["layers/gslaformer/entity_history.py:46-106", "models/transformer/GSLAformer.py:98-100"]
+    },
+    {
+      "id": "C04", "topic": "组内空间 Transformer", "status": "保留并收窄",
+      "original": "各组 Multi-Head Attention→Add & Norm→Feed Forward→Add & Norm，以 Nx 标重复。",
+      "current": "各组一层 Post-LN TransformerEncoderLayer，GELU、FFN 宽度 4d_s；加入可学习摘要 token 与实体有效性 mask。配置校验将 spatial_layers 固定为 1。",
+      "meaning": "注意力／残差／归一化骨架保留，但不是任意 Nx 堆叠。摘要 token 在该层参与注意力，输出后被剥离，不直接当作最终组向量。",
+      "sources": ["layers/gslaformer/spatial.py:6-25", "data_provider/spatial_temporal/config.py:170-183"]
+    },
+    {
+      "id": "C05", "topic": "实体级跨组关系", "status": "新增",
+      "original": "各组向量在读出后横向拼接；没有显式画出归属边或跨组实体级消息。",
+      "current": "组内输出先拼实体轴，再经过两层带类型／方向偏置的关系注意力，按源→接收方方向和显式反向通信开边，随后切回各组。",
+      "meaning": "当前不是仅后期拼接：在组读出前已有跨组信息交互。关系层的图 mask 不代表整个网络只沿物理边传播，因为组内注意力已经混合同组实体。",
+      "sources": ["layers/gslaformer/relations.py:17-105", "models/transformer/GSLAformer.py:223-247", "docs/gslaformer/v1/design.md:45-55"]
+    },
+    {
+      "id": "C06", "topic": "固定宽度组读出", "status": "具体化",
+      "original": "每个空间分支输出一个向量，但没有指定从多实体到向量的聚合算子。",
+      "current": "每动态组可学习 query 对关系增强实体及空组 token 做 cross-attention；拼 log1p(有效实体数) 与观测覆盖率，经 Linear→LayerNorm 得到 d_z 维规范状态。",
+      "meaning": "不是简单展平，也不是直接取空间摘要 token。实体数可变，但组向量宽度固定；纯静态组无 latent 头。",
+      "sources": ["layers/gslaformer/spatial.py:28-52", "models/transformer/GSLAformer.py:248-261"]
+    },
+    {
+      "id": "C07", "topic": "空间横拼／时间纵拼", "status": "保留",
+      "original": "空间向量横向拼接，按时间顺序纵向堆叠成 time series。",
+      "current": "读出按 schema 动态组顺序堆成 z[B,L,Gd,d_z]，进入时间链时仅展平 Gd 与 d_z，保留 L 时间轴。",
+      "meaning": "原图的组织原则保留；AIDC 六动态组每组 32 维，对应每时刻 192 维规范状态。",
+      "sources": ["models/transformer/GSLAformer.py:248-261", "models/transformer/GSLAformer.py:280-294", "scripts/smoke/gslaformer_aidc_hourly_day.json:259-274"]
+    },
+    {
+      "id": "C08", "topic": "总表历史与来源标记", "status": "新增",
+      "original": "时间输入只明确画出拼接后的空间向量，未单独画总负荷历史旁路与质量标记。",
+      "current": "时间 token 还拼入总负荷 y、总表 observed/generated、每组 coverage/generated 及四维日历；AIDC profile 输入宽度为 211。",
+      "meaning": "时间模型不必只从内部实体表示重建总负荷。该旁路有实用价值，也可能降低对空间分支的依赖，结构存在不证明空间分支带来收益。",
+      "sources": ["models/transformer/GSLAformer.py:280-294", "layers/gslaformer/temporal.py:68-93", "docs/gslaformer/v1/design.md:63-77"]
+    },
+    {
+      "id": "C09", "topic": "因果时间模块与可替换性", "status": "保留并收窄",
+      "original": "time Positional Encoding＋Masked Multi-Head Attention 的 Nx 堆叠，并备注“任何时序结构都可适用”。",
+      "current": "固定正弦窗口位置编码＋显式因果 Post-LN Transformer；day profile 为两层，取窗口最后 hidden。没有时间后端选择器，未实现任意 RNN/TCN/其他结构的配置替换。",
+      "meaning": "原图画出的因果 Transformer 已有；“任意时序结构”当前只能视为设计可替换思想，不能宣称已经工程化支持。时间层数可配置，空间层数首版固定。",
+      "sources": ["layers/gslaformer/temporal.py:68-93", "models/transformer/GSLAformer.py:118-120", "data_provider/spatial_temporal/config.py:170-183"]
+    },
+    {
+      "id": "C10", "topic": "总负荷／下一状态双头", "status": "保留并具体化",
+      "original": "时间模块输出分别经过 Linear 生成总负荷、multi Linear 生成 next embedding。",
+      "current": "条件融合后共享同一隐向量 a，总负荷 Linear(d_t,1)，每动态组独立 Linear(d_t,d_z)。预测 z 位于组读出的规范坐标，不是时间 hidden，不加额外 LayerNorm。",
+      "meaning": "双头主旨保留；状态头按组拆分且与负荷头预测同一下一时刻。原图未定义 next embedding 的精确坐标，当前已经明确。",
+      "sources": ["models/transformer/GSLAformer.py:125-131", "models/transformer/GSLAformer.py:306-314", "docs/gslaformer/v1/implementation.md:80-88"]
+    },
+    {
+      "id": "C11", "topic": "回灌闭环与窗口", "status": "保留并扩展",
+      "original": "next embedding 箭头返回 time series；没有画总负荷回灌，也未规定无限增长还是滑动窗口。",
+      "current": "每步同时追加预测 z 和同一个预测 y，窗口保持 L，生成态 observed=false、generated=true、coverage=0；历史实体编码与未来路径各算一次，之后每步重算时间窗口。",
+      "meaning": "不是把未来真实实体输入空间模块，也不是逐步重跑 GRU；预测状态直接进入系统时间链。当前没有 KV cache；完整递推梯度保留。",
+      "sources": ["models/transformer/GSLAformer.py:340-386", "docs/gslaformer/v1/implementation.md:97-111", "tests/test_gslaformer_model.py:410-457"]
+    },
+    {
+      "id": "C12", "topic": "独立静态条件", "status": "新增",
+      "original": "静态属性隐含在输入表，未画一条独立静态条件到预测头的通路。",
+      "current": "起点有效实体的静态数值统计、类别均值、关系入出度及规模统计，先逐组 Linear→GELU，再拼接经单层 Linear 得到 c[B,d_t]。",
+      "meaning": "c 不读取动态观测，也不是从最后一个动态 hidden 冒充静态表示。该独立条件在当前主图中必须出现。",
+      "sources": ["layers/gslaformer/spatial.py:71-157", "models/transformer/GSLAformer.py:262-266"]
+    },
+    {
+      "id": "C13", "topic": "已知未来路径与 lead", "status": "新增",
+      "original": "没有已知未来计划／天气路径或相对预测步长条件。",
+      "current": "原起点已知的完整 H 步日历＋协变量数值＋mask 经过单层双向 Transformer；每步用 p_k，与时间 hidden、静态 c、16 维 lead(k) 拼接，经 MLP 融合。K=0 时仍有未来日历。",
+      "meaning": "主时间链因果，未来已知路径链双向；二者不可混画为同一种 causal attention。只允许原起点可得信息，不是读未来实测。",
+      "sources": ["layers/gslaformer/temporal.py:96-131", "models/transformer/GSLAformer.py:296-304", "docs/gslaformer/v1/design.md:79-99"]
+    },
+    {
+      "id": "C14", "topic": "A／B 训练与 teacher", "status": "新增",
+      "original": "原图只有结构，没有损失、冻结、teacher 或训练阶段。",
+      "current": "A 用直接多步负荷监督学习表示；选择 best_A 冻结实体／空间／关系／读出／静态链。B 按 1→min(3,H)→H 自由递推，主负荷损失加质量／方差加权 latent 辅助项。teacher 仅在监督路径延续历史末端实体 memory。",
+      "meaning": "这是实现闭环所需的后续训练设计，不应判为原图未满足。direct 是 A 的计算方式和单独对照，不是 full 模型已经取消回灌。",
+      "sources": ["models/transformer/GSLAformer.py:156-183", "exp/exp_gslaformer_forecasting.py:237-288", "exp/gslaformer_support.py:76-179"]
+    },
+    {
+      "id": "C15", "topic": "总负荷输出语义", "status": "保留",
+      "original": "输出标为总负荷，没有设备级输出或功率守恒约束。",
+      "current": "每站点单目标 y[B,H,1]；模型内 y 标准化，出口逆变换到 kW。latent 是辅助状态，不是各组功率；多层测点不相加成设施总负荷。",
+      "meaning": "与原图总负荷目标一致。不能将 latent 六组误画为六条业务负荷输出，也不能由输入多层功率推断模型具备守恒约束。",
+      "sources": ["models/transformer/GSLAformer.py:45-52", "docs/gslaformer/v1/input_output.md:9-33", "docs/gslaformer/v1/implementation.md:109-111"]
+    }
+  ],
+  "spec_drift": [
+    {
+      "id": "D01", "topic": "静态链最终投影层数", "severity": "实质结构不一致，待裁决",
+      "spec": "实施规格 §1.3 写为：组输出拼接后 Linear→GELU→Linear 到 d_t。",
+      "code": "StaticConditionEncoder.project 实际只有 Linear(G*d_z,d_t)；非线性只存在于每组投影中。",
+      "assessment": "少了规格描述的跨组非线性融合层。不能认为两者一般等价，也不能仅为文档对齐擅自增加层。本次架构图按实际单层 Linear 绘制；后续需决定接受现实现并修规格，还是补 MLP 并升级计算版本、重训验证。",
+      "sources": ["docs/gslaformer/v1/implementation.md:52-56", "layers/gslaformer/spatial.py:86-93", "layers/gslaformer/spatial.py:116-126"]
+    },
+    {
+      "id": "D02", "topic": "历史日历特征注入方式", "severity": "结构表述不一致，通常可做等价表述对齐",
+      "spec": "实施规格 §1.4 与 temporal.py 顶部说明写为：日历四维经独立 Linear 投影后与其他 token 投影相加。",
+      "code": "_window_tokens 把四维日历直接拼在末尾，TemporalEncoder.project 对所有 211 维联合做一次 Linear，再加正弦位置编码；没有单独日历投影模块。",
+      "assessment": "线性层按输入列拆块后，在合并 bias 的条件下可写成独立投影相加，表达能力并不因此必然降低。但当前计算图确实只有一次联合投影，图和模块清单不能虚构第二个 Linear；本次只登记，不改规范或模型。",
+      "sources": ["docs/gslaformer/v1/implementation.md:60-70", "layers/gslaformer/temporal.py:3-5", "layers/gslaformer/temporal.py:74-86", "models/transformer/GSLAformer.py:280-294"]
+    }
+  ]
+}

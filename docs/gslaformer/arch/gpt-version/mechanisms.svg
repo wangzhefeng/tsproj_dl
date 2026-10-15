@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1260" viewBox="0 0 1800 1260" role="img" aria-label="GSLAformer · 关键机制展开">
+<defs><marker id="arr-1800-1260" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9 Z" fill="#87867F"/></marker></defs>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;fill:#141413}.title{font-size:36px;font-weight:650}.sub{font-size:18px;fill:#5E5E57}.panel-title{font-size:23px;font-weight:600}.node-title{font-size:21px;font-weight:600}.node-line{font-size:18px;fill:#3D3D3A}.small{font-size:17px;fill:#5E5E57}.mono{font-family:Menlo,Consolas,"PingFang SC",monospace;font-size:18px}.edge{stroke:#87867F;stroke-width:2;fill:none;marker-end:url(#arr-1800-1260);stroke-linejoin:round}.bus{stroke:#87867F;stroke-width:2;fill:none}</style>
+<rect width="1800" height="1260" fill="#FAF9F5"/>
+<text x="42" y="58" class="title" text-anchor="start">GSLAformer · 关键机制展开</text>
+<text x="44" y="96" class="sub" text-anchor="start">区分三种注意力的可见范围；规范状态 z、时间 hidden h 与条件融合结果 a 不是同一个坐标</text>
+<rect x="40" y="140" width="540" height="880" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="62" y="174" class="panel-title" text-anchor="start">A  残差与归一化骨架</text>
+<text x="62" y="203" class="small" text-anchor="start">组内 / 时间 / 关系块均为 Post-LN</text>
+<g class="diagram-node"><rect x="95" y="235" width="360" height="65" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="275.0" y="264" class="node-title" text-anchor="middle">输入 tokens</text>
+<text x="275.0" y="291" class="node-line" text-anchor="middle">空间宽度 32 / 时间宽度 64</text>
+</g>
+<g class="diagram-node"><rect x="95" y="370" width="360" height="70" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="275.0" y="399" class="node-title" text-anchor="middle">Multi-Head Attention</text>
+<text x="275.0" y="426" class="node-line" text-anchor="middle">注意力可见域由各分支决定</text>
+</g>
+<g class="diagram-node"><rect x="95" y="500" width="360" height="55" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="275.0" y="529" class="node-title" text-anchor="middle">Add &amp; LayerNorm</text>
+</g>
+<g class="diagram-node"><rect x="95" y="625" width="360" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="275.0" y="654" class="node-title" text-anchor="middle">Feed Forward</text>
+<text x="275.0" y="681" class="node-line" text-anchor="middle">Linear(d→4d) → GELU</text>
+<text x="275.0" y="706" class="node-line" text-anchor="middle">→ Dropout → Linear(4d→d)</text>
+</g>
+<g class="diagram-node"><rect x="95" y="780" width="360" height="55" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="275.0" y="809" class="node-title" text-anchor="middle">Add &amp; LayerNorm</text>
+</g>
+<g class="diagram-node"><rect x="95" y="900" width="360" height="65" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="275.0" y="929" class="node-title" text-anchor="middle">输出 tokens</text>
+<text x="275.0" y="956" class="node-line" text-anchor="middle">不是直接得到一个组向量</text>
+</g>
+<path class="edge" d="M275,300 L275,370"/>
+<path class="edge" d="M275,440 L275,500"/>
+<path class="edge" d="M275,555 L275,625"/>
+<path class="edge" d="M275,720 L275,780"/>
+<path class="edge" d="M275,835 L275,900"/>
+<path class="edge" d="M275,332 L515,332 L515,527 L455,527"/>
+<path class="edge" d="M275,587 L515,587 L515,807 L455,807"/>
+<text x="75" y="995" class="small" text-anchor="start">残差支路为原输入；attention / FFN 输出另有 dropout</text>
+<rect x="630" y="140" width="540" height="880" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="652" y="174" class="panel-title" text-anchor="start">B  空间信息如何变成状态</text>
+<text x="652" y="203" class="small" text-anchor="start">组内全连接与关系受限通信是两步，不是同一层</text>
+<g class="diagram-node"><rect x="690" y="235" width="420" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="900.0" y="264" class="node-title" text-anchor="middle">组内注意力 + 摘要 token</text>
+<text x="900.0" y="291" class="node-line" text-anchor="middle">同组有效实体可相互读取</text>
+<text x="900.0" y="316" class="node-line" text-anchor="middle">摘要参与本层计算，之后剥离</text>
+</g>
+<g class="diagram-node"><rect x="690" y="395" width="420" height="120" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="900.0" y="424" class="node-title" text-anchor="middle">实体拼接 → 关系注意力 ×2</text>
+<text x="900.0" y="451" class="node-line" text-anchor="middle">Q 行=接收方；K/V 列=发送方</text>
+<text x="900.0" y="476" class="node-line" text-anchor="middle">self + 正向边 + 声明的反向边</text>
+<text x="900.0" y="501" class="node-line" text-anchor="middle">每类型 / 方向 / head 可学习 bias</text>
+</g>
+<g class="diagram-node"><rect x="690" y="580" width="420" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="900.0" y="609" class="node-title" text-anchor="middle">按组切回增强实体</text>
+<text x="900.0" y="636" class="node-line" text-anchor="middle">无效实体输出置零</text>
+<text x="900.0" y="661" class="node-line" text-anchor="middle">仍保留实体轴 N_g，不提前压成组向量</text>
+</g>
+<g class="diagram-node"><rect x="690" y="740" width="420" height="120" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="900.0" y="769" class="node-title" text-anchor="middle">分组 query cross-attention</text>
+<text x="900.0" y="796" class="node-line" text-anchor="middle">Q：每组可学习 query</text>
+<text x="900.0" y="821" class="node-line" text-anchor="middle">K/V：空组 token + 增强实体</text>
+<text x="900.0" y="846" class="node-line" text-anchor="middle">各动态组独立查询与参数</text>
+</g>
+<g class="diagram-node"><rect x="690" y="915" width="420" height="75" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="900.0" y="944" class="node-title" text-anchor="middle">规范状态 zᵍ</text>
+<text x="900.0" y="971" class="node-line" text-anchor="middle">拼数量 / 覆盖率 → Linear → LayerNorm</text>
+</g>
+<path class="edge" d="M900,330 L900,395"/>
+<path class="edge" d="M900,515 L900,580"/>
+<path class="edge" d="M900,675 L900,740"/>
+<path class="edge" d="M900,860 L900,915"/>
+<rect x="1220" y="140" width="540" height="880" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="1242" y="174" class="panel-title" text-anchor="start">C  时间与预测坐标</text>
+<text x="1242" y="203" class="small" text-anchor="start">这里展示实际计算，不按过时文字补不存在的层</text>
+<g class="diagram-node"><rect x="1280" y="235" width="420" height="120" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1490.0" y="264" class="node-title" text-anchor="middle">系统历史 token</text>
+<text x="1490.0" y="291" class="node-line" text-anchor="middle">z：192；y：1；总表标记：2</text>
+<text x="1490.0" y="316" class="node-line" text-anchor="middle">组 coverage / generated：12</text>
+<text x="1490.0" y="341" class="node-line" text-anchor="middle">日历：4；合计 211 维</text>
+</g>
+<g class="diagram-node"><rect x="1280" y="415" width="420" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="1490.0" y="444" class="node-title" text-anchor="middle">联合 Linear(211→64) + 位置</text>
+<text x="1490.0" y="471" class="node-line" text-anchor="middle">因果时间 attention ×2</text>
+<text x="1490.0" y="496" class="node-line" text-anchor="middle">h = 最后 token；不另设日历投影</text>
+</g>
+<g class="diagram-node"><rect x="1280" y="570" width="420" height="120" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="1490.0" y="599" class="node-title" text-anchor="middle">拼 h / c / pₖ / lead(k)</text>
+<text x="1490.0" y="626" class="node-line" text-anchor="middle">64 + 64 + 64 + 16 = 208</text>
+<text x="1490.0" y="651" class="node-line" text-anchor="middle">Linear → GELU → Dropout → Linear</text>
+<text x="1490.0" y="676" class="node-line" text-anchor="middle">a[B,64]：双头共享的融合结果</text>
+</g>
+<g class="diagram-node"><rect x="1280" y="750" width="420" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="1490.0" y="779" class="node-title" text-anchor="middle">两个并列预测目标</text>
+<text x="1490.0" y="806" class="node-line" text-anchor="middle">ŷₖ：1 维；ẑₖ：6×32 维</text>
+<text x="1490.0" y="831" class="node-line" text-anchor="middle">状态头末端无额外 LayerNorm</text>
+</g>
+<g class="diagram-node"><rect x="1280" y="905" width="420" height="95" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1490.0" y="934" class="node-title" text-anchor="middle">回灌的是规范 ẑₖ 和同一 ŷₖ</text>
+<text x="1490.0" y="961" class="node-line" text-anchor="middle">不是 h，不是原始实体特征</text>
+<text x="1490.0" y="986" class="node-line" text-anchor="middle">不更新实体 memory / 静态 c</text>
+</g>
+<path class="edge" d="M1490,355 L1490,415"/>
+<path class="edge" d="M1490,510 L1490,570"/>
+<path class="edge" d="M1490,690 L1490,750"/>
+<path class="edge" d="M1490,845 L1490,905"/>
+<rect x="40" y="1050" width="1720" height="170" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="62" y="1084" class="panel-title" text-anchor="start">D  训练与推理分开</text>
+<text x="62" y="1113" class="small" text-anchor="start">原图没有规定训练协议；以下是当前实现的补充，不是原图中的隐含要求</text>
+<g class="diagram-node"><rect x="70" y="1126" width="450" height="70" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="295.0" y="1155" class="node-title" text-anchor="middle">阶段 A：H 步直接负荷监督</text>
+<text x="295.0" y="1182" class="node-line" text-anchor="middle">表示链可训练；latent 头不进入 loss</text>
+</g>
+<g class="diagram-node"><rect x="655" y="1126" width="450" height="70" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="880.0" y="1155" class="node-title" text-anchor="middle">选择 best_A → 冻结表示</text>
+<text x="880.0" y="1182" class="node-line" text-anchor="middle">实体 / 空间 / 关系 / 读出 / 静态链</text>
+</g>
+<g class="diagram-node"><rect x="1240" y="1126" width="470" height="70" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="1475.0" y="1155" class="node-title" text-anchor="middle">阶段 B：自由递推 + latent 辅助</text>
+<text x="1475.0" y="1182" class="node-line" text-anchor="middle">1 → min(3,H) → H；teacher 只用于标签</text>
+</g>
+<path class="edge" d="M520,1161 L655,1161"/>
+<path class="edge" d="M1105,1161 L1240,1161"/>
+</svg>

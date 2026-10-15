@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1370" viewBox="0 0 1800 1370" role="img" aria-label="GSLAformer · 当前实现架构">
+<defs><marker id="arr-1800-1370" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9 Z" fill="#87867F"/></marker></defs>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;fill:#141413}.title{font-size:36px;font-weight:650}.sub{font-size:18px;fill:#5E5E57}.panel-title{font-size:23px;font-weight:600}.node-title{font-size:21px;font-weight:600}.node-line{font-size:18px;fill:#3D3D3A}.small{font-size:17px;fill:#5E5E57}.mono{font-family:Menlo,Consolas,"PingFang SC",monospace;font-size:18px}.edge{stroke:#87867F;stroke-width:2;fill:none;marker-end:url(#arr-1800-1370);stroke-linejoin:round}.bus{stroke:#87867F;stroke-width:2;fill:none}</style>
+<rect width="1800" height="1370" fill="#FAF9F5"/>
+<text x="42" y="58" class="title" text-anchor="start">GSLAformer · 当前实现架构</text>
+<text x="44" y="96" class="sub" text-anchor="start">full 变体 / AIDC day profile · 工作区计算版本 2 · 按真实源码绘制，不是原始需求的复刻</text>
+<rect x="40" y="140" width="1720" height="490" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="62" y="174" class="panel-title" text-anchor="start">A  实体历史 → 空间交互 → 分组状态</text>
+<text x="62" y="203" class="small" text-anchor="start">每个请求只编码真实历史一次；不同组独立参数，同组实体与时刻共享参数</text>
+<g class="diagram-node"><rect x="80" y="220" width="245" height="72" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="202.5" y="249" class="node-title" text-anchor="middle">算力</text>
+<text x="202.5" y="276" class="node-line" text-anchor="middle">compute</text>
+</g>
+<path class="bus" d="M202.5,292 L202.5,322"/>
+<g class="diagram-node"><rect x="360" y="220" width="245" height="72" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="482.5" y="249" class="node-title" text-anchor="middle">IT 电力</text>
+<text x="482.5" y="276" class="node-line" text-anchor="middle">it_power</text>
+</g>
+<path class="bus" d="M482.5,292 L482.5,322"/>
+<g class="diagram-node"><rect x="640" y="220" width="245" height="72" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="762.5" y="249" class="node-title" text-anchor="middle">配电</text>
+<text x="762.5" y="276" class="node-line" text-anchor="middle">distribution</text>
+</g>
+<path class="bus" d="M762.5,292 L762.5,322"/>
+<g class="diagram-node"><rect x="920" y="220" width="245" height="72" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1042.5" y="249" class="node-title" text-anchor="middle">暖通</text>
+<text x="1042.5" y="276" class="node-line" text-anchor="middle">hvac</text>
+</g>
+<path class="bus" d="M1042.5,292 L1042.5,322"/>
+<g class="diagram-node"><rect x="1200" y="220" width="245" height="72" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1322.5" y="249" class="node-title" text-anchor="middle">空间</text>
+<text x="1322.5" y="276" class="node-line" text-anchor="middle">space · 机房 / 楼宇</text>
+</g>
+<path class="bus" d="M1322.5,292 L1322.5,322"/>
+<g class="diagram-node"><rect x="1480" y="220" width="245" height="72" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1602.5" y="249" class="node-title" text-anchor="middle">环境</text>
+<text x="1602.5" y="276" class="node-line" text-anchor="middle">environment</text>
+</g>
+<path class="bus" d="M1602.5,292 L1602.5,322"/>
+<path class="bus" d="M202.5,322 L1602.5,322"/>
+<path class="edge" d="M260,322 L260,365"/>
+<g class="diagram-node"><rect x="85" y="365" width="350" height="116" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="260.0" y="394" class="node-title" text-anchor="middle">实体属性适配 + 因果 GRU</text>
+<text x="260.0" y="421" class="node-line" text-anchor="middle">值 / mask / 静态属性 → 32 维</text>
+<text x="260.0" y="446" class="node-line" text-anchor="middle">每实体沿 L 步积累历史</text>
+</g>
+<g class="diagram-node"><rect x="495" y="365" width="350" height="116" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="670.0" y="394" class="node-title" text-anchor="middle">组内空间 Transformer</text>
+<text x="670.0" y="421" class="node-line" text-anchor="middle">摘要 token + 实体 tokens</text>
+<text x="670.0" y="446" class="node-line" text-anchor="middle">1 层 · 4 heads · Post-LN</text>
+</g>
+<g class="diagram-node"><rect x="905" y="365" width="350" height="116" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="1080.0" y="394" class="node-title" text-anchor="middle">类型关系注意力</text>
+<text x="1080.0" y="421" class="node-line" text-anchor="middle">实体级跨组消息 · 2 层</text>
+<text x="1080.0" y="446" class="node-line" text-anchor="middle">类型 / 方向 bias + 合法边 mask</text>
+</g>
+<g class="diagram-node"><rect x="1315" y="365" width="400" height="116" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1515.0" y="394" class="node-title" text-anchor="middle">每动态组查询池化</text>
+<text x="1515.0" y="421" class="node-line" text-anchor="middle">query attention + 数量 / 覆盖率</text>
+<text x="1515.0" y="446" class="node-line" text-anchor="middle">Linear → LayerNorm → 32 维</text>
+</g>
+<path class="edge" d="M435,423 L495,423"/>
+<path class="edge" d="M845,423 L905,423"/>
+<path class="edge" d="M1255,423 L1315,423"/>
+<path class="edge" d="M1515,481 L1515,525 L900,525 L900,550"/>
+<g class="diagram-node"><rect x="480" y="550" width="840" height="65" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="900.0" y="579" class="node-title" text-anchor="middle">规范状态 z[B, L, 6, 32]</text>
+<text x="900.0" y="606" class="node-line" text-anchor="middle">动态组横向拼接 · 时间纵向堆叠 · 每时刻 192 维</text>
+</g>
+<text x="85" y="550" class="small" text-anchor="start">不加实体行号位置编码</text>
+<text x="85" y="579" class="small" text-anchor="start">ID 只用于对齐，不做可学习查表</text>
+<rect x="40" y="650" width="1720" height="660" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="62" y="684" class="panel-title" text-anchor="start">B  系统时间建模 → 条件融合 → 双头自由递推</text>
+<text x="62" y="713" class="small" text-anchor="start">空间状态与总负荷共同回灌；输出状态不反解实体、不重新运行实体 GRU</text>
+<path class="edge" d="M480,582 L450,582 L450,638 L55,638 L55,725 L275,725 L275,735"/>
+<g class="diagram-node"><rect x="100" y="735" width="350" height="135" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="275.0" y="764" class="node-title" text-anchor="middle">长度固定的系统状态窗口</text>
+<text x="275.0" y="791" class="node-line" text-anchor="middle">z + y + 质量 / 来源标记</text>
+<text x="275.0" y="816" class="node-line" text-anchor="middle">+ 四维日历 → token[B,L,211]</text>
+<text x="275.0" y="841" class="node-line" text-anchor="middle">L=168；生成态与观测态分开</text>
+</g>
+<g class="diagram-node"><rect x="550" y="735" width="330" height="135" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="715.0" y="764" class="node-title" text-anchor="middle">因果时间 Transformer</text>
+<text x="715.0" y="791" class="node-line" text-anchor="middle">Linear(211→64) + 正弦位置</text>
+<text x="715.0" y="816" class="node-line" text-anchor="middle">2 层 · 4 heads · Post-LN</text>
+<text x="715.0" y="841" class="node-line" text-anchor="middle">仅取最后位置 h[B,64]</text>
+</g>
+<path class="edge" d="M450,802 L550,802"/>
+<g class="diagram-node"><rect x="970" y="735" width="360" height="135" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="1150.0" y="764" class="node-title" text-anchor="middle">逐步条件融合</text>
+<text x="1150.0" y="791" class="node-line" text-anchor="middle">拼接 h、静态 c、未来 pₖ</text>
+<text x="1150.0" y="816" class="node-line" text-anchor="middle">+ 原起点 lead(k)：16 维</text>
+<text x="1150.0" y="841" class="node-line" text-anchor="middle">MLP(208→64→64)</text>
+</g>
+<path class="edge" d="M880,802 L970,802"/>
+<g class="diagram-node"><rect x="1440" y="715" width="260" height="70" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="1570.0" y="744" class="node-title" text-anchor="middle">总负荷头</text>
+<text x="1570.0" y="771" class="node-line" text-anchor="middle">Linear(64→1) → ŷₖ</text>
+</g>
+<g class="diagram-node"><rect x="1440" y="815" width="260" height="70" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="1570.0" y="844" class="node-title" text-anchor="middle">分组状态头 ×6</text>
+<text x="1570.0" y="871" class="node-line" text-anchor="middle">Linear(64→32) → ẑₖ</text>
+</g>
+<path class="edge" d="M1330,802 L1380,802 L1380,750 L1440,750"/>
+<path class="edge" d="M1380,802 L1380,850 L1440,850"/>
+<path class="edge" d="M1700,750 L1730,750 L1730,910 L1570,910 L1570,930"/>
+<path class="bus" d="M1700,850 L1730,850"/>
+<g class="diagram-node"><rect x="1440" y="930" width="260" height="75" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1570.0" y="959" class="node-title" text-anchor="middle">同一步 ŷₖ + ẑₖ</text>
+<text x="1570.0" y="986" class="node-line" text-anchor="middle">存入结果，并回填状态窗口</text>
+</g>
+<g class="diagram-node"><rect x="700" y="1040" width="390" height="110" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="895.0" y="1069" class="node-title" text-anchor="middle">起点静态条件 c[B,64]</text>
+<text x="895.0" y="1096" class="node-line" text-anchor="middle">属性统计 / 类别 / 关系度数</text>
+<text x="895.0" y="1121" class="node-line" text-anchor="middle">逐组投影 → 拼接 → 单层 Linear</text>
+</g>
+<g class="diagram-node"><rect x="1190" y="1040" width="500" height="110" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="1440.0" y="1069" class="node-title" text-anchor="middle">完整已知未来路径 p[B,24,64]</text>
+<text x="1440.0" y="1096" class="node-line" text-anchor="middle">日历 + 计划 / 天气值 + mask + 位置</text>
+<text x="1440.0" y="1121" class="node-line" text-anchor="middle">1 层双向 Transformer；原起点固定</text>
+</g>
+<path class="edge" d="M895,1040 L895,970 L1080,970 L1080,870"/>
+<path class="edge" d="M1440,1040 L1440,1018 L1220,1018 L1220,870"/>
+<path class="edge" d="M1700,968 L1745,968 L1745,1240 L65,1240 L65,802 L100,802"/>
+<text x="115" y="1188" class="node-line" text-anchor="start">回灌规则：丢弃最早 token；追加生成 z / y；observed=false，generated=true，coverage=0</text>
+<text x="115" y="1220" class="small" text-anchor="start">重复 H=24 步；真实历史编码一次，未来路径编码一次，时间窗口完整重算 H 次；无 KV cache</text>
+<text x="80" y="1345" class="small" text-anchor="start">浅灰：保留主干 / 具体算子     浅绿：原图之外新增     浅橙：语义替代或扩展     输出：y[B,24,1] 与 z[B,24,6,32]</text>
+</svg>

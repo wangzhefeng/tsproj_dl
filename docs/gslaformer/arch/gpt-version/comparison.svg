@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1160" viewBox="0 0 1800 1160" role="img" aria-label="GSLAformer · 原始 v4.0 与当前实现对照">
+<defs><marker id="arr-1800-1160" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9 Z" fill="#87867F"/></marker></defs>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;fill:#141413}.title{font-size:36px;font-weight:650}.sub{font-size:18px;fill:#5E5E57}.panel-title{font-size:23px;font-weight:600}.node-title{font-size:21px;font-weight:600}.node-line{font-size:18px;fill:#3D3D3A}.small{font-size:17px;fill:#5E5E57}.mono{font-family:Menlo,Consolas,"PingFang SC",monospace;font-size:18px}.edge{stroke:#87867F;stroke-width:2;fill:none;marker-end:url(#arr-1800-1160);stroke-linejoin:round}.bus{stroke:#87867F;stroke-width:2;fill:none}</style>
+<rect width="1800" height="1160" fill="#FAF9F5"/>
+<text x="42" y="58" class="title" text-anchor="start">GSLAformer · 原始 v4.0 与当前实现对照</text>
+<text x="44" y="96" class="sub" text-anchor="start">左列只提炼原图明确内容；右列为源码事实。新增不等于偏离错误，替代项必须显式说明。</text>
+<rect x="40" y="145" width="790" height="890" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="62" y="179" class="panel-title" text-anchor="start">原始需求图</text>
+<text x="62" y="208" class="small" text-anchor="start">三组示意 + 空间 / 时间两级建模 + next embedding 回灌</text>
+<rect x="970" y="145" width="790" height="890" rx="12" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="992" y="179" class="panel-title" text-anchor="start">当前 full 实现</text>
+<text x="992" y="208" class="small" text-anchor="start">保留主闭环，扩展实体历史、关系、条件及训练协议</text>
+<g class="diagram-node"><rect x="85" y="250" width="700" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="435.0" y="279" class="node-title" text-anchor="middle">用户层 / 机房层 / 楼宇层</text>
+<text x="435.0" y="306" class="node-line" text-anchor="middle">每组先加 Space Positional Encoding</text>
+</g>
+<g class="diagram-node"><rect x="1015" y="250" width="700" height="95" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1365.0" y="279" class="node-title" text-anchor="middle">六组业务对象 + 属性编码</text>
+<text x="1365.0" y="306" class="node-line" text-anchor="middle">不加实体行号位置；按实体轨迹先过 GRU</text>
+</g>
+<path class="edge" d="M785,297 L1015,297"/>
+<g class="diagram-node"><rect x="85" y="400" width="700" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="435.0" y="429" class="node-title" text-anchor="middle">各组空间 Transformer ×N</text>
+<text x="435.0" y="456" class="node-line" text-anchor="middle">每组输出空间向量</text>
+</g>
+<g class="diagram-node"><rect x="1015" y="400" width="700" height="95" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="1365.0" y="429" class="node-title" text-anchor="middle">组内一层 → 关系两层 → 查询读出</text>
+<text x="1365.0" y="456" class="node-line" text-anchor="middle">跨组消息先发生在实体轴，再汇总成组向量</text>
+</g>
+<path class="edge" d="M785,447 L1015,447"/>
+<g class="diagram-node"><rect x="85" y="550" width="700" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="435.0" y="579" class="node-title" text-anchor="middle">空间向量横拼，沿时间纵拼</text>
+<text x="435.0" y="606" class="node-line" text-anchor="middle">time PE + Masked MHA + FFN</text>
+</g>
+<g class="diagram-node"><rect x="1015" y="550" width="700" height="95" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1365.0" y="579" class="node-title" text-anchor="middle">z + 总表历史 + 标记 + 日历</text>
+<text x="1365.0" y="606" class="node-line" text-anchor="middle">联合投影 + 位置 → 因果时间 Transformer</text>
+</g>
+<path class="edge" d="M785,597 L1015,597"/>
+<g class="diagram-node"><rect x="85" y="700" width="700" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="435.0" y="729" class="node-title" text-anchor="middle">Linear → 总负荷</text>
+<text x="435.0" y="756" class="node-line" text-anchor="middle">multi Linear → next embedding</text>
+</g>
+<g class="diagram-node"><rect x="1015" y="700" width="700" height="95" rx="7" fill="#EFF3E9" stroke="#788C5D" stroke-width="1.5"/>
+<text x="1365.0" y="729" class="node-title" text-anchor="middle">条件融合 → 总负荷头 / 分组状态头</text>
+<text x="1365.0" y="756" class="node-line" text-anchor="middle">额外融合静态条件、整段未来已知路径、lead</text>
+</g>
+<path class="edge" d="M785,747 L1015,747"/>
+<g class="diagram-node"><rect x="85" y="850" width="700" height="95" rx="7" fill="#F0EEE6" stroke="#D1CFC5" stroke-width="1.5"/>
+<text x="435.0" y="879" class="node-title" text-anchor="middle">next embedding 返回 time series</text>
+<text x="435.0" y="906" class="node-line" text-anchor="middle">未定义总负荷回灌、裁窗和训练损失</text>
+</g>
+<g class="diagram-node"><rect x="1015" y="850" width="700" height="95" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="1365.0" y="879" class="node-title" text-anchor="middle">预测 z 与同一预测 y 同时回灌</text>
+<text x="1365.0" y="906" class="node-line" text-anchor="middle">固定 L 窗口；A 学表示 / B 冻结后自由递推</text>
+</g>
+<path class="edge" d="M785,897 L1015,897"/>
+<text x="65" y="1002" class="small" text-anchor="start">原图“任何时序结构都可适用”：未指定后端接口。</text>
+<text x="995" y="1002" class="small" text-anchor="start">当前时间后端固定 Transformer，尚非任意结构可插拔。</text>
+<g class="diagram-node"><rect x="40" y="1060" width="1720" height="72" rx="7" fill="#FBEDE7" stroke="#D97757" stroke-width="1.5"/>
+<text x="900.0" y="1089" class="node-title" text-anchor="middle">单独登记的现行规格差异（不与原图演进混算）</text>
+<text x="900.0" y="1116" class="node-line" text-anchor="middle">D01：静态链末端是单 Linear，而不是规格所述 MLP；D02：日历拼接后联合投影，而不是独立投影相加。</text>
+</g>
+</svg>

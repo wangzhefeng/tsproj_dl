@@ -1,0 +1,100 @@
+{
+  "passed": true,
+  "local_links_checked": 239,
+  "markdown_files_checked": 8,
+  "figure_sets": 3,
+  "original_embedded_unchanged": true,
+  "inline_svgs_match_sources": true,
+  "runtime_source_hashes_match": true,
+  "git_diff_check": "passed",
+  "artifacts": {
+    "README.md": {
+      "bytes": 2774,
+      "sha256": "12e828c1b4dbb866ee578916aea3d8781f40cfcf03ae3164bae5d5680a42d65b"
+    },
+    "comparison.json": {
+      "bytes": 13095,
+      "sha256": "a3404f35b2fb6bf613b521208459d6f919d95ddfa13a0a5df87f451c8c1c384d"
+    },
+    "comparison.md": {
+      "bytes": 17124,
+      "sha256": "c3c824556eb60215400f7b019cc1e4159840a5f6f6d832eb64a07a3d80be9868"
+    },
+    "comparison.pdf": {
+      "bytes": 397009,
+      "sha256": "203b5b04b98656d7f59c5b508e9512678249ce3cc67d27d8688c09e48489fe7a"
+    },
+    "comparison.png": {
+      "bytes": 467675,
+      "sha256": "fc94eef711f189584c475362205e7d6b72d41d2d83b03efd36a036982e423680"
+    },
+    "comparison.svg": {
+      "bytes": 6461,
+      "sha256": "3c4a5fecc2cfca8502ced6e9c1a35667593245a0848e6b2cecb4554c109a473a"
+    },
+    "current-architecture.pdf": {
+      "bytes": 451633,
+      "sha256": "e7f0c0ad482e02fcf45f6e4d26dd06cc67464365b98e39c886432ea79419a9e5"
+    },
+    "current-architecture.png": {
+      "bytes": 668185,
+      "sha256": "355cabeee444e7a631ce932dd1eacc5038ca50ac3d969f62a98a0d5ca852731c"
+    },
+    "current-architecture.svg": {
+      "bytes": 11395,
+      "sha256": "60300ec33fe574906d41250d09544db8a90a55c9c47d7364a68a59efd1b8d410"
+    },
+    "evidence/report-desktop.png": {
+      "bytes": 200392,
+      "sha256": "dcb02d7a3e04b9c935bc2dd1a8a3f1aa5e8256c6db9ca04441a80d31fd613be2"
+    },
+    "evidence/report-mobile.png": {
+      "bytes": 94927,
+      "sha256": "74a0deb7168f57acc035ba6de798d39a3e2c764ec37874bf96be834a3ede1d92"
+    },
+    "evidence/runtime.json": {
+      "bytes": 368843,
+      "sha256": "722bcb32c5b963d81b967843e6487d4e22fd9fc3fb778601a64ebacecdcc3433"
+    },
+    "evidence/targeted-tests.log": {
+      "bytes": 7248,
+      "sha256": "a2da2ab86c9568eb12a4a9c80ff3980001863e4e6f23951f7e81b9079eb304dd"
+    },
+    "evidence/visual-check.json": {
+      "bytes": 1452,
+      "sha256": "bf7e9c1b80da67c5f9f2eff447c14e16e06f72091e3a705d4e3e8117734d7fc6"
+    },
+    "index.html": {
+      "bytes": 222800,
+      "sha256": "985f1c339e1ff8eed60d3d50575854d921529da78c96202a3013e30d4500ff61"
+    },
+    "mechanisms.pdf": {
+      "bytes": 454647,
+      "sha256": "f0ee592c9f36d34a9de38a30607b5e5b649536a1555f446bcf9c6a632c8287bb"
+    },
+    "mechanisms.png": {
+      "bytes": 686013,
+      "sha256": "1d534018826dfc5acfc636699bc93920da1fba126365dc3497913e219b9b1cd4"
+    },
+    "mechanisms.svg": {
+      "bytes": 11201,
+      "sha256": "5bfc4af2857420b0784ad2b2c1f9552bf6d3def54a8f0282d3f8193d85c577d1"
+    },
+    "scripts/export.py": {
+      "bytes": 9666,
+      "sha256": "c343dd66a81012d9a6b5906f752cd497acb6b59a87b9b6ec95a86ae4309bb7ae"
+    },
+    "scripts/probe.py": {
+      "bytes": 8900,
+      "sha256": "ae06d22b6fbcbd0a45a1d8c5dc6c5370bbd28c71ecff09d3907d42933dfa4d6f"
+    },
+    "scripts/render.py": {
+      "bytes": 29305,
+      "sha256": "404b19c626b205978fb832fa0c94ae51e661188f07f60fc4e87cf43c60c8cf29"
+    },
+    "scripts/verify.py": {
+      "bytes": 5099,
+      "sha256": "556518b3ac1343ea2ccdd11ff6a96b0f4c2120f275bfcd5f6e4bf9283df0b9c7"
+    }
+  }
+}

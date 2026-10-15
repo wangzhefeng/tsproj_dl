@@ -82,7 +82,7 @@
 
 ### 在建区
 
-- GSLAformer：I1 在建，已实现配置校验、标准包读取、测点／关系检查与输入质量计算；scaling、batching、生成器尚未实现，模型与主入口未接入，完整模拟验收未运行，不属于可用主线。当前数据基础模块的本地测试 16 项通过；整组测试因缺少 scaling 模块导入失败，按用户确认仅提交在建版本。
+- GSLAformer：数据基础、空间／时间链、A/B 训练状态机与独立 train/test/forecast 入口已有实现；CPU base、MPS 短预算 smoke、CPU exact resume 与机制小集拟合已有实跑证据。完整契约／变体与 AIDC 对照矩阵仍未收口，不能视为可用主线。AIDC multiday 单 epoch 计时先于全量矩阵；详细进度与验证证据统一见实施规格 §12。
 - `exp/exp_forecasting_rnns.py`、`exp/exp_short_term_forecasting.py`（待决定是否继续维护）
 - `exp/dl_todo/*`
 - `scripts/ETTm1_script/*`
@@ -116,13 +116,20 @@
 
 | ID | Status | Owner | Targets | Acceptance |
 | --- | --- | --- | --- | --- |
+| DOC-011 | Done | MC | `docs/gslaformer/v1/`, `docs/gslaformer/v2/`, 文档引用与图示脚本 | 既有规格迁入 v1，review_and_optimization_plan.md 单独迁入 v2，arch 与两版本目录平级；40 份资料清单完整，图示/历史回执与 v2 评审字节不变；修复有效引用与原图路径，248 处链接及 4 个脚本非仓库 cwd 加载通过。目录版本不等于模型计算版本，不改模型或启动训练 |
+| DOC-010 | Done | MC | `docs/gslaformer/v1/history.md`, `docs/gslaformer/`, `AGENTS.md` | 将 archive 四文档提炼为单一历史说明，保留关键决策、版本边界、失败教训与证据/恢复入口；同步引用后删除 archive，验证本地链接、Git 恢复路径与证据索引，不改代码、配置或实验产物 |
+| DOC-009 | Done | MC | `docs/gslaformer/arch/` | 对照原始 model-v4.0.png 与当前工作区，交付整体／机制／对比三组 SVG、PNG、PDF 及离线报告；真实 forward/回灌、定向测试、浏览器排版和链接／哈希检查通过。现行规格两处差异单列待裁决；证据唯一见 implementation §12。不修改模型、不恢复退役 architecture、不运行长训练、不提交推送 |
+| DOC-008 | Done | MC | `docs/gslaformer/`, `tests/test_gslaformer_{data,mapping,package}.py` | 清退 examples 配置副本，测试与文档直接引用 scripts/smoke 正式配置；保留路径解析、schema、站点角色及映射断言，移除仅比较副本的测试；GSLA 回归和本地链接检查通过，不改模型与运行配置 |
+| GSLA-002 | Done | MC | `layers/gslaformer/`, `models/transformer/GSLAformer.py`, `data_provider/spatial_temporal/`, `exp/`, `tests/`, `docs/gslaformer/` | 修正未来 mask 编码、batch 内存门禁、读出 head 约束，补齐 checkpoint 溯源与运行审计；计算版本 2 不兼容旧权重。同步 AIDC 样例/API/静态条件语义，按用户确认合并并删除三份旧文档回执；随后确认保留 architecture/ 外部删除，仅保留原图并清理引用。红绿测试及新版本短流程验证证据统一见实施规格 §12；不启动长训练，不提交推送 |
+| DOC-007 | Done | MC | `README.md`, `docs/gslaformer/`, `scripts/*/README.md` | 生成/训练/续训/test/forecast/compare 使用说明补齐；5 条 GSLA CLI 示例解析及配置校验、8 个脚本路径、20 处本地链接/锚点与围栏检查通过；纠正旧脚本名、绝对链接与 tests 忽略说明，不把在建模型标为完整交付 |
+| ENG-001 | Done | MC | `scripts/dev/audit_runtime_utils_imports.py`, `scripts/smoke/smoke_engineering_checks.sh`, `tests/test_engineering_artifacts.py`, `tests/test_model_forward_smoke.py` | 恢复历史删除的工程脚本，适配 run.py/根 .venv；修正过时 TSMixer 测试并增加真实主线 MS 目标列数值/梯度验证，模型结构不变。从仓库外运行工程脚本退出码 0，全仓 178 项通过；AST 审计覆盖 26 个引用文件/19 个 utils 模块。证据 results/engineering/closure_24_20261015/ |
 | DOC-001 | Done | MC | `docs/gslaformer/` | v4.0 方案完整归档并命名 GSLAformer；根 `.venv` Python 校验 2 份文档、3 个本地链接、14 个连续章节和代码围栏通过，`git diff --check` 通过；仅文档，模型未实现 |
 | DOC-002 | Done | MC | `docs/gslaformer/` | R2 设计与 implementation.md 已按用户决定完善：功能首轮验收、新实体免重训、归属交互、通用未来条件；根 `.venv` 校验章节／链接／围栏／JSON／维度与配置路径通过，`git diff --check` 通过；仅文档，模型未开发 |
-| DOC-003 | Done | MC | `docs/gslaformer/` | R4 补齐跨 AIDC 输入输出、类型关系、模拟场景、源码复用与框架接入；根 `.venv` 文档／JSON／链接检查及定向 diff 检查通过，架构图 showcase 9/9、浏览器与看图检查通过；证据见 [validation_r4.md](docs/gslaformer/archive/validation_r4.md)；仅文档，模型未实现 |
-| DOC-004 | Done | MC | `docs/gslaformer/architecture/` | 15 份既有图示资产归档，含 v4.0.png；引用与输出路径同步，80 处本地链接和定向 diff 检查通过，新路径绘图／浏览器验证通过；图片、HTML 与历史证据内容不变，记录见 architecture/migration.json |
-| DOC-005 | Done | MC | `docs/gslaformer/` | 文档职责收口：统一数据契约，接入并入 implementation，机制与 AIDC 验收并入 acceptance，样例外置与历史归档；根 .venv 核对 144 处链接／锚点、两份配置值与路径、公式／核心协议保全通过，19 份图示资产哈希不变，定向 diff 检查通过；证据见 [整理记录](docs/gslaformer/archive/reorganization.md)，仅文档，模型未开发 |
-| DOC-006 | Doing | MC | `docs/gslaformer/`, `data_provider/spatial_temporal/README.md` | gslaformer 分支文档优化：错名锚点改语义锚点并全量更新引用；能力分层与全局非承诺清单收编 design §8 为唯一权威；补齐 scaling artifact 字段格式、batching 归属与 collate 规则、q 通信图方向语义、模型边界对象字段；产物清单单源化；实施证据唯一记账到 implementation §12。architecture/ 证据资产因 migration.json 按路径钉哈希，本轮不移动。仅文档，模型未开发 |
-| GSLA-001 | Doing | MC | `docs/gslaformer/`, `data_provider/spatial_temporal/`, `layers/gslaformer/`, `models/transformer/GSLAformer.py`, `exp/`, `run.py`, `scripts/`, `tests/test_gslaformer_*.py` | I1 数据基础模块以在建版本提交，定向测试 16 项通过，整组因缺少 scaling 导入失败；scaling/batching/生成器、模型与入口均未完成，验证命令见数据包 README。完整 train/valid/test/无标签 forecast、重载、M1–M5、AIDC H=6/24/72、CPU/MPS 与旧入口回归仍须实际证据；tests/ 已纳入版本控制（2026-10-14 用户决定），新增测试随代码提交；模型／入口／验证分别记账 |
+| DOC-003 | Done | MC | `docs/gslaformer/` | R4 补齐跨 AIDC 输入输出、类型关系、模拟场景、源码复用与框架接入；根 `.venv` 文档／JSON／链接检查及定向 diff 检查通过，架构图 showcase 9/9、浏览器与看图检查通过；证据见 [历史文档验证摘要](docs/gslaformer/v1/history.md#r4-validation)；仅文档，模型未实现 |
+| DOC-004 | Done | MC | `docs/gslaformer/architecture/` | 15 份既有图示资产归档，含 v4.0.png；引用与输出路径同步，80 处本地链接和定向 diff 检查通过，新路径绘图／浏览器验证通过；当时图片、HTML 与历史证据内容不变；该目录后经用户确认退役，恢复入口见 docs/gslaformer/v1/history.md |
+| DOC-005 | Done | MC | `docs/gslaformer/` | 文档职责收口：统一数据契约，接入并入 implementation，机制与 AIDC 验收并入 acceptance，样例外置与历史归档；根 .venv 核对 144 处链接／锚点、两份配置值与路径、公式／核心协议保全通过，19 份图示资产哈希不变，定向 diff 检查通过；证据见 [历史整理摘要](docs/gslaformer/v1/history.md#doc-reorganization)，仅文档，模型未开发 |
+| DOC-006 | Doing | MC | `docs/gslaformer/`, `data_provider/spatial_temporal/README.md` | gslaformer 分支文档优化：错名锚点改语义锚点并全量更新引用；能力分层与全局非承诺清单收编 design §8 为唯一权威；补齐 scaling artifact 字段格式、batching 归属与 collate 规则、q 通信图方向语义、模型边界对象字段；产物清单单源化；实施证据唯一记账到 implementation §12。原文档阶段未移动 architecture/；该目录在 GSLA-002 收尾后经用户确认退役。此行描述历史文档任务，不代表当前模型未实现 |
+| GSLA-001 | Doing | MC | `docs/gslaformer/`, `data_provider/spatial_temporal/`, `layers/gslaformer/`, `models/transformer/GSLAformer.py`, `exp/`, `run.py`, `scripts/`, `tests/test_gslaformer_*.py` | 核心训练／推理／比较、CPU exact resume、小集拟合、共享 best_A、工程诊断／产物／失败处理已接通并回归；CPU/MPS 有界资源探针及完整 CPU A 单 epoch 已完成，已按边界停止。AIDC 三 profile 完整矩阵仍待预算确认，不自动启动 Freeze/B。证据与测试计数唯一见实施规格 §12。所有会话改动保持未提交，仅用户明确“commit & push”后提交及推送 |
 | EXP-001 | Doing | TBD | `exp/exp_forecasting_rnns.py`, `exp/exp_short_term_forecasting.py` | 已完成主要工具接口对齐；下一步需明确旧实验分支是继续维护还是转入暂缓区 |
 | EXP-002 | Done | Codex | `exp/exp_basic.py`, `exp/exp_long_term_forecasting.py`, `data_provider/TFs_type/data_factory.py`, `tests/` | `PatchTST.sh` 已完成 ETTh1 train/valid/test smoke；相关 unittest 通过 |
 | EXP-003 | Done | Codex | `data_provider/TFs_type/data_factory.py`, `tests/test_tfs_data_provider.py` | 数据集 flag 仅使用 `valid`，不再兼容 `val` |
