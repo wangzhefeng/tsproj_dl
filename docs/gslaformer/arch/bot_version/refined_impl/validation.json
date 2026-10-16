@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "text_overflows": [],
+  "edges_through_nodes": [],
+  "original_ids_retained": true,
+  "original_vertex_geometry_unchanged": 0,
+  "original_vertex_count": 155,
+  "original_vertex_geometry_retained_before_2x_scaling": 127,
+  "bilingual_module_labels_verified": true,
+  "required_module_count": 12,
+  "logical_canvas": [
+    3080,
+    2800
+  ],
+  "left_right_frames_dashed": true,
+  "preserved_files_count": 33,
+  "preserved_files_unchanged": true,
+  "png_size": [
+    6160,
+    5600
+  ],
+  "pdf_pages": 1,
+  "renderer": "isolated local Chrome from same-layout SVG",
+  "drawio_desktop_export": "not_run: unavailable",
+  "model_tests_and_training": "not_run"
+}

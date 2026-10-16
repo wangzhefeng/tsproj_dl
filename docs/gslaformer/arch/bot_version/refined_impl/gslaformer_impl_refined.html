@@ -1,0 +1,363 @@
+<!doctype html><meta charset="utf-8"><title>GSLAformer 原图精修版</title><style>@page{size:3080px 2800px;margin:0}html,body{margin:0;background:white;width:3080px;height:2800px}svg{display:block}</style><svg xmlns="http://www.w3.org/2000/svg" width="3080" height="2800" viewBox="0 0 3080 2800"><defs>
+<marker id="a435465" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#435465"/></marker>
+<marker id="ab85450" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#b85450"/></marker>
+<marker id="aa68a37" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#a68a37"/></marker>
+</defs><rect width="3080" height="2800" fill="white"/><g font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif">
+<rect data-node="c3" x="40.0" y="110.0" width="1760.0" height="1970.0" rx="24" fill="#fcfcfc" stroke="#999999" stroke-width="2.6" stroke-dasharray="14 10"/>
+<text data-owner="c3" x="56.0" y="151.2" text-anchor="start" font-size="25.2" font-weight="700" fill="#263747">(a) encode_history · 实体历史与空间表示</text>
+<rect data-node="c7" x="110.0" y="1000.0" width="380.0" height="310.0" rx="8" fill="#f2f2f2" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c23" x="610.0" y="1000.0" width="380.0" height="310.0" rx="8" fill="#f2f2f2" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c39" x="1110.0" y="1000.0" width="380.0" height="310.0" rx="8" fill="#f2f2f2" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c66" x="260.0" y="424.0" width="1120.0" height="116.0" rx="8" fill="#ffffff" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c74" x="314.0" y="470.0" width="204.0" height="44.0" rx="8" fill="none" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c81" x="654.0" y="470.0" width="204.0" height="44.0" rx="8" fill="none" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c88" x="994.0" y="470.0" width="204.0" height="44.0" rx="8" fill="none" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c94" x="1840.0" y="110.0" width="1200.0" height="1970.0" rx="24" fill="#fcfcfc" stroke="#999999" stroke-width="2.6" stroke-dasharray="14 10"/>
+<text data-owner="c94" x="1856.0" y="151.2" text-anchor="start" font-size="25.2" font-weight="700" fill="#263747">(b) rollout · 时间建模与双头自由递推</text>
+<rect data-node="c95" x="1900.0" y="1280.0" width="1080.0" height="280.0" rx="8" fill="#ffffff" stroke="#999999" stroke-width="2.0"/>
+<text data-owner="c95" x="1916.0" y="1319.4" text-anchor="start" font-size="23.400000000000002" font-weight="700" fill="#263747">内部滚动状态 · 按时间排列的 L 个位置</text>
+<rect data-node="c118" x="1924.0" y="1338.0" width="628.0" height="40.0" rx="8" fill="none" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c141" x="1924.0" y="1386.0" width="628.0" height="40.0" rx="8" fill="none" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c164" x="1924.0" y="1434.0" width="628.0" height="40.0" rx="8" fill="none" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="c171" x="2020.0" y="740.0" width="660.0" height="390.0" rx="8" fill="#f2f2f2" stroke="#999999" stroke-width="2.0"/>
+<rect data-node="training_panel" x="40.0" y="2160.0" width="3000.0" height="460.0" rx="8" fill="#f8fafc" stroke="#aeb9c5" stroke-width="2.0"/>
+<text data-owner="training_panel" x="56.0" y="2201.2" text-anchor="start" font-size="25.2" font-weight="700" fill="#263747">(c) 两阶段训练 · 先学习表示，再训练自由递推</text>
+<path data-edge="c14" d="M 300.0 1600.0 L 300.0 1548.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c15" d="M 300.0 1448.0 L 300.0 1424.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c16" d="M 300.0 1344.0 L 300.0 1278.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c17" d="M 300.0 1210.0 L 300.0 1184.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c18" d="M 300.0 1144.0 L 300.0 1128.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c19" d="M 300.0 1084.0 L 300.0 1064.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c57" d="M 140.0 1044.0 L 90.0 1044.0 L 90.0 940.0 L 300.0 940.0 L 300.0 904.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c61" d="M 300.0 780.0 L 300.0 752.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c89" d="M 300.0 560.0 L 300.0 550.0 L 416.0 550.0 L 416.0 540.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c30" d="M 800.0 1600.0 L 800.0 1548.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c31" d="M 800.0 1448.0 L 800.0 1424.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c32" d="M 800.0 1344.0 L 800.0 1278.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c33" d="M 800.0 1210.0 L 800.0 1184.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c34" d="M 800.0 1144.0 L 800.0 1128.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c35" d="M 800.0 1084.0 L 800.0 1064.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c58" d="M 640.0 1044.0 L 590.0 1044.0 L 590.0 940.0 L 800.0 940.0 L 800.0 904.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c63" d="M 800.0 780.0 L 800.0 752.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c90" d="M 800.0 560.0 L 800.0 550.0 L 756.0 550.0 L 756.0 540.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c46" d="M 1300.0 1600.0 L 1300.0 1548.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c47" d="M 1300.0 1448.0 L 1300.0 1424.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c48" d="M 1300.0 1344.0 L 1300.0 1278.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c49" d="M 1300.0 1210.0 L 1300.0 1184.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c50" d="M 1300.0 1144.0 L 1300.0 1128.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c51" d="M 1300.0 1084.0 L 1300.0 1064.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c59" d="M 1140.0 1044.0 L 1090.0 1044.0 L 1090.0 940.0 L 1300.0 940.0 L 1300.0 904.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c65" d="M 1300.0 780.0 L 1300.0 752.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c91" d="M 1300.0 560.0 L 1300.0 550.0 L 1096.0 550.0 L 1096.0 540.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c56" d="M 1540.0 842.0 L 1500.0 842.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="static_input" d="M 640.0 280.0 L 720.0 280.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c188" d="M 1720.0 280.0 L 1824.0 280.0 L 1824.0 626.0 L 2060.0 626.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c166" d="M 1380.0 482.0 L 1790.0 482.0 L 1790.0 1400.0 L 1900.0 1400.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c168" d="M 2730.0 1670.0 L 2730.0 1560.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c170" d="M 2440.0 1280.0 L 2440.0 1238.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c178" d="M 2350.0 1170.0 L 2350.0 1102.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c179" d="M 2350.0 1030.0 L 2350.0 1006.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c180" d="M 2350.0 966.0 L 2350.0 948.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c181" d="M 2350.0 900.0 L 2350.0 876.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c185" d="M 2350.0 740.0 L 2350.0 700.0 L 2308.0 700.0 L 2308.0 672.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c186" d="M 2980.0 1000.0 L 2994.0 1000.0 L 2994.0 700.0 L 2920.0 700.0 L 2920.0 672.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c187" d="M 2710.0 834.0 L 2696.0 834.0 L 2696.0 700.0 L 2750.0 700.0 L 2750.0 672.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c191" d="M 2830.0 564.0 L 2830.0 480.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c192" d="M 2240.0 564.0 L 2240.0 480.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c195" d="M 2830.0 400.0 L 2830.0 320.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c196" d="M 2240.0 400.0 L 2240.0 320.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="c197" d="M 2240.0 240.0 L 2240.0 180.0 L 3010.0 180.0 L 3010.0 274.0" fill="none" stroke="#b85450" stroke-width="2.4" stroke-dasharray="10 8" marker-end="url(#ab85450)"/>
+<path data-edge="c199" d="M 2980.0 280.0 L 3004.0 280.0" fill="none" stroke="#b85450" stroke-width="2.4" stroke-dasharray="10 8" marker-end="url(#ab85450)"/>
+<path data-edge="feedback_state" d="M 3010.0 286.0 L 3010.0 1400.0 L 2980.0 1400.0" fill="none" stroke="#b85450" stroke-width="2.4" stroke-dasharray="10 8" marker-end="url(#ab85450)"/>
+<path data-edge="train_a" d="M 710.0 2390.0 L 810.0 2390.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="train_b" d="M 1530.0 2390.0 L 1630.0 2390.0" fill="none" stroke="#435465" stroke-width="2.4" marker-end="url(#a435465)"/>
+<path data-edge="teacher_loss" d="M 2450.0 2390.0 L 2350.0 2390.0" fill="none" stroke="#a68a37" stroke-width="2.4" stroke-dasharray="10 8" marker-end="url(#aa68a37)"/>
+<text data-owner="c2" x="56.0" y="64.285" text-anchor="start" font-size="37.800000000000004" font-weight="700" fill="#233547">GSLAformer 实现架构 · AIDC 六动态组实例</text>
+<rect data-node="c4" x="100.0" y="1600.0" width="400.0" height="130.0" rx="8" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c4" x="300.0" y="1644.705" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">compute · 算力实体</text>
+<text data-owner="c4" x="300.0" y="1671.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">动态值 / 观测掩码 / 适用性</text>
+<text data-owner="c4" x="300.0" y="1698.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">静态数值与类别属性</text>
+<rect data-node="c5" x="140.0" y="1448.0" width="320.0" height="100.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="c5" x="300.0" y="1477.705" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GroupAdapter · 实体适配</text>
+<text data-owner="c5" x="300.0" y="1504.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">数值 / 掩码 / 类别嵌入</text>
+<text data-owner="c5" x="300.0" y="1531.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Linear → GELU → Linear</text>
+<rect data-node="c6" x="140.0" y="1344.0" width="320.0" height="80.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c6" x="300.0" y="1377.07" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GRUCell · 实体历史</text>
+<text data-owner="c6" x="300.0" y="1403.8" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">同组共享，逐实体沿时间更新</text>
+<text data-owner="c8" x="74.0" y="1145.85" text-anchor="middle" font-size="18.0" font-weight="400" fill="#333333">×1</text>
+<rect data-node="c9" x="140.0" y="1210.0" width="320.0" height="68.0" rx="8" fill="#f5c28e" stroke="#b46504" stroke-width="2.0"/>
+<text data-owner="c9" x="300.0" y="1237.385" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Multi-Head Attention</text>
+<text data-owner="c9" x="300.0" y="1262.9" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">组内注意力 · 摘要与实体</text>
+<rect data-node="c10" x="140.0" y="1144.0" width="320.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c10" x="300.0" y="1170.1425000000002" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Add &amp; Norm · 残差归一化</text>
+<rect data-node="c11" x="140.0" y="1084.0" width="320.0" height="44.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c11" x="300.0" y="1112.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">FFN · 前馈（4ds / GELU）</text>
+<rect data-node="c12" x="140.0" y="1024.0" width="320.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c12" x="300.0" y="1050.1425000000002" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Add &amp; Norm · 残差归一化</text>
+<text data-owner="c13" x="300.0" y="965.385" text-anchor="middle" font-size="18.900000000000002" font-weight="700" fill="#333333">GroupSpatialEncoder</text>
+<text data-owner="c13" x="300.0" y="990.9" text-anchor="middle" font-size="18.900000000000002" font-weight="700" fill="#333333">组内空间编码 · 单层</text>
+<rect data-node="c20" x="600.0" y="1600.0" width="400.0" height="130.0" rx="8" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c20" x="800.0" y="1644.705" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">it_power · IT 电力实体</text>
+<text data-owner="c20" x="800.0" y="1671.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">动态值 / 观测掩码 / 适用性</text>
+<text data-owner="c20" x="800.0" y="1698.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">静态数值与类别属性</text>
+<rect data-node="c21" x="640.0" y="1448.0" width="320.0" height="100.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="c21" x="800.0" y="1477.705" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GroupAdapter · 实体适配</text>
+<text data-owner="c21" x="800.0" y="1504.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">数值 / 掩码 / 类别嵌入</text>
+<text data-owner="c21" x="800.0" y="1531.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Linear → GELU → Linear</text>
+<rect data-node="c22" x="640.0" y="1344.0" width="320.0" height="80.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c22" x="800.0" y="1377.07" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GRUCell · 实体历史</text>
+<text data-owner="c22" x="800.0" y="1403.8" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">同组共享，逐实体沿时间更新</text>
+<text data-owner="c24" x="574.0" y="1145.85" text-anchor="middle" font-size="18.0" font-weight="400" fill="#333333">×1</text>
+<rect data-node="c25" x="640.0" y="1210.0" width="320.0" height="68.0" rx="8" fill="#f5c28e" stroke="#b46504" stroke-width="2.0"/>
+<text data-owner="c25" x="800.0" y="1237.385" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Multi-Head Attention</text>
+<text data-owner="c25" x="800.0" y="1262.9" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">组内注意力 · 摘要与实体</text>
+<rect data-node="c26" x="640.0" y="1144.0" width="320.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c26" x="800.0" y="1170.1425000000002" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Add &amp; Norm · 残差归一化</text>
+<rect data-node="c27" x="640.0" y="1084.0" width="320.0" height="44.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c27" x="800.0" y="1112.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">FFN · 前馈（4ds / GELU）</text>
+<rect data-node="c28" x="640.0" y="1024.0" width="320.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c28" x="800.0" y="1050.1425000000002" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Add &amp; Norm · 残差归一化</text>
+<text data-owner="c29" x="800.0" y="965.385" text-anchor="middle" font-size="18.900000000000002" font-weight="700" fill="#333333">GroupSpatialEncoder</text>
+<text data-owner="c29" x="800.0" y="990.9" text-anchor="middle" font-size="18.900000000000002" font-weight="700" fill="#333333">组内空间编码 · 单层</text>
+<rect data-node="c36" x="1100.0" y="1600.0" width="400.0" height="130.0" rx="8" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c36" x="1300.0" y="1644.705" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">hvac · 暖通实体</text>
+<text data-owner="c36" x="1300.0" y="1671.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">动态值 / 观测掩码 / 适用性</text>
+<text data-owner="c36" x="1300.0" y="1698.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">静态数值与类别属性</text>
+<rect data-node="c37" x="1140.0" y="1448.0" width="320.0" height="100.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="c37" x="1300.0" y="1477.705" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GroupAdapter · 实体适配</text>
+<text data-owner="c37" x="1300.0" y="1504.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">数值 / 掩码 / 类别嵌入</text>
+<text data-owner="c37" x="1300.0" y="1531.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Linear → GELU → Linear</text>
+<rect data-node="c38" x="1140.0" y="1344.0" width="320.0" height="80.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c38" x="1300.0" y="1377.07" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GRUCell · 实体历史</text>
+<text data-owner="c38" x="1300.0" y="1403.8" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">同组共享，逐实体沿时间更新</text>
+<text data-owner="c40" x="1074.0" y="1145.85" text-anchor="middle" font-size="18.0" font-weight="400" fill="#333333">×1</text>
+<rect data-node="c41" x="1140.0" y="1210.0" width="320.0" height="68.0" rx="8" fill="#f5c28e" stroke="#b46504" stroke-width="2.0"/>
+<text data-owner="c41" x="1300.0" y="1237.385" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Multi-Head Attention</text>
+<text data-owner="c41" x="1300.0" y="1262.9" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">组内注意力 · 摘要与实体</text>
+<rect data-node="c42" x="1140.0" y="1144.0" width="320.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c42" x="1300.0" y="1170.1425000000002" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Add &amp; Norm · 残差归一化</text>
+<rect data-node="c43" x="1140.0" y="1084.0" width="320.0" height="44.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c43" x="1300.0" y="1112.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">FFN · 前馈（4ds / GELU）</text>
+<rect data-node="c44" x="1140.0" y="1024.0" width="320.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c44" x="1300.0" y="1050.1425000000002" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">Add &amp; Norm · 残差归一化</text>
+<text data-owner="c45" x="1300.0" y="965.385" text-anchor="middle" font-size="18.900000000000002" font-weight="700" fill="#333333">GroupSpatialEncoder</text>
+<text data-owner="c45" x="1300.0" y="990.9" text-anchor="middle" font-size="18.900000000000002" font-weight="700" fill="#333333">组内空间编码 · 单层</text>
+<text data-owner="c52" x="1650.0" y="1637.705" text-anchor="middle" font-size="19.8" font-weight="400" fill="#333333">其余三组</text>
+<text data-owner="c52" x="1650.0" y="1664.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#333333">配电 / 空间 / 环境</text>
+<text data-owner="c52" x="1650.0" y="1691.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#333333">共六个动态组</text>
+<text data-owner="c53" x="1650.0" y="1192.19" text-anchor="middle" font-size="25.2" font-weight="400" fill="#333333">……</text>
+<rect data-node="c54" x="100.0" y="780.0" width="1400.0" height="124.0" rx="8" fill="#f5c28e" stroke="#b46504" stroke-width="2.0"/>
+<text data-owner="c54" x="800.0" y="820.7825" text-anchor="middle" font-size="20.7" font-weight="400" fill="#263747">RelationAttention · 类型关系交互（2 × RelationBlock，当前配置）</text>
+<text data-owner="c54" x="800.0" y="848.7275000000001" text-anchor="middle" font-size="20.7" font-weight="400" fill="#263747">逐时刻拼接六组实体；按关系类型、方向及注意力头添加可学习偏置</text>
+<text data-owner="c54" x="800.0" y="876.6725" text-anchor="middle" font-size="20.7" font-weight="400" fill="#263747">允许自连接、已注册关系及反向通信；MHA → Add &amp; Norm → FFN → Add &amp; Norm</text>
+<rect data-node="c55" x="1540.0" y="796.0" width="230.0" height="92.0" rx="8" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c55" x="1655.0" y="822.6274999999999" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">relations_history</text>
+<text data-owner="c55" x="1655.0" y="848.1424999999999" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">历史关系 Rₜ · 按时刻</text>
+<text data-owner="c55" x="1655.0" y="873.6574999999999" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#263747">对齐</text>
+<rect data-node="c60" x="100.0" y="560.0" width="400.0" height="192.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="c60" x="300.0" y="608.9749999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GroupReadout · 查询读出</text>
+<text data-owner="c60" x="300.0" y="635.7049999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Q：可学习查询</text>
+<text data-owner="c60" x="300.0" y="662.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">K/V：实体 + 常驻空组 token</text>
+<text data-owner="c60" x="300.0" y="689.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">拼接 log1p(N)、coverage</text>
+<text data-owner="c60" x="300.0" y="715.895" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Linear → LayerNorm</text>
+<rect data-node="c62" x="600.0" y="560.0" width="400.0" height="192.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="c62" x="800.0" y="608.9749999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GroupReadout · 查询读出</text>
+<text data-owner="c62" x="800.0" y="635.7049999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Q：可学习查询</text>
+<text data-owner="c62" x="800.0" y="662.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">K/V：实体 + 常驻空组 token</text>
+<text data-owner="c62" x="800.0" y="689.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">拼接 log1p(N)、coverage</text>
+<text data-owner="c62" x="800.0" y="715.895" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Linear → LayerNorm</text>
+<rect data-node="c64" x="1100.0" y="560.0" width="400.0" height="192.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="c64" x="1300.0" y="608.9749999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">GroupReadout · 查询读出</text>
+<text data-owner="c64" x="1300.0" y="635.7049999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Q：可学习查询</text>
+<text data-owner="c64" x="1300.0" y="662.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">K/V：实体 + 常驻空组 token</text>
+<text data-owner="c64" x="1300.0" y="689.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">拼接 log1p(N)、coverage</text>
+<text data-owner="c64" x="1300.0" y="715.895" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">Linear → LayerNorm</text>
+<text data-owner="c67" x="820.0" y="453.02000000000004" text-anchor="middle" font-size="21.6" font-weight="400" fill="#333333">动态组状态：单时刻 [B,6,dz]；全窗口 [B,L,6,dz]</text>
+<rect data-node="c68" x="320.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c69" x="352.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c70" x="384.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c71" x="416.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c72" x="448.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c73" x="480.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c75" x="660.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c76" x="692.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c77" x="724.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c78" x="756.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c79" x="788.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c80" x="820.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c82" x="1000.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c83" x="1032.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c84" x="1064.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c85" x="1096.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c86" x="1128.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c87" x="1160.0" y="476.0" width="32.0" height="32.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c92" x="720.0" y="200.0" width="1000.0" height="160.0" rx="8" fill="#d0ece7" stroke="#3f8f80" stroke-width="2.0"/>
+<text data-owner="c92" x="1220.0" y="257.86" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">StaticConditionEncoder · 独立静态条件 c</text>
+<text data-owner="c92" x="1220.0" y="287.02000000000004" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">属性均值/总和、可用率、类别均值、数量与关系度数</text>
+<text data-owner="c92" x="1220.0" y="316.18" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">逐组 Linear → GELU；跨组拼接 → 单 Linear；起点内固定</text>
+<text data-owner="c93" x="116.0" y="400.435" text-anchor="start" font-size="19.8" font-weight="400" fill="#666666">空间表示按历史时刻计算；一次预测只编码一次历史 z 与静态条件 c。</text>
+<rect data-node="c96" x="1930.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c97" x="1958.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c98" x="1986.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c99" x="2014.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c100" x="2042.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c101" x="2070.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c102" x="2098.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#d5e8d4" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c103" x="2126.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c104" x="2154.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c105" x="2182.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c106" x="2210.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c107" x="2238.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c108" x="2266.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c109" x="2294.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c110" x="2322.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c111" x="2350.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c112" x="2378.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#d5e8d4" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c113" x="2406.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c114" x="2434.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c115" x="2462.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c116" x="2490.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c117" x="2518.0" y="1344.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c119" x="1930.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c120" x="1958.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c121" x="1986.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c122" x="2014.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c123" x="2042.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c124" x="2070.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c125" x="2098.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#d5e8d4" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c126" x="2126.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c127" x="2154.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c128" x="2182.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c129" x="2210.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c130" x="2238.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c131" x="2266.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c132" x="2294.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c133" x="2322.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c134" x="2350.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c135" x="2378.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#d5e8d4" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c136" x="2406.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c137" x="2434.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c138" x="2462.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c139" x="2490.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c140" x="2518.0" y="1392.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c142" x="1930.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c143" x="1958.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c144" x="1986.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c145" x="2014.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c146" x="2042.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c147" x="2070.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c148" x="2098.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#d5e8d4" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c149" x="2126.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c150" x="2154.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c151" x="2182.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c152" x="2210.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c153" x="2238.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c154" x="2266.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c155" x="2294.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c156" x="2322.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c157" x="2350.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#fff2cc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c158" x="2378.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#d5e8d4" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c159" x="2406.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c160" x="2434.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#e1d5e7" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c161" x="2462.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c162" x="2490.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#dae8fc" stroke="#666666" stroke-width="2.0"/>
+<rect data-node="c163" x="2518.0" y="1440.0" width="28.0" height="28.0" rx="0" fill="#f8cecc" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c165" x="2440.0" y="1526.1425000000002" text-anchor="middle" font-size="18.900000000000002" font-weight="400" fill="#333333">每步特征：z 展平 / 负荷 y / 观测与生成标记 / 逐组覆盖率 / 日历四维</text>
+<rect data-node="c167" x="2480.0" y="1670.0" width="500.0" height="100.0" rx="8" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c167" x="2730.0" y="1712.4399999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">target_history · 真实负荷历史</text>
+<text data-owner="c167" x="2730.0" y="1741.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">仅用于初始化内部状态</text>
+<rect data-node="c169" x="1900.0" y="1170.0" width="1080.0" height="68.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="c169" x="2440.0" y="1211.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">全部特征联合 Linear → dt；再加窗口内正弦位置（不另设日历投影）</text>
+<text data-owner="c172" x="1985.0" y="947.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#333333">×Nₜ</text>
+<rect data-node="c173" x="2060.0" y="1030.0" width="580.0" height="72.0" rx="8" fill="#f5c28e" stroke="#b46504" stroke-width="2.0"/>
+<text data-owner="c173" x="2350.0" y="1058.4399999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">Masked Multi-Head Attention · 因果注意力</text>
+<text data-owner="c173" x="2350.0" y="1087.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">屏蔽未来窗口位置</text>
+<rect data-node="c174" x="2060.0" y="966.0" width="580.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c174" x="2350.0" y="993.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">Add &amp; Norm · 残差相加与归一化</text>
+<rect data-node="c175" x="2060.0" y="900.0" width="580.0" height="48.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c175" x="2350.0" y="931.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">Feed Forward · 前馈层（4dt / GELU）</text>
+<rect data-node="c176" x="2060.0" y="836.0" width="580.0" height="40.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="c176" x="2350.0" y="863.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">Add &amp; Norm · 残差相加与归一化</text>
+<text data-owner="c177" x="2350.0" y="774.755" text-anchor="middle" font-size="20.7" font-weight="700" fill="#333333">TemporalEncoder · 因果时间编码</text>
+<text data-owner="c177" x="2350.0" y="802.7" text-anchor="middle" font-size="20.7" font-weight="700" fill="#333333">Post-LN；每步取当前窗口末位 h</text>
+<rect data-node="c182" x="2710.0" y="910.0" width="270.0" height="180.0" rx="8" fill="#d0ece7" stroke="#3f8f80" stroke-width="2.0"/>
+<text data-owner="c182" x="2845.0" y="952.9749999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">FuturePathEncoder</text>
+<text data-owner="c182" x="2845.0" y="979.7049999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">已知未来路径编码</text>
+<text data-owner="c182" x="2845.0" y="1006.435" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">值 / mask / 日历</text>
+<text data-owner="c182" x="2845.0" y="1033.165" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">完整 H 步双向注意力</text>
+<text data-owner="c182" x="2845.0" y="1059.895" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">pₖ：起点一次编码</text>
+<rect data-node="c183" x="2710.0" y="790.0" width="270.0" height="90.0" rx="8" fill="#d0ece7" stroke="#3f8f80" stroke-width="2.0"/>
+<text data-owner="c183" x="2845.0" y="828.0699999999999" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">lead(k) · 预测步长编码</text>
+<text data-owner="c183" x="2845.0" y="854.8" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">相对原起点的正弦编码</text>
+<rect data-node="c184" x="2060.0" y="564.0" width="920.0" height="108.0" rx="8" fill="#d0ece7" stroke="#3f8f80" stroke-width="2.0"/>
+<text data-owner="c184" x="2520.0" y="595.86" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">ConditionFusion · 条件融合</text>
+<text data-owner="c184" x="2520.0" y="625.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">历史 h / 静态 c / 未来 pₖ / 步长 lead(k)</text>
+<text data-owner="c184" x="2520.0" y="654.1800000000001" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">拼接 → Linear → GELU → Dropout → Linear</text>
+<rect data-node="c189" x="2680.0" y="400.0" width="300.0" height="80.0" rx="8" fill="#d5e8d4" stroke="#82b366" stroke-width="2.0"/>
+<text data-owner="c189" x="2830.0" y="432.44" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">load_head · 总负荷头</text>
+<text data-owner="c189" x="2830.0" y="461.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">Linear(dt,1)</text>
+<rect data-node="c190" x="2060.0" y="400.0" width="360.0" height="80.0" rx="8" fill="#d5e8d4" stroke="#82b366" stroke-width="2.0"/>
+<text data-owner="c190" x="2240.0" y="432.44" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">latent_heads · 分组状态头</text>
+<text data-owner="c190" x="2240.0" y="461.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">每组 Linear(dt,dz)</text>
+<rect data-node="c193" x="2680.0" y="240.0" width="300.0" height="80.0" rx="8" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c193" x="2830.0" y="273.07" text-anchor="middle" font-size="19.8" font-weight="700" fill="#263747">下一步总负荷 ŷ</text>
+<text data-owner="c193" x="2830.0" y="299.8" text-anchor="middle" font-size="19.8" font-weight="700" fill="#263747">[B,1] · 标准化坐标</text>
+<rect data-node="c194" x="2060.0" y="240.0" width="360.0" height="80.0" rx="8" fill="#f5f5f5" stroke="#666666" stroke-width="2.0"/>
+<text data-owner="c194" x="2240.0" y="272.44" text-anchor="middle" font-size="21.6" font-weight="700" fill="#263747">下一步动态组状态 ẑ</text>
+<text data-owner="c194" x="2240.0" y="301.6" text-anchor="middle" font-size="21.6" font-weight="700" fill="#263747">[B,6,dz]</text>
+<text data-owner="c198" x="1916.0" y="1679.705" text-anchor="start" font-size="19.8" font-weight="400" fill="#a4524e">预测位置的状态标记</text>
+<text data-owner="c198" x="1916.0" y="1706.435" text-anchor="start" font-size="19.8" font-weight="400" fill="#a4524e">observed=false；generated=true</text>
+<text data-owner="c198" x="1916.0" y="1733.165" text-anchor="start" font-size="19.8" font-weight="400" fill="#a4524e">coverage=0；group_generated=1</text>
+<rect data-node="c200" x="1900.0" y="1850.0" width="1080.0" height="170.0" rx="8" fill="#eef3fb" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="c200" x="2440.0" y="1912.86" text-anchor="middle" font-size="21.6" font-weight="400" fill="#33465a">direct 对照 / A 阶段</text>
+<text data-owner="c200" x="2440.0" y="1942.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#33465a">历史时间编码仅运行一次；各未来步使用自身条件</text>
+<text data-owner="c200" x="2440.0" y="1971.1799999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#33465a">只调用负荷头，不预测 latent、不回灌</text>
+<text data-owner="c201" x="56.0" y="2672.7275" text-anchor="start" font-size="20.7" font-weight="400" fill="#555555">B：批大小；L：历史窗口；H：预测长度；ds：实体表示宽度；dz：组状态宽度；dt：时间表示宽度。图示为 full 主路径，direct 单独说明。</text>
+<rect data-node="origin_input" x="100.0" y="200.0" width="540.0" height="160.0" rx="8" fill="#f5f5f5" stroke="#8795a3" stroke-width="2.0"/>
+<text data-owner="origin_input" x="370.0" y="257.86" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">预测起点的静态证据</text>
+<text data-owner="origin_input" x="370.0" y="287.02000000000004" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">属性 / 类别 / 有效实体</text>
+<text data-owner="origin_input" x="370.0" y="316.18" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">逐类型、逐方向的关系度数</text>
+<text data-owner="history_scope" x="930.0" y="1792.7275" text-anchor="middle" font-size="20.7" font-weight="400" fill="#263747">EntityHistoryEncoder · 实体历史编码：GroupAdapter + 同组共享 GRUCell；缺席或填充实体的状态归零。</text>
+<rect data-node="spatial_note" x="100.0" y="1850.0" width="1660.0" height="170.0" rx="8" fill="#ffffff" stroke="#c4cbd2" stroke-width="2.0"/>
+<text data-owner="spatial_note" x="930.0" y="1898.28" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">配置与表示边界</text>
+<text data-owner="spatial_note" x="930.0" y="1927.44" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">本图为六动态组实例；其他配置可含纯静态组（无 GRU、不产生动态 latent）。</text>
+<text data-owner="spatial_note" x="930.0" y="1956.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">实体身份只用于对齐；摘要 token 输出被丢弃，分组状态由独立查询读出。</text>
+<text data-owner="spatial_note" x="930.0" y="1985.76" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">消融示例：no_spatial → GroupMeanReadout；no_entity_history → 无 GRU；total_only → 仅负荷。</text>
+<text data-owner="state_note" x="2765.0" y="1383.86" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">保留最近 L 个位置</text>
+<text data-owner="state_note" x="2765.0" y="1413.02" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">追加预测 z、y</text>
+<text data-owner="state_note" x="2765.0" y="1442.1799999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">不覆盖真实历史</text>
+<rect data-node="feedback_join" x="3004.0" y="274.0" width="12.0" height="12.0" rx="0" fill="#b85450" stroke="#b85450" stroke-width="2.0"/>
+<rect data-node="stage_a" x="90.0" y="2280.0" width="620.0" height="220.0" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="2.0"/>
+<text data-owner="stage_a" x="400.0" y="2353.2799999999997" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">A · 直接多步负荷监督</text>
+<text data-owner="stage_a" x="400.0" y="2382.4399999999996" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">训练表示链及负荷预测路径</text>
+<text data-owner="stage_a" x="400.0" y="2411.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">latent 头冻结，不参与损失</text>
+<text data-owner="stage_a" x="400.0" y="2440.7599999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">按验证集选出 best_A</text>
+<rect data-node="stage_freeze" x="810.0" y="2280.0" width="720.0" height="220.0" rx="8" fill="#d0ece7" stroke="#3f8f80" stroke-width="2.0"/>
+<text data-owner="stage_freeze" x="1170.0" y="2353.2799999999997" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">加载 best_A · 冻结完整表示链</text>
+<text data-owner="stage_freeze" x="1170.0" y="2382.4399999999996" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">实体历史 / 组内空间 / 关系 / 读出 / 静态链</text>
+<text data-owner="stage_freeze" x="1170.0" y="2411.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">冻结模块保持 eval</text>
+<text data-owner="stage_freeze" x="1170.0" y="2440.7599999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">建立 latent 训练统计</text>
+<rect data-node="stage_b" x="1630.0" y="2280.0" width="720.0" height="220.0" rx="8" fill="#dae8fc" stroke="#7f96b8" stroke-width="2.0"/>
+<text data-owner="stage_b" x="1990.0" y="2353.2799999999997" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">B · 双头自由递推</text>
+<text data-owner="stage_b" x="1990.0" y="2382.4399999999996" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">预测负荷主损失 + latent 辅助损失</text>
+<text data-owner="stage_b" x="1990.0" y="2411.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">时间链、未来路径、融合层与两头继续训练</text>
+<text data-owner="stage_b" x="1990.0" y="2440.7599999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">预测 z、y 回灌，不使用 teacher 真值回灌</text>
+<rect data-node="teacher" x="2450.0" y="2280.0" width="540.0" height="220.0" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="2.0"/>
+<text data-owner="teacher" x="2720.0" y="2353.2799999999997" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">仅训练使用的 teacher</text>
+<text data-owner="teacher" x="2720.0" y="2382.4399999999996" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">冻结表示链 + 未来实体监督</text>
+<text data-owner="teacher" x="2720.0" y="2411.6" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">复制历史末端 memory；no_grad</text>
+<text data-owner="teacher" x="2720.0" y="2440.7599999999998" text-anchor="middle" font-size="21.6" font-weight="400" fill="#263747">latent 标签仅进入辅助损失</text>
+<text data-owner="training_note" x="1540.0" y="2564.7275" text-anchor="middle" font-size="20.7" font-weight="400" fill="#263747">B 课程：1 → min(3,H) → H；完整已知未来路径保持 H 步。预测结束后负荷反标准化；latent 不具有负荷物理单位。</text>
+<rect data-node="legend0" x="60.0" y="2720.0" width="450.0" height="50.0" rx="8" fill="#e1d5e7" stroke="#b5bec7" stroke-width="2.0"/>
+<text data-owner="legend0" x="285.0" y="2751.4350000000004" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">特征适配 / 读出</text>
+<rect data-node="legend1" x="560.0" y="2720.0" width="450.0" height="50.0" rx="8" fill="#eef3fb" stroke="#b5bec7" stroke-width="2.0"/>
+<text data-owner="legend1" x="785.0" y="2751.4350000000004" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">历史 / 前馈层</text>
+<rect data-node="legend2" x="1060.0" y="2720.0" width="450.0" height="50.0" rx="8" fill="#f5c28e" stroke="#b5bec7" stroke-width="2.0"/>
+<text data-owner="legend2" x="1285.0" y="2751.4350000000004" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">注意力 / 关系</text>
+<rect data-node="legend3" x="1560.0" y="2720.0" width="450.0" height="50.0" rx="8" fill="#fff2cc" stroke="#b5bec7" stroke-width="2.0"/>
+<text data-owner="legend3" x="1785.0" y="2751.4350000000004" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">残差归一化</text>
+<rect data-node="legend4" x="2060.0" y="2720.0" width="450.0" height="50.0" rx="8" fill="#d0ece7" stroke="#b5bec7" stroke-width="2.0"/>
+<text data-owner="legend4" x="2285.0" y="2751.4350000000004" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">静态 / 未来条件</text>
+<rect data-node="legend5" x="2560.0" y="2720.0" width="450.0" height="50.0" rx="8" fill="#d5e8d4" stroke="#b5bec7" stroke-width="2.0"/>
+<text data-owner="legend5" x="2785.0" y="2751.4350000000004" text-anchor="middle" font-size="19.8" font-weight="400" fill="#263747">预测头</text>
+</g></svg>
