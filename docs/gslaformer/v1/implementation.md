@@ -51,7 +51,7 @@
 
 ### 1.3 静态条件 c
 
-独立静态链只读 origin 有效实体的静态数值／类别、mask、按类型与方向的平均关系度数，不读动态值。先按组聚合：各数值属性的有效 masked mean、sum、count，类别 embedding 的有效均值，`log1p(有效节点数)` 及平均入／出度；再由每组 Linear→GELU 投影至 `d_z`，拼全部组后 Linear→GELU→Linear 投影至 `d_t` 得到 c。不存在额外的“逐实体非线性适配再池化”；动态实体适配器与静态链参数独立。空组统计为零，度数分母排除 padding 和 origin 未生效实体。
+独立静态链只读 origin 有效实体的静态数值／类别、mask、按类型与方向的平均关系度数，不读动态值。先按组聚合：各数值属性的有效 masked mean、sum、count，类别 embedding 的有效均值，`log1p(有效节点数)` 及平均入／出度；再由每组 Linear→GELU 投影至 `d_z`，拼全部组后单 Linear 投影至 `d_t` 得到 c（GSLA-003 批准保留当前实现，不增加跨组 MLP）。不存在额外的“逐实体非线性适配再池化”；动态实体适配器与静态链参数独立。空组统计为零，度数分母排除 padding 和 origin 未生效实体。
 
 静态链与动态链分别建模块，B 阶段一起冻结。数量／sum 保留规模信息，但不构成总功率守恒或严格单调性保证。
 
@@ -65,7 +65,7 @@
 - 总负荷 observed、generated 两个标记；
 - 每动态组 observed coverage 和 generated 标记。
 
-得到输入后 Linear 映射至 `d_t`。位置编码使用窗口内 `0..L-1` 的固定正弦编码，滑窗重算；日历为本地日内相位与周内相位的 sin/cos 四个数，再经 Linear→`d_t` 相加。日历函数适配任意固定秒级频率，不通过拼接未来真实观测计算。
+日历为本地日内相位与周内相位的 sin/cos 四个数，与上述输入拼接后经联合 Linear 映射至 `d_t`，再加窗口内 `0..L-1` 的固定正弦编码，滑窗重算。日历函数适配任意固定秒级频率，不通过拼接未来真实观测计算。GSLA-003 保留此计算；其仿射函数族等价于输入与日历分别投影后相加，不承诺不同参数化的重新训练轨迹相同。
 
 时间 Transformer 采用 Post-LN、GELU、FFN=`4*d_t`，显式上三角屏蔽未来；最后 token 输出为 h。历史测量缺失不等于时间 padding，本版本每个时间位置都有合法 token。
 
@@ -278,8 +278,8 @@ AIDC 先均匀选训练站点再选该站训练 origin，epoch 总抽样数等�
 | `tests/test_gslaformer_mapping.py` | 测点单位与业务类型图的来源边界 |
 | `tests/test_gslaformer_scaling.py` | 组级 scaler／词表与 artifact 校验；完成证据见 §12 |
 | `tests/test_gslaformer_model.py` | shape、因果、关系、重排、新实体、条件消费 |
-| `tests/test_gslaformer_training.py` | 冻结、梯度、loss、状态机、resume、过拟合 |
-| `tests/test_gslaformer_integration.py` | CLI、产物、重载、synthetic E2E 和 MPS |
+| `tests/test_gslaformer_training.py` | 冻结、梯度、loss；状态机与 resume 由 state_machine 测试负责，小集拟合另走专用脚本 |
+| `tests/test_gslaformer_integration.py` | CLI、产物、重载、synthetic E2E；真实 MPS 走独立设备 smoke，不冒充普通 CPU 单测覆盖 |
 
 文件现状与运行证据统一由 [开发工作包与进度证据](implementation.md#work-packages) 维护，不另设容易过期的存在性清单。
 
@@ -437,6 +437,68 @@ run_id 和 episode_id 必须是单一安全名称（字母、数字、下划线�
 <a id="work-packages"></a>
 
 ## 12. 开发工作包与进度证据
+
+### GSLA-004 C2 机制验收（Done：用户接受结果并保留预算偏差）
+
+用户授权明确任务/预算/停止条件并执行 C2，不包含 AIDC。输出根 `results/gslaformer/c2_20261016_110225/`，新生成 base 与 mechanisms 包，保留源码身份、数据校验与实际命令；不复用历史计算版本权重。
+
+> 范围说明：本节开头预声明的 direct≤240 是当时的预算估算错误，已有正式入口及 acceptance §5 的合同是 44 epoch；该行保留原记录，不把后续结果追改成事前授权。最终实跑偏差与裁决见本节末尾。
+
+- 前置门禁：当前 GSLA 回归、生成器 oracle、M5 坏输入；失败不启动训练。
+- 小集：M1/full、M2/full、M3/full/direct、M4/full/direct，前八个训练 family；full 的 A/B 各最多 1000 update，direct 仅 A。CPU 单线程、seed=2023、dropout=0、lr=0.003，沿用 §6 拟合阈值，M1/M2 加严格成对方向/半间距断言。总上限 10000 update，单路线墙钟上限 20 分钟，合计墙钟上限 60 分钟；达到通过标准立即停止该阶段。A 未通过不进入 B；任一路线失败或超时，不启动正式矩阵、不自动加预算。
+- 正式矩阵：M1 full/no_entity_history/direct；M2 full/no_relation_message/no_relation_all；M3 full/direct/no_latent_loss/total_only；M4 full/direct/no_spatial/total_only。各自独立 train/valid/test，no_latent_loss 复用同任务 full 的 best_A，不重训 A。保留正式 AdamW、lr=0.001、dropout=0.1、batch=8；A≤20、B-short=2、B-medium=2、B-full≤20 epoch，A/B-full patience=5、min_delta=1e-6。按每任务 train=96 窗口计算，每 epoch 12 update，full 类单路线≤528、direct≤240、no_latent_loss≤288，矩阵总上限 6288 update。每任务墙钟≤30 分钟，四任务合计≤120 分钟；在验证集上选优，test 不参与调参。
+- M4：正式 full 最终权重重载 origin_activation 请求，校验 checkpoint 不变、无未来标签及新实体元数据；单列不同节点数误差，不设未声明的单调门槛。M5 不训练独立模型。
+- 硬停止：NaN/Inf、坏 checkpoint/来源、数据泄漏或标签/接口不一致、OOM、未通过小集门槛、墙钟/update/epoch 上限。保留结果并标 failed/interrupted/not_run，不启动后续任务；到限不视为 passed。完整矩阵执行成功与机制门槛通过分开报告，不要求 full 胜过 direct/naive，不自动修改模型/生成分布/阈值。整轮含前置验证与审计墙钟上限 4 小时，串行执行，不争抢 CPU。
+
+本轮实跑结果与停止回执：
+
+- 首次 `c2_20261016_110225` 在生成 base 后失败：`write_suite` 无条件读取未生成的 M1–M4 并声明 M5，且新目录缺 mechanisms 父目录。修复为仅枚举实际存在的完整包、创建汇总目录；存在但不完整的包仍报错，不吞掉损坏。新增 fresh-directory CLI 回归通过。未改物理公式或训练数据分布，原失败日志保留。
+- 修复后新目录 `results/gslaformer/c2_20261016_110225_r2/`：`env -u PYTHONPATH OMP_NUM_THREADS=1 TMPDIR=/Users/wangzf/.hermes/profiles/coder/cache/scratch .venv/bin/python results/gslaformer/c2_20261016_110225_r2/execute_c2.py`。前置 GSLA **103 项测试通过**（`regression.log`），新 base/M1–M4 包生成校验通过；M5 坏输入包通过（同级 `c2_20261016_110225_r2_M5/suite_result.json`），其 suite 保持 partial，不代表全部机制通过。
+- M1/full 小集 A 达到 **1000 update** 上限，最终返回失败，执行器退出码 1。初始标准化 MSE=3.905261278152466；保留的最小训练 MSE 权重为 0.06521259248256683，小于预声明阈值 0.7810522556304932，但严格成对门槛失败。注意该权重不是最后一次更新：最后一次的 MSE=0.14353029429912567，不能混写为 best 值。
+- 不增训练的 `diagnose_m1.py` 重载 `fit_M1_full/M1_full/fit_A.pt`：相同 eval/no_grad 下 MSE 与报告逐位一致；独立按 family 分组确认原 reshape 顺序无误、历史 target 相同。仅 **3/8 个 family** 满足所有 horizon 的方向与半间距断言；误差单元通过率约 0.729167，不等于 family 通过率。结果 `failure_diagnosis.json` 保留逐对预测/真值/方向/误差、初始与训练后的 latent 差异及 GRU 梯度范数。
+- 历史表示存在成对差异、GRU 梯度有限且非零，不能简单归因于完全没有历史路径或完全断梯度；也不能仅凭此排除表达能力限制或认定只是预算不足。当前结论严格为“固定配置、固定种子、既定预算下，M1 机制拟合未过”。未增加 update、换 seed、调 lr、改模型或放宽阈值。
+- `execution_state.json` 已记录 stopped：M1 的 B 未执行，M2/M3/M4 小集和全部正式矩阵为 not_run。任务保持 Blocked，C2 不标 Done/passed。后续需单独裁决 M1 根因实验及可能的优化预算调整，不自动扩大训练。拟合脚本新增按任务运行、失败即停及源码/计算版本记录；本轮所有更改未提交、未推送。
+- 后续用户选择“先定位并修复 M1，涉及模型语义或训练预算变更先给方案”。不增加更新的 `trace_m1.py` 已运行，逐层 hook 对比初始化与 best 权重，并对两个 assets 做置换对齐，排除实体编号顺序造成的假差异。f001/f003/f004/f005 在 GRU 输出仍有可辨差异，但经组内注意力、关系层和读出后大幅减弱；例如 f001 相对激活 RMS 的成对差异依次约 0.264693 → 0.035385 → 0.000939 → 0.0000249。f000 的预测方向全部正确，但两个数值单元未满足严格半间距；不能把所有失败归成同一种情况。
+- 同权重只将成对 latent 替换为各对均值，其余输入保持不变，最大预测变化 0.7623529434204102，预测成对差降为 0。这证明当前预测实际使用 latent 差异，并非绕过历史链；不证明所学表示已足够。逐层 trace 与反事实保存在 `layer_trace.json`。现有证据定位到“部分 family 的已学空间表示区分能力退化”，尚未发现可直接修复的确定实现错误；不能据此断言学习率是根因。未新增训练或更改模型，优化参数对照需用户确认后执行。
+- 用户随后批准两组 M1/A 优化诊断：lr=0.001、0.0003，各至多 1000 update/10 分钟，串行；同 seed=2023、同八个 family、dropout=0、原严格阈值，不进入 B、不改正式配置。输出 `results/gslaformer/m1_lr_20261016_112826/`；每组校验初始 MSE 与原 lr=0.003 运行完全一致，记录逐对门槛、GRU/latent 差异及梯度，并重载选中权重。两组跑完后再裁决是否调整机制小集优化设置，C2 正式矩阵仍不自动解锁。
+- 两组诊断已完成，`run_study.py` 退出码 0：lr=0.001 在 **271 update** 首次通过，标准化 MSE=0.003584706224501133；lr=0.0003 在 **729 update** 首次通过，MSE=0.004328960087150335。二者均 8/8 family、全部 horizon 通过严格方向与半间距断言，初始 MSE 均为 3.905261278152466；数据/transform 指纹相同、选中 A 权重重载预测逐位一致。`summary.json` 记录完整运行结果，`independent_validation.json` 从保存的预测/真值独立复算门槛通过；最小半间距余量分别为 0.00031819939613342285、0.00048300623893737793，不据此宣称大安全余量或跨种子稳定。
+- 此结果证明当前模型结构在该固定小集与种子下能够拟合 M1，降低学习率足以消除本轮 A 阶段的失败，支持“优化设置敏感”而非“结构必然不可区分”的解释；不能证明 lr=0.003 普遍失败或新设置保证泛化。未调整正式配置或原验收阈值，未运行 B 或剩余 C2。建议只将 M1 小集 A 的学习率改为 0.001，沿用本次通过权重继续原设置的 B；该协议调整待用户裁决。
+- 用户已批准上述恢复方案。小集脚本仅调整 M1/A 学习率，并增加受限的本机 A 权重复用入口：核验计算版本、配置、数据/transform/family 身份，重新评估原门槛通过后才进入 B，来源路径和 SHA256 随回执保存。恢复执行根为 `results/gslaformer/c2_resume_20261016_113510/`；复用原 fixtures/M5，先跑 GSLA 回归，再运行 M1/B、其余小集和正式矩阵，维持原更新与墙钟预算（原失败运行时间计入累计预算）。任一步失败即停。根 AGENTS.md 的 Doing 状态更新审批超时，未绕过审批；该行仍保留上次 Blocked 状态，实际执行以本段为准。
+- 恢复运行已退出 0：M1/A 复用 271 update 的通过权重，本轮 A 新增 update=0；M1/B 在 388 update 通过，MSE=0.004668897483497858，严格成对门槛全部通过。其余小集 M2/full A/B=50/15、M3/full=6/13、M3/direct=6、M4/full=9/14、M4/direct=9 update，全部通过；本轮小集新增合计 510 update。六条小集最终权重均重载复算，MSE 与通过回执完全一致。
+- M1–M4 正式矩阵 14 条路线均完成 train/test，共 4236 update；每个任务的单独 suite 正确保持 partial，由本轮 `delivery_verification.json` 聚合验收，不改写原 suite。14 个最终 checkpoint 经公开 test 入口重载，逐行对齐的预测最大差均为 0；M3 full/no_latent_loss 的 best_A 完整加载内容相同，来源指针匹配（torch.save 再序列化导致文件 SHA256 不同，不以字节相同替代内容核验）。M4 origin_activation 无标签请求成功，new_entity_count=1、no_history_entity_count=1，重载预测差为 0，来源 checkpoint 哈希不变；M5 复核原七个坏输入断言通过。M4 各变体按实际 3/5/7 个 asset 分组的 test RMSE 见交付 JSON，不宣称规模外推准确。
+- 留出结果与小集门禁分开：M1/full 严格成对通过 4/16 family，M2/full 为 14/16；M1/no_entity_history 与 M2/no_relation_all 均为 0/16。M1–M4 的 full test RMSE 分别为 1.650672、0.386737、1.516823、1.933235；对应 M1/M3/M4 direct 为 1.259416、1.377667、1.522260。full 未普遍胜出，不能将运行完成解释为优于 direct 或泛化全部通过。
+- **预算偏差，待用户裁决，C2 暂不标 Done**：前置预算表误把正式 direct 按仅 A=20 epoch/240 update 计算，而既有正式入口及 acceptance §5 的 direct 合同是 A+B-short+B-medium+B-full 合计 44 epoch。恢复运行前未识别该冲突；M1/direct 实际 28 epoch/336 update，超过此前声明的单路 240 update 上限。其他路线未超各自声明上限，实际总量 4236 未超原总量 6288，但总量未超不能消除单路偏差。全部训练已结束；保留原预算与原结果，不补跑、不追改成事前批准。交付状态为 `technical_checks_passed_budget_review_required`，建议接受现有结果并登记估算错误，是否认可由用户决定。
+- 验证：`env -u PYTHONPATH OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python results/gslaformer/c2_resume_20261016_113510/execute_c2.py` 退出 0，前置 GSLA 105 tests/39.833s；`verify_delivery.py` 最终运行退出 0，日志 `verification_complete.log`。初次审计将 direct 最终 phase 误认作 A、将 torch.save 副本误要求字节相同，两个审计脚本断言修正后通过，失败日志保留，不涉及模型改动。全仓 `env -u PYTHONPATH OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python -m unittest discover -s tests` 退出 0，200 tests/41.121s（`full_tests.log`）。未启动 C3/AIDC、未改正式配置、未提交推送。
+
+- **最终裁决与收口**：用户明确选择“接受现有结果，保留预算偏差记录，收口 C2”。据此 GSLA-004 更新为 Done；上面的失败、待裁决及审批超时描述均保留为历史过程，最终状态以本条为准。原 `delivery_verification.json` 的 `technical_checks_passed_budget_review_required` 是裁决前技术审计回执，保持不变；单独新增同目录 `acceptance_decision.json` 绑定该回执与用户决定。接受本轮结果不等于追认超限为事前授权，不等于 full 普遍优于 direct 或留出集全部通过；GSLA-001 整体仍 Doing，C3/AIDC 不在本次授权范围。本次仅文档与回执收口，复核已有六条小集、十四条正式路线及重载结果，不新增训练。
+
+### GSLA-003 工程可信度与等价降本（Done：仅 A+B+C1）
+
+用户批准 A+B+C1，不包含 C2/C3 机制长训练或 AIDC 完整矩阵。沿用当前分支、计算版本 2，保留静态汇总单 Linear、日历拼接联合 Linear；D01/D02 按当前实现收口，历史审计记录保留当时语境。分批完成溯源、profile/种子、公共指标、行为回归、teacher 按 K 与冻结历史复用、有界预处理缓存、性能对照、CPU/MPS 短流程；不提交推送、不覆盖旧结果。
+
+新增工程合同：新产物必须有带规范指纹的源码清单与环境来源；历史 checkpoint 缺源码身份时明确标为 legacy_missing，不伪造。训练来源与续训/推理代码来源分开保存，源码不同不等于计算不兼容。profile 显式输出，compare_seed 必须等于 experiment.seed。缓存仅为运行内优化，键绑定数据/配置/transform/窗口身份；预算以字节记录，0 禁用，淘汰不得改变语义；不缓存可训练计算图、跨 run teacher 或持久化 entity memory。teacher 可只生成当前监督 K 步，已知未来路径仍完整 H；生产 rollout 与 teacher 可复用同 batch 的冻结历史，memory 仍复制隔离。
+
+本轮证据根：`results/gslaformer/gsla003_evidence/`。
+
+- **A1–A4**：D01/D02 规格对齐，源码身份、profile/种子合同、共用预测/latent 指标已接通。新增独立手算指标、负预测不裁剪、留出站/非训练时间扰动不改变 scaler/vocab/一次更新、计划版本可见性、M2/M3 生成公式、正式配置与生成器一致、部分 suite 保持 partial、MPS 不可用失败、旧 checkpoint 来源缺失与新坏溯源拒绝等回归。生成器 profile 与正式配置名称的不一致由新增测试暴露并修正，仅改身份字段，不改数据公式。
+- **B1/B2**：teacher 仅构造监督所需 K，复用同 batch 冻结历史，未来条件仍编码完整 H；预测/q/梯度/AdamW 更新等价回归通过。变换后样本使用数据/配置/transform/split/index 绑定的运行内 LRU；`preprocess_cache_bytes=0` 禁用，正式配置载荷预算 64 MiB。pickle 只隔离进程内自产样本，不加载外部缓存。预算不包含 Python 索引和活跃 batch，不是 RSS 上限。单请求按版本有效期复用 context，关系整数拓扑局部复用；CPU batching 预计算日历，时区不一致保留 fallback，不跨请求缓存可训练图或 teacher。
+- **全仓回归**：`env -u PYTHONPATH OMP_NUM_THREADS=1 .venv/bin/python -m unittest discover -s tests`，**197 项通过，51.407 s，退出码 0**；含 CPU exact resume、共享 best_A、独立 checkpoint、比较与失败路径。日志 `full_tests_final.log`；此前失败日志保留。
+- **CPU**：`bash scripts/smoke/smoke_gslaformer.sh gsla003_cpu`，退出码 0；base 训练结束于 B-full/global_epoch=38。test 354 行，四种无标签 forecast 各 6 行；test micro_mae=0.19278680974063656，仅为本次 smoke 记录。
+- **MPS**：`env -u PYTHONPATH .venv/bin/python scripts/smoke/smoke_gslaformer_mps.py --prefix gsla003`，退出码 0；独立配置 `results/gslaformer/gsla003_mps_config.json` 明确 device=mps、batch=2、四阶段各一 epoch，最终 global_epoch=4。test 354 行，四种 forecast 各 6 行；此预算不与 CPU 比精度。
+- **产物重载**：CPU 增补同 checkpoint 的 `gsla003_cpu_reload`，MPS 脚本生成 `gsla003_mps_reload`。`env -u PYTHONPATH OMP_NUM_THREADS=1 .venv/bin/python results/gslaformer/gsla003_evidence/verify_delivery.py` 退出码 0；14 个 run 均 completed，最终 checkpoint 均计算版本 2/B-full；读回验证来源、产物合同、行数及 forecast 无未来标签，CPU/MPS 正常请求重复重载最大预测差均 **0**。回执 `delivery_verification.json`。
+
+**B3 有界同配置对照**：基线为实施前 `7ae9e68` 导出源码，不是旧计算版本的性能数字。`paired_probe.py` 分别在独立进程运行，CPU 单线程、同一 multiday 包、L=168/H=72/batch=2、相同种子/初始化；每阶段固定首 batch，1 次预热 + 3 次计量更新，共五组进程对。B-short K=1、B-medium K=3、B-full K=72；使用相同固定 latent 权重隔离计算复用，**不是完整课程、拟合方差验收或完整 epoch**。原始报告在 `results/gslaformer/gsla003_perf_{reference,optimized}_{1..5}/paired_report.json`，脚本与日志保留于证据根。
+
+| 阶段 | 基线中位数 s/update | 当前中位数 s/update | 本次中位数降幅 |
+| --- | ---: | ---: | ---: |
+| A | 0.286510 | 0.264937 | 7.53% |
+| B-short | 0.407153 | 0.073086 | 82.05% |
+| B-medium | 0.429066 | 0.094471 | 77.98% |
+| B-full | 0.948854 | 0.862606 | 9.09% |
+
+所有配对更新（含预热）的 loss 和完整模型参数哈希逐位一致。每侧每阶段计量 15 次，范围与 RSS 原值见 `delivery_verification.json`。B-full 基线区间 0.863709–1.131986 s，当前 0.780570–1.175950 s，存在重叠，不能保证稳定加速。当前 B-full 分段中位数：取样/变换/collate 0.002285 s、forward+teacher 0.684665 s、backward+optimizer 0.154841 s；分段中位数不要求相加等于总中位数。剩余成本主要在模型计算，未进一步拆解，不把 teacher 复用描述为全链瓶颈的解决。固定 batch 的热缓存收益不代表站点随机采样命中率；RSS 有波动，不宣称内存下降。
+
+自审按规范与规格两轴在同一上下文完成，不声称独立多 Agent 审核。未改模型函数族、正式训练课程/优化器/学习率或生成分布；未新增依赖、访问凭据、修改 CI、提交或推送。C2/C3 与完整机制/AIDC 矩阵仍需另批预算，GSLA-001 不因此标 Done。首次收尾时根 AGENTS.md 的 Doing→Done 审批超时，未绕道写入；随后用户明确要求重新发起审批，本次获准同步 GSLA-003 为 Done。
 
 ### DOC-009 当前架构图与原始需求对照（Done：审计交付，不代表模型完整验收）
 

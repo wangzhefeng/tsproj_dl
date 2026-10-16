@@ -137,7 +137,7 @@ CPU 同输入数值一致性使用 `atol=1e-6, rtol=1e-5`；MPS／跨设备比�
 
 ## 6. 小集拟合阈值与设备 smoke
 
-- 专用拟合测试：使用机制任务指定的无噪声机制小集，dropout=0、lr=0.003、最多 1000 update。A/B 分别报告初值和最终值；若初始标准化 MSE<=1e-4，只要求最终仍<=1e-4，否则要求最终<=1e-4 或不高于初值的 20%。不强迫已近零的 B 再按比例下降。
+- 专用拟合测试：使用机制任务指定的无噪声机制小集，dropout=0、默认 lr=0.003、每阶段最多 1000 update。M1 的 A 阶段经定向对照与用户批准改用 lr=0.001，B 仍为 0.003；其余任务不变，证据见 implementation §12。A/B 分别报告初值和最终值；若初始标准化 MSE<=1e-4，只要求最终仍<=1e-4，否则要求最终<=1e-4 或不高于初值的 20%。不强迫已近零的 B 再按比例下降。
 - 上述是预先声明的候选数值门槛，不是实测可达性声明。机制成对区分还必须通过独立任务断言，不能只拟合总体均值。首次实跑未达门槛时区分语义错误／优化限制并记录失败，不删除断言或追改成通过；预算或阈值修订需先记录依据。
 - 完整 CPU smoke 使用 [配置定义与设计实例](implementation.md#configuration) 配置与所有阶段；MPS smoke 使用同一 schema，但 A=1、B-short=1、B-medium=1、B-full=1 epoch，batch_size=2，完整 H，单独 run_id。缩短预算明确标记，不用于精度比较。
 - synthetic test 输出有限值和正确时间索引；forecast 数据包没有未来目标，重载同一 best 完成新实体请求。
@@ -641,7 +641,7 @@ env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer --gsla_config scrip
 env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer --gsla_config scripts/smoke/gslaformer_functional.json --gsla_mode test --gsla_run_id functional_cpu_test --gsla_checkpoint results/gslaformer/functional_cpu/checkpoints/best.pt
 
 # 同权重新实体冷启动 forecast，不含未来标签
-env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer --gsla_config scripts/smoke/gslaformer_functional.json --gsla_mode forecast --gsla_run_id functional_cpu_new --gsla_checkpoint results/gslaformer/functional_cpu/checkpoints/best.pt --gsla_request results/gslaformer/fixtures/new_entity_cold
+env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer --gsla_config scripts/smoke/gslaformer_functional.json --gsla_mode forecast --gsla_run_id functional_cpu_new --gsla_checkpoint results/gslaformer/functional_cpu/checkpoints/best.pt --gsla_request results/gslaformer/fixtures/requests/new_entity_cold
 
 # 统一合成对照
 env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer --gsla_config scripts/smoke/gslaformer_functional.json --gsla_mode compare --gsla_run_id functional_comparison
@@ -650,7 +650,7 @@ env -u PYTHONPATH .venv/bin/python run.py --model GSLAformer --gsla_config scrip
 env -u PYTHONPATH .venv/bin/python scripts/smoke/compare_gslaformer.py --suite_manifest results/gslaformer/fixtures/mechanisms/suite.json --run_prefix mechanism_acceptance
 ```
 
-MPS 的解析配置由 smoke 脚本从基准 JSON 生成独立文件，保留差异与完整 resolved_config，不用 CLI 隐式覆盖。模型开发授权不包含安装全局依赖、提交或 push。
+`smoke_gslaformer.sh` 仅执行 CPU base；`env -u PYTHONPATH .venv/bin/python scripts/smoke/smoke_gslaformer_mps.py --prefix NEW_RUN_PREFIX` 使用独立短预算配置与 run_id，保留差异与完整 resolved_config，不用 CLI 隐式覆盖。实际证据见 implementation §12。模型开发授权不包含安装全局依赖、提交或 push。
 
 
 ## 23. 执行结果与历史证据

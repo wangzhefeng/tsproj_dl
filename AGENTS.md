@@ -116,6 +116,9 @@
 
 | ID | Status | Owner | Targets | Acceptance |
 | --- | --- | --- | --- | --- |
+| DOC-012 | Done | MC | `docs/gslaformer/v2/aidc_csv_simulation_design.md` | 已交付三楼 AIDC 全 CSV 模拟数据设计：目录与表头、拓扑、算力聚合、电热核算、时间切分及验收规则；文档结构、链接、表头和规模计算校验通过。方案仍为 Draft，接线与设备规模候选假设待评审；未生成数据、未改模型、未训练，my_version 与 your_version 保持不变，不提交推送 |
+| GSLA-004 | Done | MC | `scripts/dev/*gslaformer*`, `scripts/smoke/`, `tests/`, `docs/gslaformer/v1/implementation.md`, `results/gslaformer/` | 全部机制小集、正式机制矩阵、最终权重重载及全仓回归已完成；用户明确接受现有结果、保留预算偏差记录并收口 C2。此前 M1/direct 超出预声明单路更新上限的事实与原失败证据保留，不追改为事前批准；小集拟合与留出泛化结论分开。不代表 GSLA-001 整体验收，不启动 C3/AIDC、不提交推送；证据唯一记 implementation §12 |
+| GSLA-003 | Done | MC | `exp/gslaformer_*`, `data_provider/spatial_temporal/`, `layers/gslaformer/`, `models/transformer/GSLAformer.py`, `scripts/`, `tests/`, `docs/gslaformer/v1/` | 已完成批准的 A+B+C1：源码溯源、profile/种子、公共指标与行为回归、teacher 按 K/历史复用、有界预处理缓存、当前版有界性能对照、全仓回归及 CPU/MPS 短流程和最终权重重载。保留 D01 单 Linear 与 D02 拼接 Linear；不改模型/训练算法，不启动机制长训练或 AIDC 矩阵，不提交推送；证据唯一记 implementation §12，不代表 GSLA-001 整体验收 |
 | DOC-011 | Done | MC | `docs/gslaformer/v1/`, `docs/gslaformer/v2/`, 文档引用与图示脚本 | 既有规格迁入 v1，review_and_optimization_plan.md 单独迁入 v2，arch 与两版本目录平级；40 份资料清单完整，图示/历史回执与 v2 评审字节不变；修复有效引用与原图路径，248 处链接及 4 个脚本非仓库 cwd 加载通过。目录版本不等于模型计算版本，不改模型或启动训练 |
 | DOC-010 | Done | MC | `docs/gslaformer/v1/history.md`, `docs/gslaformer/`, `AGENTS.md` | 将 archive 四文档提炼为单一历史说明，保留关键决策、版本边界、失败教训与证据/恢复入口；同步引用后删除 archive，验证本地链接、Git 恢复路径与证据索引，不改代码、配置或实验产物 |
 | DOC-009 | Done | MC | `docs/gslaformer/arch/` | 对照原始 model-v4.0.png 与当前工作区，交付整体／机制／对比三组 SVG、PNG、PDF 及离线报告；真实 forward/回灌、定向测试、浏览器排版和链接／哈希检查通过。现行规格两处差异单列待裁决；证据唯一见 implementation §12。不修改模型、不恢复退役 architecture、不运行长训练、不提交推送 |

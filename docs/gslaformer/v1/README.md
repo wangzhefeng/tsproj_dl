@@ -4,7 +4,7 @@
 
 ## 1. 当前状态
 
-模型设计版本为 **R4**，数据 schema 为 **3**，模型计算／checkpoint 版本为 **2**（不兼容旧权重）。数据、模型、两阶段训练及 train/test/forecast/compare 已实现，处于工程与模拟验收收口阶段，尚非完整交付。实际命令、测试与产物唯一见[实施规格 §12](implementation.md#work-packages)，根 AGENTS 的 GSLA-001 跟踪治理状态。tests/ 已纳入版本控制；当前新增实现与测试仍保持未提交。
+模型设计版本为 **R4**，数据 schema 为 **3**，模型计算／checkpoint 版本为 **2**（不兼容旧权重）。数据、模型、两阶段训练及 train/test/forecast/compare 已实现，处于工程与模拟验收收口阶段，尚非完整交付。实际命令、测试与产物唯一见[实施规格 §12](implementation.md#work-packages)，根 AGENTS 的 GSLA-001/GSLA-003 跟踪治理状态。实现与 tests/ 已纳入版本控制。
 
 首轮目标是跨 AIDC 总负荷的合成功能闭环：同 schema 可变实体和未见站点冻结推理、类型关系参与计算、起点已知未来条件与双头回灌。真实业务验证不启动，不要求优于对照，不承诺冷启动或生产零样本精度。
 
