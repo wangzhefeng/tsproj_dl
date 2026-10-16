@@ -53,6 +53,35 @@ class TrainingSupportTests(unittest.TestCase):
             self.assertTrue(gradients)
             self.assertTrue(any(g.abs().max() > 0 for g in gradients if g.numel()))
 
+    def test_reused_history_and_short_teacher_preserve_gradients_and_update(self):
+        model, batch = self.fixture()
+        model.set_training_stage("B")
+        model.train()
+        reference = copy.deepcopy(model)
+        state = torch.get_rng_state()
+        results = []
+        for current, reuse in ((reference, False), (model, True)):
+            torch.set_rng_state(state)
+            optimizer = torch.optim.AdamW([p for p in current.parameters() if p.requires_grad], lr=.001)
+            history = current.encode_history(batch) if reuse else None
+            output = current._rollout_from_history(batch, 1, history) if reuse else current.rollout(batch, 1)
+            labels = build_latent_labels(current, batch.inputs, batch.supervision, history, steps=1) if reuse else build_latent_labels(current, batch.inputs, batch.supervision)
+            labels = LatentLabels(labels.z[:, :1], labels.quality[:, :1])
+            load, _ = masked_load_loss(output.y, batch.supervision.target[:, :1], batch.supervision.target_mask[:, :1])
+            latent, _ = weighted_latent_loss(output.z, labels, torch.ones(1, current.d_z))
+            loss = load + .1 * latent
+            loss.backward()
+            gradients = {n: p.grad.clone() for n, p in current.named_parameters() if p.grad is not None}
+            optimizer.step()
+            results.append((output.y.detach(), labels.z, labels.quality, loss.detach(), gradients, copy.deepcopy(current.state_dict())))
+        for left, right in zip(*results):
+            torch.testing.assert_close(left, right, atol=0, rtol=0)
+        model.eval()
+        torch.testing.assert_close(model.rollout(batch, 1).y, model.rollout(batch, 2).y[:, :1], atol=0, rtol=0)
+        a = build_latent_labels(model, batch.inputs, batch.supervision, steps=1)
+        b = build_latent_labels(model, batch.inputs, batch.supervision, steps=1)
+        torch.testing.assert_close(a.z, b.z, atol=0, rtol=0)
+
     def test_teacher_matches_single_continuous_encoding_without_mutation(self):
         model, batch = self.fixture()
         model.set_training_stage("B")

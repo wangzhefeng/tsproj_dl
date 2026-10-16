@@ -376,11 +376,10 @@ def run(args):
 
 # 测试代码 main 函数
 def main():
-    # 设置随机数
-    set_seed(seed = 2023)
     # 参数解析
     args = args_parse()
     if args.model != 'GSLAformer':
+        set_seed(seed = 2023)
         print_args_ts(args)
     # 参数使用
     run(args)

@@ -7,5 +7,6 @@
 - entity_history.py：属性驱动实体 token 与共享 GRU 历史编码；不使用实体 ID 查表。
 - relations.py：类型关系注意力，方向 bias 与加性 mask 的构建和消费。
 - spatial.py：组内摘要注意力、分组读出与独立静态条件链。
+- temporal.py：因果时间链、完整未来路径、日历与条件融合。
 
 本目录不属于旧 TFs_type 主线；正式产物进入 results/gslaformer。

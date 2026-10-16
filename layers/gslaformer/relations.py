@@ -60,17 +60,26 @@ class RelationAttention(nn.Module):
         # 在 Python 中只收集整数拓扑；一次 index_add 累加可学习 bias。
         # 逐边修改稠密 bias 会产生大量 CopySlices 反向节点，每条边反复复制整个分数平面。
         positions, kinds, directions = [], [], []
+        structures = {}
         for frame, edges in enumerate(edges_by_frame):
-            for src, dst, kind in edges:
-                if src == dst:
-                    continue  # 模型生成的 self 已默认开放
-                positions.append((frame * total_nodes + dst) * total_nodes + src)
-                kinds.append(kind)
-                directions.append(0)
-                if self._reverse_flags[kind]:
-                    positions.append((frame * total_nodes + src) * total_nodes + dst)
-                    kinds.append(kind)
-                    directions.append(1)
+            key = tuple(tuple(edge) for edge in edges)
+            if key not in structures:
+                local_positions, local_kinds, local_directions = [], [], []
+                for src, dst, kind in edges:
+                    if src == dst:
+                        continue
+                    local_positions.append(dst * total_nodes + src)
+                    local_kinds.append(kind)
+                    local_directions.append(0)
+                    if self._reverse_flags[kind]:
+                        local_positions.append(src * total_nodes + dst)
+                        local_kinds.append(kind)
+                        local_directions.append(1)
+                structures[key] = local_positions, local_kinds, local_directions
+            local_positions, local_kinds, local_directions = structures[key]
+            positions.extend(frame * total_nodes * total_nodes + p for p in local_positions)
+            kinds.extend(local_kinds)
+            directions.extend(local_directions)
         flat_bias = self.direction_bias.new_zeros(frames * total_nodes * total_nodes, self.heads)
         if positions:
             positions = torch.tensor(positions, dtype=torch.long, device=device)

@@ -1,8 +1,8 @@
 """系统时间链、完整未来路径与条件融合（implementation.md §1.4–1.5）。
 
 - 历史 token：动态状态按固定组顺序展平，拼标准化总负荷、observed／generated 标记、
-  逐动态组 coverage／generated；Linear 映射至 d_t，加窗口内 0..L-1 固定正弦位置与
-  本地日历（日内／周内相位 sin/cos 四个数，由 Linear 映射后相加）。
+  逐动态组 coverage／generated 和本地日历（日内／周内 sin/cos 四个数）；
+  联合 Linear 映射至 d_t，再加窗口内 0..L-1 固定正弦位置。
 - 时间 Transformer：Post-LN、GELU、FFN=4*d_t，显式上三角屏蔽未来；最后 token 输出 h。
 - FuturePathEncoder：读取 origin 已知的整段计划／日历与 mask（K=0 时仅日历），
   加相对原起点的正弦位置后经一层双向注意力生成 p [B,H,d_t]。

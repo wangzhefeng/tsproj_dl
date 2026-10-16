@@ -251,8 +251,8 @@ class SpatialModelTests(unittest.TestCase):
         additive, bias = attention.build_masks(3, edges, effective)
         allow = torch.isfinite(additive[:, 0])
         self.assertTrue(allow[0, 0, 1].item() and allow[0, 1, 0].item())  # 正向与 reverse 反向
-        self.assertFalse(allow[0, 0, 2].item() and allow[0, 2, 0].item() is True and
-                         allow[0, 1, 2].item())
+        for query, key in ((0, 2), (2, 0), (1, 2), (2, 1)):
+            self.assertFalse(allow[0, query, key].item())
         # 同端点多类型偏置相加：belongs 正向 + cools 正向
         expected = (attention.direction_bias[0, 0] + attention.direction_bias[1, 0])
         torch.testing.assert_close(bias[0, :, 1, 0], expected)

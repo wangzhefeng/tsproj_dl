@@ -4,12 +4,17 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import torch
 
 from data_provider.spatial_temporal.config import schema_from_config
 from exp.exp_gslaformer_forecasting import Exp_GSLAformer_Forecast
 from exp.gslaformer_inference import evaluate_checkpoint
 from exp.gslaformer_comparison import run_baseline
 from test_gslaformer_package import small_config, write_package, rehash
+from test_gslaformer_package import edit_arrays
+from data_provider.spatial_temporal.dataset import PackageDataset
+from data_provider.spatial_temporal.scaling import TrainingTransform
+from data_provider.spatial_temporal.batching import collate_samples
 
 
 class SiteArtifactsTests(unittest.TestCase):
@@ -76,6 +81,39 @@ class SiteArtifactsTests(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 evaluate_checkpoint(config, root / "absent.pt", root / "failed_load", mode="test")
             self.assertEqual(json.loads((root / "failed_load/status.json").read_text())["status"], "failed")
+            # 泄漏反事实：留出站全时段、训练站非训练目标区间改变，不得改变 fit 或一次 update。
+            for i in range(3):
+                path = collection / f"e{i}"
+                def perturb(arrays):
+                    start = 6 if i == 0 else 0
+                    for key in ("target", "assets__values"):
+                        arrays[key][start:] = arrays[key][start:] * 7 + 1000
+                edit_arrays(path, "observations.npz", perturb)
+                if i:
+                    entities = json.loads((path / "entities.json").read_text())
+                    for entity in entities["groups"]["assets"]:
+                        entity["category"]["kind"] = "heldout_only"
+                    (path / "entities.json").write_text(json.dumps(entities))
+                    rehash(path)
+            changed_data = PackageDataset(config, "train")
+            changed_transform = TrainingTransform.fit(changed_data)
+            self.assertEqual(experiment.transform.fingerprint, changed_transform.fingerprint)
+            self.assertNotIn("heldout_only", changed_transform.state["vocab"]["assets"]["kind"])
+            updates = []
+            rng = torch.get_rng_state()
+            for data, transform in ((experiment.train_data, experiment.transform), (changed_data, changed_transform)):
+                model = deepcopy(experiment.model)
+                parameters = model.set_training_stage("A")
+                model.train()
+                optimizer = torch.optim.AdamW(parameters, lr=.001)
+                batch = collate_samples([transform.apply(data[0])], config)
+                torch.set_rng_state(rng)
+                prediction = model.predict_direct(batch)
+                loss = (prediction - batch.supervision.target).square().mean()
+                loss.backward()
+                optimizer.step()
+                updates.append(model.state_dict())
+            torch.testing.assert_close(*updates, atol=0, rtol=0)
 
 
 if __name__ == '__main__':

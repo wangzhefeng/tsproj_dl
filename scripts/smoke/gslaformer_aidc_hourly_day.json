@@ -2,6 +2,8 @@
   "schema_version": 3,
   "experiment": {
     "model": "GSLAformer",
+    "profile": "day",
+    "preprocess_cache_bytes": 67108864,
     "variant": "full",
     "data_kind": "synthetic",
     "seed": 2023,

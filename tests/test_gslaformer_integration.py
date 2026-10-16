@@ -85,6 +85,7 @@ class IntegrationTests(unittest.TestCase):
             ("old_version", lambda x: x.update(version=1), "计算版本不兼容"),
             ("bad_freeze", lambda x: x.update(frozen_parameters=[]), "冻结参数清单不一致"),
             ("bad_provenance", lambda x: x["latent_stats_manifest"].update(origins=[]), "溯源指纹错误"),
+            ("missing_code", lambda x: x.pop("training_source"), "源码溯源缺失"),
         ):
             with self.subTest(invalid_checkpoint=name):
                 damaged = torch.load(standalone, weights_only=False)  # 本测试生成的可信本地 artifact。
@@ -93,6 +94,24 @@ class IntegrationTests(unittest.TestCase):
                 failed = self.command("forecast", name, "--gsla_checkpoint", self.root / "damaged.pt",
                                       "--gsla_request", self.root / "request", config_path=independent, success=False)
                 self.assertIn(reason, json.loads((failed / "status.json").read_text())["error"])
+        # 旧计算版本仍可用，但不能虚构历史源码；负预测必须完整保留。
+        legacy = torch.load(standalone, weights_only=False)
+        for key in ("provenance_version", "training_source", "execution_history"):
+            legacy.pop(key)
+        legacy["model"]["load_head.weight"].zero_()
+        legacy["model"]["load_head.bias"].fill_(-1000)
+        legacy_path = self.root / "legacy.pt"
+        torch.save(legacy, legacy_path)
+        output = self.command("forecast", "legacy_negative", "--gsla_checkpoint", legacy_path,
+                              "--gsla_request", self.root / "request", config_path=independent)
+        env = json.loads((output / "environment.json").read_text())
+        self.assertEqual(env["training_source"], {"status": "legacy_missing"})
+        with (output / "predictions.csv").open() as stream:
+            negative = list(csv.DictReader(stream))
+        expected = -1000 * legacy["transform"]["target"]["std"][0] + legacy["transform"]["target"]["mean"][0]
+        for row in negative:
+            self.assertAlmostEqual(float(row["y_pred"]), expected, delta=.01)
+            self.assertEqual(row["negative_prediction"], "True")
         scalers = json.loads((trained / "scalers.json").read_text())
         scalers["target"]["mean"] += 1
         (trained / "scalers.json").write_text(json.dumps(scalers))

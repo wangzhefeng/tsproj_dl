@@ -297,7 +297,12 @@ class Model(nn.Module):
         """origin 已知的整段未来路径一次编码（训练时缓存当前计算图 tensor，不 detach）。"""
         return self.future_path(batch.inputs.future_known.float(),
                                 batch.inputs.future_known_mask,
-                                calendar_features(batch.inputs.future_time, self.timezone))
+                                self._calendar(batch.inputs, "future"))
+
+    def _calendar(self, inputs, part):
+        prepared = getattr(inputs, part + "_calendar", None)
+        return (prepared if prepared is not None and inputs.calendar_timezone == self.timezone
+                else calendar_features(getattr(inputs, part + "_time"), self.timezone))
 
     def _leads(self, horizon, batch_size, device):
         steps = torch.arange(1, horizon + 1, device=device).unsqueeze(0).expand(batch_size, -1)
@@ -317,7 +322,7 @@ class Model(nn.Module):
         """A／直接对照：完整关系空间编码 + 一次直接多步 H 输出，不回灌。"""
         history = self.encode_history(batch)
         path = self.encode_future_path(batch)
-        calendar = calendar_features(batch.inputs.history_time, self.timezone)
+        calendar = self._calendar(batch.inputs, "history")
         tokens = self._window_tokens(
             history.z, batch.inputs.target_history.float(),
             batch.inputs.target_history_observed.squeeze(-1), history.generated,
@@ -340,6 +345,10 @@ class Model(nn.Module):
     def rollout(self, batch, horizon):
         """训练、valid、test、forecast 共用的唯一自由递推闭环（implementation.md §2）。"""
         history = self.encode_history(batch)
+        return self._rollout_from_history(batch, horizon, history)
+
+    def _rollout_from_history(self, batch, horizon, history):
+        """同 batch 冻结历史可供 teacher 复用；未来路径仍完整 H 且保留梯度。"""
         path = self.encode_future_path(batch)
         batch_size, length = history.z.shape[0], history.z.shape[1]
         total = length + horizon
@@ -356,8 +365,7 @@ class Model(nn.Module):
         coverage = torch.zeros(batch_size, total, d_gd, device=device, dtype=dtype)
         coverage[:, :length] = history.observed_coverage
         group_generated = torch.zeros(batch_size, total, d_gd, device=device, dtype=dtype)
-        calendar_all = calendar_features(
-            torch.cat([batch.inputs.history_time, batch.inputs.future_time], dim=1), self.timezone)
+        calendar_all = torch.cat([self._calendar(batch.inputs, "history"), self._calendar(batch.inputs, "future")], dim=1)
         leads = self._leads(horizon, batch_size, device)
         predictions = []
         for step in range(horizon):

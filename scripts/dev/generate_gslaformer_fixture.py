@@ -167,6 +167,8 @@ def full_config(groups, relations, known_future, *, package, split_mode, split_i
     config = {
         "schema_version": 3,
         "experiment": {"model": "GSLAformer", "variant": variant, "data_kind": "synthetic",
+                       "profile": "base" if split_mode == "target_index" else "mechanism",
+                       "preprocess_cache_bytes": 67108864,
                        "seed": 2023, "device": "cpu", "results_root": "./results/gslaformer"},
         "data": data_block,
         "model": {"spatial_dim": 32, "latent_dim": 32, "temporal_dim": 64,
@@ -309,6 +311,7 @@ def write_task(root, task_id, groups, relations, builder, oracle, *, known_futur
     entries = builder(task)
     config = full_config(groups, relations, known_future, package=".", split_mode="episode_family",
                          split_index=None, seq_len=MECH_LENGTH, pred_len=MECH_HORIZON)
+    config["experiment"]["profile"] = task_id
     write_collection(task, schema_from_config(config), entries, "episode_family", None)
     _write_json(task / "config.json", config)
     _write_json(task / "oracle.json", oracle)
@@ -1340,6 +1343,21 @@ AIDC_PROFILES = {"aidc_hourly_short": (48, 6), "aidc_hourly_day": (168, 24),
                  "aidc_hourly_multiday": (168, 72)}
 
 
+def aidc_profile_config(name):
+    """夹具配置与正式配置使用相同的短 profile 身份。"""
+    seq, horizon = AIDC_PROFILES[name]
+    config = full_config(AIDC_GROUPS, AIDC_RELATIONS, AIDC_KNOWN, package=".",
+                         split_mode="site_time", split_index=AIDC_SPLIT,
+                         seq_len=seq, pred_len=horizon, target="facility_demand_kw",
+                         unit="kW", batch_size=2, valid_stride=horizon,
+                         test_stride=horizon, limits=(168, 72),
+                         extra_schema={"sampler": "uniform_site_then_origin",
+                                       "site_split": deepcopy(AIDC_SITE_SPLIT),
+                                       **aidc_schema_block()})
+    config["experiment"]["profile"] = name.removeprefix("aidc_hourly_")
+    return config
+
+
 def build_aidc(output):
     """生成 12 站 dense/sparse collection、三 profile 配置、审计与无标签请求。"""
     root = output / "aidc"
@@ -1404,16 +1422,8 @@ def build_aidc(output):
               "relation_types": deepcopy(AIDC_RELATIONS), "known_future": list(AIDC_KNOWN),
               "target_name": "facility_demand_kw", "target_unit": "kW", **aidc_schema_block()}
     write_collection(root, schema, entries, "site_time", AIDC_SPLIT, site_split=AIDC_SITE_SPLIT)
-    for name, (seq, horizon) in AIDC_PROFILES.items():
-        config = full_config(AIDC_GROUPS, AIDC_RELATIONS, AIDC_KNOWN, package=".",
-                             split_mode="site_time", split_index=AIDC_SPLIT,
-                             seq_len=seq, pred_len=horizon, target="facility_demand_kw",
-                             unit="kW", batch_size=2, valid_stride=horizon,
-                             test_stride=horizon, limits=(168, 72),
-                             extra_schema={"sampler": "uniform_site_then_origin",
-                                           "site_split": deepcopy(AIDC_SITE_SPLIT),
-                                           **aidc_schema_block()})
-        _write_json(root / f"{name}.json", config)
+    for name in AIDC_PROFILES:
+        _write_json(root / f"{name}.json", aidc_profile_config(name))
     _write_json(root / "generation_audit.json", audit)
     _write_json(root / "generation_audit_oracle.json",
                 {site: {"revised_blocks": sum(1 for b in arrays["blocks"]["training"] if b["revised"])}
@@ -1612,9 +1622,12 @@ def build_requests(output):
 
 def write_suite(output):
     """汇总机制任务清单与请求包（acceptance.md §8.1 suite.json）。"""
+    (output / 'mechanisms').mkdir(parents=True, exist_ok=True)
     tasks = []
     for task_id in ("M1", "M2", "M3", "M4"):
         task = output / "mechanisms" / task_id
+        if not task.exists():
+            continue  # 单独生成 base/aidc 时不能引用尚未生成的机制包。
         config = json.loads((task / "config.json").read_text())
         oracle = json.loads((task / "oracle.json").read_text())
         tasks.append({"id": task_id, "package": f"mechanisms/{task_id}",
@@ -1624,8 +1637,10 @@ def write_suite(output):
                                 "test": FAMILY_BOUNDS[2] - FAMILY_BOUNDS[1]},
                       "known_future": config["data"]["known_future"],
                       "assertions": oracle["oracle"]})
-    tasks.append({"id": "M5", "kind": "data_contract",
-                  "package": "mechanisms/M5", "suite": "mechanisms/M5/suite.json"})
+    if (output / "mechanisms/M5").exists():
+        json.loads((output / "mechanisms/M5/suite.json").read_text())
+        tasks.append({"id": "M5", "kind": "data_contract",
+                      "package": "mechanisms/M5", "suite": "mechanisms/M5/suite.json"})
     if (output / "aidc" / "manifest.json").exists():
         tasks.append({"id": "aidc", "kind": "multi_site",
                       "package": "aidc", "profiles": {name: f"aidc/{name}.json"
@@ -1639,7 +1654,8 @@ def write_suite(output):
                 {"generator_version": GENERATOR_VERSION, "seed": 2023, "tasks": tasks,
                  "requests": {name: f"requests/{name}"
                               for name in ("normal_forecast", "new_entity_cold",
-                                           "new_entity_history", "new_parent")}})
+                                           "new_entity_history", "new_parent")
+                             if (output / 'requests' / name).exists()}})
 
 
 # ==============================================================================

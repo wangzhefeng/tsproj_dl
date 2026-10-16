@@ -137,6 +137,7 @@ def relation_degrees(batch, relation_types):
         offsets[group] = total
         total += tensors["padding"].shape[1]
     type_count = len(relation_types)
+    node_groups = [group for group, tensors in batch.inputs.groups.items() for _ in range(tensors["padding"].shape[1])]
     stats = {group: torch.zeros(len(batch.inputs.site_ids), 2 * type_count, device=device)
              for group in batch.inputs.groups}
     for sample, edges in enumerate(batch.inputs.relations_origin):
@@ -144,11 +145,8 @@ def relation_degrees(batch, relation_types):
                    for group, tensors in batch.inputs.groups.items()}
         counters = {group: [[0] * type_count, [0] * type_count] for group in stats}
         for src, dst, kind in edges:
-            for group, offset in offsets.items():
-                if offset <= src < offset + batch.inputs.groups[group]["padding"].shape[1]:
-                    counters[group][0][kind] += 1
-                if offset <= dst < offset + batch.inputs.groups[group]["padding"].shape[1]:
-                    counters[group][1][kind] += 1
+            counters[node_groups[src]][0][kind] += 1
+            counters[node_groups[dst]][1][kind] += 1
         for group, counters in counters.items():
             divisor = max(members[group], 1)
             stats[group][sample] = torch.tensor(

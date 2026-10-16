@@ -36,6 +36,9 @@ class BatchInputs:
         self.site_ids = site_ids
         self.target_contracts = target_contracts
         self.metadata = metadata
+        self.history_calendar: torch.Tensor | None = None
+        self.future_calendar: torch.Tensor | None = None
+        self.calendar_timezone: str | None = None
 
 
 class BatchSupervision:
@@ -66,6 +69,9 @@ class Batch:
         for field in ("target_history", "target_history_observed", "history_time", "future_time",
                       "future_known", "future_known_mask", "origins"):
             setattr(self.inputs, field, move(getattr(self.inputs, field)))
+        for field in ("history_calendar", "future_calendar"):
+            if hasattr(self.inputs, field):
+                setattr(self.inputs, field, move(getattr(self.inputs, field)))
         if self.supervision is not None:
             self.supervision.target = move(self.supervision.target)
             self.supervision.target_mask = move(self.supervision.target_mask)
@@ -186,6 +192,12 @@ def collate_samples(samples, config):
         target_contracts=[sample["inputs"]["target_contract"] for sample in samples],
         metadata=[sample["metadata"] for sample in samples],
     )
+    # 在 CPU 上解析时区，避免模型前向的 GPU→CPU 时间戳同步。
+    from layers.gslaformer.temporal import calendar_features
+    if "timezone" in data:
+        inputs.calendar_timezone = data["timezone"]
+        inputs.history_calendar = calendar_features(inputs.history_time, data["timezone"])
+        inputs.future_calendar = calendar_features(inputs.future_time, data["timezone"])
     supervision = None
     if all(supervised):
         target = np.stack([sample["supervision"]["target"] for sample in samples])

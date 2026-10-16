@@ -10,7 +10,9 @@ import time
 
 import numpy as np
 
-from data_provider.spatial_temporal.config import validate_config
+from data_provider.spatial_temporal.config import validate_config, profile_name
+from exp.gslaformer_provenance import execution_environment
+from exp.gslaformer_metrics import forecast_metrics
 from data_provider.spatial_temporal.dataset import PackageDataset
 from data_provider.spatial_temporal.schema import quality_flags, read_json, orphan_entity_count
 from exp.exp_gslaformer_forecasting import Exp_GSLAformer_Forecast, _json
@@ -111,24 +113,7 @@ def run_baseline(config, output_dir):
                              "input_coverage": flags["input_coverage"], "degraded_input": flags["degraded_input"],
                              "plan_available": flags["plan_available"]})
         p, y, valid = np.stack(predictions), np.stack(truths), np.stack(masks)
-        residual = p - y
-        if not valid.any() or not np.isfinite(p).all():
-            raise ValueError("朴素基线预测无效")
-        metrics = {"micro_mae": float(np.abs(residual[valid]).mean()),
-                   "micro_rmse": float(np.sqrt(np.square(residual[valid]).mean())), "per_horizon": []}
-        for k in range(p.shape[1]):
-            r = residual[:, k][valid[:, k]]
-            metrics["per_horizon"].append({"horizon": k + 1, "count": len(r),
-                                           "mae": float(np.abs(r).mean()) if len(r) else None,
-                                           "rmse": float(np.sqrt(np.square(r).mean())) if len(r) else None})
-        complete = valid[:, :, 0].all(axis=1)
-        pp, yy = p[complete, :, 0], y[complete, :, 0]
-        metrics["complete_window_count"] = int(complete.sum())
-        metrics["peak_amplitude_mae"] = float(np.abs(pp.max(axis=1) - yy.max(axis=1)).mean()) if complete.any() else None
-        metrics["peak_time_mae_seconds"] = float(np.abs(pp.argmax(axis=1) - yy.argmax(axis=1)).mean() * config["data"]["freq_seconds"]) if complete.any() else None
-        ramp = valid[:, 1:, 0] & valid[:, :-1, 0]
-        metrics["ramp_count"] = int(ramp.sum())
-        metrics["ramp_mae"] = float(np.abs(np.diff(p[:, :, 0], axis=1) - np.diff(y[:, :, 0], axis=1))[ramp].mean()) if ramp.any() else None
+        metrics = forecast_metrics(p, y, valid, config["data"]["freq_seconds"])
         with (root / "predictions.csv.tmp").open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
             writer.writeheader()
@@ -138,7 +123,7 @@ def run_baseline(config, output_dir):
         _json(root / "resolved_config.json", config)
         _json(root / "schema.json", dataset.episodes[0].schema)
         _json(root / "data_manifest.json", dataset.manifest)
-        _json(root / "environment.json", {"python": platform.python_version(), "device": "cpu", "model": variant})
+        _json(root / "environment.json", execution_environment("cpu", model=variant, profile=profile_name(config)))
         _json(root / "baseline_parameters.json", {"variant": variant, "seasonal_period": config["evaluation"]["seasonal_period"],
                                                   "fallback_count": fallback_count, "input": "historical_target_only"})
         (root / "run.log").write_text(f"{variant}: {len(dataset)} windows\n")
@@ -181,14 +166,14 @@ def _run_comparison(config, output_dir):
     dataset = PackageDataset(config, "test")
     _json(root / "schema.json", dataset.episodes[0].schema)
     _json(root / "data_manifest.json", dataset.manifest)
-    _json(root / "environment.json", {"python": platform.python_version(), "device": config["experiment"]["device"]})
+    _json(root / "environment.json", execution_environment(config["experiment"]["device"], profile=profile_name(config)))
     (root / "run.log").write_text("GSLAformer configured comparison\n")
     if config["data"]["split_mode"] == "site_time":
         _json(root / "site_split.json", config["data"]["site_split"])
         _json(root / "generation_audit.json", read_json(Path(config["data"]["package"]) / "generation_audit.json"))
         _json(root / "metadata.json", {"data_fingerprint": dataset.fingerprint, "scope": "comparison_child_runs"})
     _json(root / "resolved_config.json", config)
-    result = {"scope": "configured_task_comparison_only", "required_variants": variants,
+    result = {"scope": "configured_task_comparison_only", "profile": profile_name(config), "required_variants": variants,
               "status": "running", "runs": {v: {"status": "not_run"} for v in variants}}
     _json(root / "comparison.json", result)
     for variant in variants:
@@ -227,10 +212,10 @@ def _run_comparison(config, output_dir):
         _json(root / "scenario_metrics.json", {variant: read_json(root / f"{variant}_test/scenario_metrics.json")
               for variant, row in result["runs"].items() if row["status"] == "passed"})
     with (root / "comparison.csv").open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=["variant", "status", "micro_mae", "micro_rmse", "updates", "wall_seconds"])
+        writer = csv.DictWriter(stream, fieldnames=["profile", "variant", "status", "micro_mae", "micro_rmse", "updates", "wall_seconds"])
         writer.writeheader()
         for variant, row in result["runs"].items():
-            writer.writerow({"variant": variant, "status": row["status"], "updates": row.get("updates"),
+            writer.writerow({"profile": profile_name(config), "variant": variant, "status": row["status"], "updates": row.get("updates"),
                              "wall_seconds": row["wall_seconds"],
                              **{key: row.get("metrics", {}).get(key) for key in ("micro_mae", "micro_rmse")}})
     return result

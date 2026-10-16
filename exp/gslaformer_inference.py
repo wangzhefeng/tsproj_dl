@@ -10,7 +10,9 @@ import numpy as np
 import torch
 
 from data_provider.spatial_temporal.batching import collate_samples
-from data_provider.spatial_temporal.config import schema_from_config, validate_config
+from data_provider.spatial_temporal.config import schema_from_config, validate_config, profile_name
+from exp.gslaformer_provenance import checkpoint_sources, execution_environment
+from exp.gslaformer_metrics import forecast_metrics, latent_metrics
 from data_provider.spatial_temporal.dataset import PackageDataset
 from data_provider.spatial_temporal.scaling import TrainingTransform
 from data_provider.spatial_temporal.schema import canonical_hash, quality_flags, read_json, orphan_entity_count
@@ -99,7 +101,7 @@ def _evaluate_checkpoint(config, checkpoint_path, output_dir, *, mode, request=N
     _json(root / "resolved_config.json", data_config)
     _json(root / "schema.json", saved["schema"])
     _json(root / "data_manifest.json", dataset.manifest)
-    _json(root / "environment.json", {"python": platform.python_version(), "torch": torch.__version__, "device": device})
+    _json(root / "environment.json", execution_environment(device, profile=profile_name(config), **checkpoint_sources(saved)))
     aidc = config["data"]["split_mode"] == "site_time"
     if aidc:
         if saved.get("generation_audit") is None:
@@ -184,6 +186,7 @@ def _evaluate_checkpoint(config, checkpoint_path, output_dir, *, mode, request=N
                 np.savez(stream, z=np.concatenate(latents), groups=np.array(model.dynamic_groups))
             (root / "latents.npz.tmp").replace(root / "latents.npz")
         _json(root / "metadata.json", {"checkpoint_path": str(checkpoint_path), "checkpoint_sha256": checkpoint_hash,
+                                       "profile": profile_name(config),
                                        "computation_version": model.COMPUTATION_VERSION,
                                        "parameter_count": sum(p.numel() for p in model.parameters()),
                                        "prediction_seconds": prediction_seconds,
@@ -192,45 +195,11 @@ def _evaluate_checkpoint(config, checkpoint_path, output_dir, *, mode, request=N
                                        "data_fingerprint": dataset.fingerprint, "requests": metadata})
         if mode == "test":
             prediction, target, valid = np.concatenate(predictions), np.concatenate(truths), np.concatenate(masks)
-            residual = prediction - target
-            if not valid.any():
-                raise ValueError("test 无有效目标")
-            summary = {"micro_mae": float(np.abs(residual[valid]).mean()),
-                       "micro_rmse": float(np.sqrt(np.square(residual[valid]).mean())), "per_horizon": []}
-            for k in range(h):
-                r = residual[:, k][valid[:, k]]
-                summary["per_horizon"].append({"horizon": k + 1, "count": len(r),
-                                               "mae": float(np.abs(r).mean()) if len(r) else None,
-                                               "rmse": float(np.sqrt(np.square(r).mean())) if len(r) else None})
-            complete = valid[:, :, 0].all(axis=1)
-            if complete.any():
-                p, t = prediction[complete, :, 0], target[complete, :, 0]
-                summary["peak_amplitude_mae"] = float(np.abs(p.max(axis=1) - t.max(axis=1)).mean())
-                summary["peak_time_mae_seconds"] = float(np.abs(p.argmax(axis=1) - t.argmax(axis=1)).mean() * config["data"]["freq_seconds"])
-            else:
-                summary["peak_amplitude_mae"] = summary["peak_time_mae_seconds"] = None
-            ramp_valid = valid[:, 1:, 0] & valid[:, :-1, 0]
-            ramp_error = np.diff(prediction[:, :, 0], axis=1) - np.diff(target[:, :, 0], axis=1)
-            summary["ramp_mae"] = float(np.abs(ramp_error[ramp_valid]).mean()) if ramp_valid.any() else None
-            summary["complete_window_count"] = int(complete.sum())
-            summary["ramp_count"] = int(ramp_valid.sum())
+            summary = forecast_metrics(prediction, target, valid, config["data"]["freq_seconds"])
             _json(root / "metrics.json", summary)
             if latent_errors:
                 errors, quality = np.concatenate(latent_errors), np.concatenate(latent_quality)
-                groups = {}
-                for g, name in enumerate(model.dynamic_groups):
-                    q = quality[:, :, g]
-                    valid_latent = q > 0
-                    counts = valid_latent.sum(axis=0)
-                    weight = np.minimum(100., 1 / (saved["latent_stats"][name + "__variance"] + 0.01))
-                    weighted = (errors[:, :, g] * weight).mean(axis=-1)
-                    per_h = np.divide((q * weighted).sum(axis=0), counts, out=np.zeros(h), where=counts > 0)
-                    groups[name] = {"valid_count": int(valid_latent.sum()), "per_horizon_count": counts.tolist(),
-                                    "quality_mean": float(q.mean()), "quality_zero_rate": float((q == 0).mean()),
-                                    "weighted_horizon_macro_mse": float(per_h[counts > 0].mean()) if (counts > 0).any() else None,
-                                    "raw_coordinate_mse": float(errors[:, :, g][valid_latent].mean()) if valid_latent.any() else None,
-                                    "training_variance": saved["latent_stats"][name + "__variance"].tolist()}
-                _json(root / "latent_metrics.json", {"coordinate": "nonphysical_canonical_latent", "groups": groups})
+                _json(root / "latent_metrics.json", latent_metrics(errors, quality, model.dynamic_groups, saved["latent_stats"]))
             if aidc:
                 _json(root / "scenario_metrics.json", site_metrics(rows, config))
             if model.has_latent and not direct:

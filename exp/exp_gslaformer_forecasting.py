@@ -17,8 +17,10 @@ import numpy as np
 import torch
 
 from data_provider.spatial_temporal.batching import Batch, collate_samples
-from data_provider.spatial_temporal.config import validate_config, schema_from_config
+from data_provider.spatial_temporal.config import validate_config, schema_from_config, profile_name
+from exp.gslaformer_provenance import capture_source, checkpoint_sources, execution_environment
 from data_provider.spatial_temporal.dataset import PackageDataset
+from data_provider.spatial_temporal.cache import SampleCache
 from data_provider.spatial_temporal.scaling import TrainingTransform
 from data_provider.spatial_temporal.schema import canonical_hash, read_json, quality_flags
 from exp.exp_basic import Exp_Basic
@@ -111,6 +113,7 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
         self.generator = torch.Generator().manual_seed(seed)
         self.train_data = PackageDataset(self.config, "train")
         self.valid_data = PackageDataset(self.config, "valid")
+        self.sample_cache = SampleCache(self.config["experiment"].get("preprocess_cache_bytes", 0))
         self.schema = self.train_data.episodes[0].schema
         self.schema_fingerprint = canonical_hash(self.schema)
         self.data_fingerprint = self.train_data.fingerprint
@@ -123,6 +126,12 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
         for saved in (checkpoint, shared):
             if saved is not None:
                 validate_checkpoint_contract(saved)
+        self.execution_source = capture_source()
+        source_checkpoint = checkpoint if checkpoint is not None else shared
+        provenance = ({"training_source": self.execution_source, "execution_history": []}
+                      if source_checkpoint is None else checkpoint_sources(source_checkpoint))
+        self.training_source = provenance["training_source"]
+        self.execution_history = [*provenance["execution_history"], self.execution_source]
         if shared is not None:
             if (shared["phase"] != "A" or shared["config"]["experiment"]["variant"] != "full"
                     or shared["schema"] != self.schema or shared["data_fingerprint"] != self.data_fingerprint
@@ -163,9 +172,7 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
             _json(self.run_dir / "resolved_config.json", self.config)
             _json(self.run_dir / "schema.json", self.schema)
             _json(self.run_dir / "data_manifest.json", self.train_data.manifest)
-            _json(self.run_dir / "environment.json", {"python": platform.python_version(), "torch": torch.__version__,
-                                                       "numpy": np.__version__, "device": str(self.device),
-                                                       "resume_contract": "epoch_boundary_workers0"})
+
             self._save_scalers()
             if self.site_sampler:
                 _json(self.run_dir / "site_split.json", self.config["data"]["site_split"])
@@ -184,6 +191,10 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
                 _json(self.run_dir / "initialization.json", {"source": str(Path(stage_a_checkpoint).resolve()),
                         "source_global_epoch": shared["global_epoch"], "optimizer": "fresh_B_AdamW"})
             self._status("running")
+
+        _json(self.run_dir / "environment.json", execution_environment(self.device, source=self.execution_source,
+              training_source=self.training_source, execution_history=self.execution_history,
+              profile=profile_name(self.config), resume_contract="epoch_boundary_workers0"))
 
     def _build_model(self):
         sizes = {name: {feature: len(tokens) for feature, tokens in features.items()}
@@ -207,7 +218,7 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
         size = self.config["data"]["batch_size"]
         order = list(range(len(dataset))) if order is None else order
         for start in range(0, len(order), size):
-            samples = [self.transform.apply(dataset[index]) for index in order[start:start + size]]
+            samples = [self.sample_cache.get(dataset, self.transform, index) for index in order[start:start + size]]
             yield collate_samples(samples, self.config).to(self.device)
 
     def _limit(self):
@@ -276,12 +287,12 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
                 load, _ = masked_load_loss(prediction, supervision.target, supervision.target_mask)
                 loss = load
             else:
-                prediction = self.model.rollout(batch, steps)
+                history = self.model.encode_history(batch)
+                prediction = self.model._rollout_from_history(batch, steps, history)
                 load, _ = masked_load_loss(prediction.y, supervision.target[:, :steps], supervision.target_mask[:, :steps])
                 loss = load
                 if self.model.has_latent and self.config["training"]["latent_weight"] > 0:
-                    labels = build_latent_labels(self.model, batch.inputs, supervision)
-                    labels.z, labels.quality = labels.z[:, :steps], labels.quality[:, :steps]
+                    labels = build_latent_labels(self.model, batch.inputs, supervision, history, steps=steps)
                     variance = np.stack([self.latent_stats[f"{name}__variance"] for name in self.model.dynamic_groups])
                     weights = latent_dimension_weights(torch.tensor(variance, dtype=torch.float32, device=self.device))
                     latent, _ = weighted_latent_loss(prediction.z, labels, weights)
@@ -354,6 +365,8 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
         return metric.compute()
 
     def _status(self, status, error=None):
+        if hasattr(self, "sample_cache"):
+            _json(self.run_dir / "preprocess_cache.json", self.sample_cache.report())
         _json(self.run_dir / "status.json", {"status": status, "phase": self.phase,
                                             "global_epoch": self.global_epoch, "error": error})
 
@@ -366,6 +379,8 @@ class Exp_GSLAformer_Forecast(Exp_Basic):
         elif self.device.type == "cuda":
             rng["device"] = torch.cuda.get_rng_state_all()
         payload = {"version": 2, "computation_version": self.model.COMPUTATION_VERSION,
+                   "provenance_version": 1, "training_source": self.training_source,
+                   "execution_history": self.execution_history, "profile": profile_name(self.config),
                    "frozen_parameters": sorted(name for name, p in self.model.named_parameters() if not p.requires_grad) if self.model._representation_frozen else [],
                    "latent_stats_manifest": read_json(self.run_dir / "latent_stats_manifest.json") if self.latent_stats is not None else None,
                    "config": self.config, "schema": self.schema,

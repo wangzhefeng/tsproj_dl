@@ -86,10 +86,10 @@ def main():
                     prediction = experiment.model.predict_direct(batch)
                     loss, _ = masked_load_loss(prediction, batch.supervision.target, batch.supervision.target_mask)
                 else:
-                    prediction = experiment.model.rollout(batch, steps)
+                    history = experiment.model.encode_history(batch)
+                    prediction = experiment.model._rollout_from_history(batch, steps, history)
                     loss, _ = masked_load_loss(prediction.y, batch.supervision.target[:, :steps], batch.supervision.target_mask[:, :steps])
-                    labels = build_latent_labels(experiment.model, batch.inputs, batch.supervision)
-                    labels.z, labels.quality = labels.z[:, :steps], labels.quality[:, :steps]
+                    labels = build_latent_labels(experiment.model, batch.inputs, batch.supervision, history, steps=steps)
                     latent, _ = weighted_latent_loss(prediction.z, labels, weights)
                     loss = loss + config["training"]["latent_weight"] * latent
                 synchronize(experiment.device)

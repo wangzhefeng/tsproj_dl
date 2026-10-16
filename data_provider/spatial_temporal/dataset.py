@@ -140,6 +140,10 @@ class EpisodePackage:
         self.site = read_json(contained_path(self.path, "site.json"))
         self.measurements = read_json(contained_path(self.path, "measurements.json"))
         self._validate_metadata()
+        self.order_index = {g: {eid: i for i, eid in enumerate(ids)} for g, ids in self.order.items()}
+        records = [r for group in self.entity_versions.values() for versions in group.values() for r in versions]
+        records += [r for versions in self.edge_versions.values() for r in versions]
+        self.context_boundaries = sorted({r[k] for r in records for k in ("valid_from", "valid_to") if r[k] is not None})
         self.observations = self._load_observations()
         self.times = self.observations["timestamps"]
         self.known = self._load_known()
@@ -318,7 +322,7 @@ class EpisodePackage:
                 continue
             src, dst = (record["src_group"], record["src_id"]), (record["dst_group"], record["dst_id"])
             if entities[src[0]][src[1]] is not None and entities[dst[0]][dst[1]] is not None:
-                edges.append((src[0], self.order[src[0]].index(src[1]), dst[0], self.order[dst[0]].index(dst[1]), record["type"]))
+                edges.append((src[0], self.order_index[src[0]][src[1]], dst[0], self.order_index[dst[0]][dst[1]], record["type"]))
         from .aidc_mapping import validate_relation_snapshot
         validate_relation_snapshot(edges, entities, self.order, self.relation_types)
         return entities, edges
@@ -357,7 +361,14 @@ class EpisodePackage:
         indices = np.arange(origin_index - length + 1, origin_index + 1)
         origin = int(self.times[origin_index])
         future_time = origin + np.arange(1, horizon + 1, dtype=np.int64) * self.schema["freq_seconds"]
-        contexts = [self.context_at(int(t), origin) for t in self.times[indices]]
+        # 仅在一个请求内复用同版本区间；origin 固定，不跨可见性边界共享。
+        from bisect import bisect_right
+        context_cache, contexts = {}, []
+        for time in self.times[indices]:
+            key = (origin, bisect_right(self.context_boundaries, int(time)))
+            if key not in context_cache:
+                context_cache[key] = self.context_at(int(time), origin)
+            contexts.append(context_cache[key])
         self._assert_fixed_future(origin, int(future_time[-1]), contexts[-1])
         arrays, groups, future_groups = self.observations, {}, {}
         for group in self.schema["groups"]:

@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-"""M1/M2/M3 前八个训练 family 的独立小集拟合；不是正式 test 选模。
+"""M1–M4 前八个训练 family 的独立小集拟合；不是正式 test 选模。
 
-固定 seed=2023、dropout=0、lr=0.003、各阶段最多 1000 update。
+固定 seed=2023、dropout=0；M1/A lr=0.001，其余 lr=0.003，各阶段最多 1000 update。
 M1/M2 另要求每对每 horizon 符号正确且误差严格小于目标半间距。
 """
 import argparse
 from copy import deepcopy
 import json
+import hashlib
 from pathlib import Path
 import sys
 import time
@@ -25,6 +26,7 @@ from data_provider.spatial_temporal.scaling import TrainingTransform
 from exp.gslaformer_support import (build_latent_labels, collect_latent_statistics,
                                    latent_dimension_weights, masked_load_loss, weighted_latent_loss)
 from models.transformer.GSLAformer import Model
+from exp.gslaformer_provenance import execution_environment
 
 
 def measure(prediction, target, task, initial):
@@ -45,7 +47,7 @@ def measure(prediction, target, task, initial):
     return report
 
 
-def run(task, variant, fixtures, output):
+def run(task, variant, fixtures, output, *, stage_a_checkpoint=None):
     run_dir = output / f"{task}_{variant}"
     run_dir.mkdir(parents=True, exist_ok=False)
     torch.manual_seed(2023)
@@ -68,10 +70,40 @@ def run(task, variant, fixtures, output):
                   known_future_dim=len(config["data"]["known_future"]))
     target = batch.supervision.target
     report = {"task": task, "variant": variant, "data_kind": "synthetic", "purpose": "small_fit_only",
-              "config": config, "family_ids": families, "stages": {}}
+              "config": config, "family_ids": families, "stages": {},
+              "stage_learning_rates": {"A": 0.001 if task == "M1" else 0.003, "B": 0.003}}
+    stages = ["A"] if variant == "direct" else ["A", "B"]
+    if stage_a_checkpoint is not None:
+        if (task, variant) != ('M1', 'full'):
+            raise ValueError('本轮仅允许 M1/full 复用已验收的 A 权重')
+        source = Path(stage_a_checkpoint).resolve()
+        # 用户授权的本机小集权重，含 transform 元数据；不接受外部不可信 pickle。
+        saved = torch.load(source, map_location='cpu', weights_only=False)
+        evidence = json.loads((source.parent / 'report.json').read_text())
+        source_config = deepcopy(saved['config'])
+        source_config['training']['learning_rate'] = 0.003
+        if (saved.get('stage') != 'A' or saved.get('purpose') != 'small_fit_only'
+                or saved.get('computation_version') != Model.COMPUTATION_VERSION
+                or source_config != config or evidence['family_ids'] != families
+                or evidence['data_fingerprint'] != dataset.fingerprint
+                or evidence['transform_fingerprint'] != transform.fingerprint
+                or TrainingTransform(saved['transform']).fingerprint != transform.fingerprint
+                or evidence['learning_rate'] != 0.001):
+            raise ValueError('小集 A 来源、数据、配置或变换不匹配')
+        model.load_state_dict(saved['model'])
+        model.eval()
+        with torch.no_grad():
+            checked = measure(model.predict_direct(batch), target, task, evidence['initial_mse'])
+        if not checked['passed'] or checked != evidence['outcome']:
+            raise ValueError('小集 A 重载未通过原始门槛或与来源回执不符')
+        report['stages']['A'] = {**checked, 'initial_mse': evidence['initial_mse'],
+                                 'updates': 0, 'source_updates': evidence['updates'], 'reused': True}
+        report['initialization'] = {'path': str(source), 'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}
+        stages = ['B']
     (run_dir / "resolved_config.json").write_text(json.dumps(config, indent=2))
-    for stage in (["A"] if variant == "direct" else ["A", "B"]):
-        optimizer = torch.optim.AdamW(model.set_training_stage(stage), lr=0.003, weight_decay=0.0001)
+    (run_dir / "environment.json").write_text(json.dumps(execution_environment('cpu'), indent=2))
+    for stage in stages:
+        optimizer = torch.optim.AdamW(model.set_training_stage(stage), lr=report['stage_learning_rates'][stage], weight_decay=0.0001)
         labels = weights = None
         if stage == "B":
             collector = collect_latent_statistics(model, [batch], schema_fingerprint=batch.inputs.metadata[0]["schema_fingerprint"],
@@ -109,7 +141,7 @@ def run(task, variant, fixtures, output):
                 outcome = measure(predict(), target, task, initial)
             if outcome["mse"] < best_score:
                 best_score, best_state = outcome["mse"], deepcopy(model.state_dict())
-            if update % 100 == 0 or outcome["passed"]:
+            if update == 1 or update % 100 == 0 or outcome["passed"]:
                 print(task, variant, stage, update, outcome, flush=True)
             if outcome["passed"]:
                 break
@@ -121,8 +153,11 @@ def run(task, variant, fixtures, output):
         report["stages"][stage] = {"initial_mse": initial, "updates": update,
                                     "seconds": time.perf_counter() - start, **outcome}
         torch.save({"model": model.state_dict(), "config": config, "transform": transform.to_dict(),
+                    "computation_version": Model.COMPUTATION_VERSION,
                     "stage": stage, "purpose": "small_fit_only"}, run_dir / f"fit_{stage}.pt")
         (run_dir / "fit_report.json").write_text(json.dumps(report, indent=2))
+        if not outcome["passed"]:
+            break  # A 未拟合不冻结进入 B，不靠后续阶段掩盖失败。
     report["passed"] = all(stage["passed"] for stage in report["stages"].values())
     (run_dir / "fit_report.json").write_text(json.dumps(report, indent=2))
     return report
@@ -132,13 +167,21 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument('--stage_a_checkpoint', type=Path)
+    parser.add_argument("--tasks", nargs='+', choices=['M1_full', 'M2_full', 'M3_full', 'M3_direct', 'M4_full', 'M4_direct'],
+                        default=['M1_full', 'M2_full', 'M3_full', 'M3_direct', 'M4_full', 'M4_direct'])
     args = parser.parse_args()
+    if args.stage_a_checkpoint is not None and args.tasks != ['M1_full']:
+        parser.error('--stage_a_checkpoint 仅接受 --tasks M1_full')
     args.output.mkdir(parents=True, exist_ok=False)
     torch.set_num_threads(1)
     reports = []
-    for task, variant in (("M1", "full"), ("M2", "full"), ("M3", "full"), ("M3", "direct")):
-        reports.append(run(task, variant, args.fixtures.resolve(), args.output))
+    for name in args.tasks:
+        task, variant = name.split('_')
+        reports.append(run(task, variant, args.fixtures.resolve(), args.output, stage_a_checkpoint=args.stage_a_checkpoint))
         (args.output / "suite_result.json").write_text(json.dumps(reports, indent=2))
+        if not reports[-1]['passed']:
+            break
     raise SystemExit(0 if all(report["passed"] for report in reports) else 1)
 
 

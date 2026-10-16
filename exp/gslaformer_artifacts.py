@@ -6,6 +6,8 @@ import numpy as np
 import torch
 
 from data_provider.spatial_temporal.schema import read_json, canonical_hash
+from data_provider.spatial_temporal.config import profile_name
+from exp.gslaformer_provenance import checkpoint_sources, validate_source
 
 
 def synchronize(device):
@@ -26,6 +28,7 @@ def request_audit(inputs, config):
 
 
 def validate_checkpoint_contract(saved, model=None):
+    checkpoint_sources(saved)
     from models.transformer.GSLAformer import Model
     if saved.get("version") != 2 or saved.get("computation_version") != Model.COMPUTATION_VERSION:
         raise ValueError("checkpoint 计算版本不兼容；旧权重保留历史用途，须重新训练，不自动迁移")
@@ -94,6 +97,7 @@ def validate_artifacts(root, mode, variant, *, aidc=False):
         names.update({"site_split.json", "generation_audit.json", "metadata.json", "scenario_metrics.json"})
     for name in sorted(names):
         read_json(root / name)
+    validate_source(read_json(root / "environment.json").get("execution_source"))
     if mode == "train":
         # 仅复检本次用户授权产生的本地 artifact，包含 RNG/optimizer，不能用 weights_only。
         checkpoints = ["last.pt", "best.pt"] + ([] if variant == "direct" else ["best_A.pt"])
@@ -143,9 +147,9 @@ def site_metrics(rows, config):
         sites.setdefault(row["site_id"], []).append(residual)
     by_site = {site: {"count": len(errors), "mae": float(np.abs(errors).mean()),
                       "rmse": float(np.sqrt(np.square(errors).mean()))} for site, errors in sites.items()}
-    return {"split": "test", "pred_len": config["data"]["pred_len"], "per_site": by_site,
+    return {"split": "test", "profile": profile_name(config), "pred_len": config["data"]["pred_len"], "per_site": by_site,
             "site_macro_mae": float(np.mean([v["mae"] for v in by_site.values()])),
             "site_macro_rmse": float(np.mean([v["rmse"] for v in by_site.values()])),
-            "entries": [{"site_id": key[0], "site_role": key[1], "scenario": key[2], "horizon": key[3],
+            "entries": [{"site_id": key[0], "site_role": key[1], "scenario": key[2], "horizon": key[3], "profile": profile_name(config),
                          "count": len(errors), "mae": float(np.abs(errors).mean()),
                          "rmse": float(np.sqrt(np.square(errors).mean()))} for key, errors in grouped.items()]}

@@ -124,7 +124,8 @@ def validate_config(config):
     if type(config["schema_version"]) is not int or config["schema_version"] != 3:
         raise ValueError("schema_version: 仅支持 3")
     experiment = config["experiment"]
-    keys(experiment, {"model", "variant", "data_kind", "seed", "device", "results_root"}, {"profile"}, name="experiment")
+    keys(experiment, {"model", "variant", "data_kind", "seed", "device", "results_root"}, {"profile", "preprocess_cache_bytes"}, name="experiment")
+    integer(experiment.get("preprocess_cache_bytes", 0), "preprocess_cache_bytes", 0)
     if experiment["model"] != "GSLAformer" or experiment["variant"] not in VARIANTS:
         raise ValueError("experiment: 不支持的 model/variant")
     if experiment["data_kind"] != "synthetic" or experiment["device"] not in {"cpu", "mps", "cuda"}:
@@ -213,6 +214,8 @@ def validate_config(config):
         raise ValueError(f"selection_metric: 需要 {expected}")
     integer(evaluation["seasonal_period"], "seasonal_period")
     integer(evaluation["compare_seed"], "compare_seed", 0)
+    if evaluation["compare_seed"] != experiment["seed"]:
+        raise ValueError("compare_seed 必须等于 experiment.seed；训练仅使用这一随机种子")
     if "report_by" in evaluation:
         names(evaluation["report_by"], "report_by")
         if not set(evaluation["report_by"]) <= {"site_id", "site_role", "horizon", "scenario"}:
@@ -227,3 +230,16 @@ def load_config(path):
     root = Path(__file__).resolve().parents[2]
     config["experiment"]["results_root"] = str((root / config["experiment"]["results_root"]).resolve())
     return config
+
+
+def profile_name(config):
+    """旧标准配置确定性解析；非标准实验必须显式命名。"""
+    if "profile" in config["experiment"]:
+        return safe_name(config["experiment"]["profile"], "profile")
+    data = config["data"]
+    signature = (data["split_mode"], data["seq_len"], data["pred_len"])
+    known = {("target_index", 24, 6): "base", ("site_time", 48, 6): "short",
+             ("site_time", 168, 24): "day", ("site_time", 168, 72): "multiday"}
+    if signature not in known:
+        raise ValueError("非标准 L/H 配置须显式填写 experiment.profile")
+    return known[signature]

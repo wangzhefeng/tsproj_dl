@@ -104,7 +104,7 @@ def _teacher_step_inputs(inputs, supervision, step):
 
 
 @torch.no_grad()
-def build_latent_labels(model, inputs, supervision, encoded_history=None):
+def build_latent_labels(model, inputs, supervision, encoded_history=None, *, steps=None):
     """从同起点历史末端 memory 副本延续 teacher；不写回原输入、memory 或模型参数。"""
     if not model._representation_frozen:
         raise ValueError("teacher 必须使用冻结的 B 阶段表示链")
@@ -112,13 +112,16 @@ def build_latent_labels(model, inputs, supervision, encoded_history=None):
         raise ValueError("total_only 不构造 latent 标签")
     if supervision is None:
         raise ValueError("teacher 缺少独立监督")
+    steps = inputs.future_time.shape[1] if steps is None else steps
+    if type(steps) is not int or not 1 <= steps <= inputs.future_time.shape[1]:
+        raise ValueError("teacher steps 必须在 1..H 内")
     history = encoded_history if encoded_history is not None else model.encode_history(Batch(inputs, None))
     memory = {name: value.detach().clone() for name, value in history.entity_memory.items()}
     length = inputs.target_history.shape[1]
     rolling = copy(inputs)
     rolling.groups = {name: dict(group) for name, group in inputs.groups.items()}
     labels, qualities = [], []
-    for step in range(inputs.future_time.shape[1]):
+    for step in range(steps):
         teacher = _teacher_step_inputs(inputs, supervision, step)
         encoded = model.encode_history(Batch(teacher, None), initial_memory=memory)
         memory = encoded.entity_memory

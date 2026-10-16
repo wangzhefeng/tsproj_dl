@@ -14,6 +14,16 @@ bash scripts/smoke/smoke_gslaformer.sh NEW_RUN_PREFIX
 ```
 
 脚本依次运行 CPU base 的完整阶段训练、test 和四个无标签请求。每个 run_id 必须是新名称；禁止覆盖旧结果。
+
+MPS 独立短流程（明确请求设备，不可用即失败）：
+
+```bash
+env -u PYTHONPATH .venv/bin/python scripts/smoke/smoke_gslaformer_mps.py --prefix NEW_RUN_PREFIX
+```
+
+从正式 base 配置生成 results 下独立 JSON，仅改为 MPS、batch=2、A/B-short/B-medium/B-full 各 1 epoch；执行 test、四种无标签请求及同权重重复重载。此预算只用于工程 smoke，不代替机制拟合或 AIDC 验收。
+
+正式配置显式标记 `experiment.profile`；`evaluation.compare_seed` 必须与 `experiment.seed` 相同。`experiment.preprocess_cache_bytes` 是训练进程共享的样本缓存序列化载荷预算，0 禁用；正式配置为 64 MiB，不是进程总 RSS 上限，实际命中/淘汰与载荷大小见 `preprocess_cache.json`。缓存不落盘、不修改 checkpoint 计算版本，不缓存梯度图。新产物的 `environment.json` 与 checkpoint 记录训练和当前执行源码身份；旧计算版本 2 checkpoint 缺历史身份时明确为 `legacy_missing`。
 `run.py --model GSLAformer` 支持 `train/test/forecast/compare`。compare 按当前任务的规定矩阵运行，`no_latent_loss` 自动引用同次 full 的 best_A；不暗中重训独立 A。
 
 机制比较（AIDC 不在此次选择范围，suite 总状态为 partial）：

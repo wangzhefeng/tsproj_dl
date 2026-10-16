@@ -4,6 +4,8 @@ import csv
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import json
 
 import numpy as np
 
@@ -53,11 +55,24 @@ class ComparisonTests(unittest.TestCase):
                 self.assertIn(name, row)
             mechanism = copy.deepcopy(config)
             mechanism["experiment"]["profile"] = "M3"
-            result = run_comparison(mechanism, root / "m3_dispatch")
+            from scripts.smoke import compare_gslaformer as suite
+            (root / "mechanisms").mkdir()
+            (root / "m3.json").write_text(json.dumps(mechanism))
+            manifest = root / "mechanisms/suite.json"
+            manifest.write_text(json.dumps({"tasks": [{"id": "M3", "config": "m3.json"}, {"id": "M1", "config": "not_run.json"}]}))
+            with patch.object(suite, "ROOT", root), patch("sys.argv", ["compare", "--suite_manifest", str(manifest), "--run_prefix", "partial", "--tasks", "M3"]):
+                with self.assertRaises(SystemExit) as exited:
+                    suite.main()
+            self.assertEqual(exited.exception.code, 0)
+            suite_output = root / "results/gslaformer/partial"
+            summary = read_json(suite_output / "suite_result.json")
+            self.assertEqual(summary["status"], "partial")
+            self.assertEqual(summary["tasks"]["M1"]["status"], "not_run")
+            result = summary["tasks"]["M3"]
             self.assertEqual(result["status"], "passed")
             self.assertEqual(set(result["runs"]), {"full", "direct", "no_latent_loss", "total_only"})
-            self.assertTrue((root / "m3_dispatch/no_latent_loss_train/initialization.json").exists())
-            self.assertTrue((root / "m3_dispatch/comparison.csv").exists())
+            self.assertTrue((suite_output / "M3/no_latent_loss_train/initialization.json").exists())
+            self.assertTrue((suite_output / "M3/comparison.csv").exists())
 
 
 if __name__ == '__main__':
