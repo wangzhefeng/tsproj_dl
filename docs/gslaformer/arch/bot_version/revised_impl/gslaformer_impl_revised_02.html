@@ -1,0 +1,83 @@
+<!doctype html><meta charset="utf-8"><title>gslaformer_impl_revised_02</title><style>@page{size:1800px 1600px;margin:0}html,body{margin:0;padding:0;width:1800px;height:1600px;background:white}svg{display:block}</style><svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1600" viewBox="0 0 1800 1600">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#4a5e74"/></marker></defs>
+<rect width="1800" height="1600" fill="#ffffff"/>
+<g font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif" fill="#203348">
+<text x="60" y="61" font-size="34" font-weight="700">GSLAformer · 直接预测与自由递推</text>
+<text x="60" y="104" font-size="21" fill="#5c6f83">02 / 两条路径分开：模型内部负荷为标准化坐标；对外结果另行反标准化</text>
+<path d="M 430 470 L 430 520" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 660 L 430 710" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 850 L 430 900" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 470 L 1330 520" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 660 L 1330 710" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 850 L 1330 900" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 1040 L 430 1090" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 1230 L 430 1310" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 1040 L 1330 1065 L 1142 1065 L 1142 1090" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 1040 L 1330 1065 L 1518 1065 L 1518 1090" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1142 1230 L 1142 1310" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1518 1230 L 1518 1310" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1680 1395 L 1740 1395 L 1740 400 L 1680 400" fill="none" stroke="#4a5e74" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arrow)"/>
+<rect x="60" y="150" width="1680" height="115" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="78" y="183" font-size="25" font-weight="650">同一起点只准备一次</text>
+<text x="78" y="215" font-size="21">历史编码得到 z、c；完整起点已知未来路径经双向注意力得到 p[1:H]；lead 相对原起点，不随滑窗重置。</text>
+<rect x="80" y="330" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="98" y="363" font-size="25" font-weight="650">A 阶段 / direct：真实历史窗口</text>
+<text x="98" y="395" font-size="21">z 展平 + 真实负荷 + 观测/生成标记</text>
+<text x="98" y="423" font-size="21">逐组 coverage/生成标记 + 日历四维</text>
+<rect x="80" y="520" width="700" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="98" y="553" font-size="25" font-weight="650">全部 token 特征联合投影</text>
+<text x="98" y="585" font-size="21">单 Linear → 加窗口内正弦位置</text>
+<text x="98" y="613" font-size="21">日历已在 token 内，不再独立投影相加</text>
+<rect x="80" y="710" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="98" y="743" font-size="25" font-weight="650">因果时间编码只运行一次</text>
+<text x="98" y="775" font-size="21">沿历史时间轴计算；取末位表示 h</text>
+<text x="98" y="803" font-size="21">所有未来步共享这个历史表示</text>
+<rect x="80" y="900" width="700" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="98" y="933" font-size="25" font-weight="650">按未来步条件融合</text>
+<text x="98" y="965" font-size="21">拼接 h、固定 c、p[k]、lead(k)</text>
+<text x="98" y="993" font-size="21">共享 Linear → GELU → Dropout → Linear</text>
+<rect x="80" y="1090" width="700" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="98" y="1123" font-size="25" font-weight="650">仅负荷头；没有 latent 预测和回灌</text>
+<text x="98" y="1155" font-size="21">各步共享 Linear(dt,1)</text>
+<text x="98" y="1183" font-size="21">收集 H 个预测，得到 [B,H,1]</text>
+<rect x="80" y="1310" width="700" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="98" y="1343" font-size="25" font-weight="650">对外负荷预测</text>
+<text x="98" y="1375" font-size="21">预测完成后反标准化</text>
+<text x="98" y="1403" font-size="21">物理单位遵循目标合同；不是 latent 的单位</text>
+<rect x="980" y="330" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="998" y="363" font-size="25" font-weight="650">自由递推：内部滚动状态窗口</text>
+<text x="998" y="395" font-size="21">由真实历史初始化；窗口长度始终为 L</text>
+<text x="998" y="423" font-size="21">预测写入内部状态，不改原始 target_history</text>
+<rect x="980" y="520" width="700" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="998" y="553" font-size="25" font-weight="650">全部 token 特征联合投影</text>
+<text x="998" y="585" font-size="21">单 Linear → 加当前窗口内正弦位置</text>
+<text x="998" y="613" font-size="21">每步重算；不是 KV cache 或跨起点记忆</text>
+<rect x="980" y="710" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="998" y="743" font-size="25" font-weight="650">每步重新计算因果时间编码</text>
+<text x="998" y="775" font-size="21">从当前窗口取末位表示 h[k]</text>
+<text x="998" y="803" font-size="21">空间历史只编码一次，不随滑窗重新运行</text>
+<rect x="980" y="900" width="700" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="998" y="933" font-size="25" font-weight="650">按未来步条件融合</text>
+<text x="998" y="965" font-size="21">拼接当前 h[k]、固定 c、p[k]、lead(k)</text>
+<text x="998" y="993" font-size="21">p 来自完整起点已知路径，不刷新晚到条件</text>
+<rect x="980" y="1090" width="325" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="998" y="1123" font-size="25" font-weight="650">动态组 latent 头</text>
+<text x="998" y="1155" font-size="21">每组 Linear(dt,dz)</text>
+<text x="998" y="1183" font-size="21">预测 [B,Gd,dz]</text>
+<rect x="1355" y="1090" width="325" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="1373" y="1123" font-size="25" font-weight="650">总负荷头</text>
+<text x="1373" y="1155" font-size="21">共享 Linear(dt,1)</text>
+<text x="1373" y="1183" font-size="21">预测 [B,1]</text>
+<rect x="980" y="1310" width="700" height="170" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="998" y="1343" font-size="25" font-weight="650">追加预测状态，下一步取新的 L 长窗口</text>
+<text x="998" y="1375" font-size="21">同时追加预测 z、y 与未来日历；丢弃最旧位置</text>
+<text x="998" y="1403" font-size="21">observed=false，generated=true</text>
+<text x="998" y="1431" font-size="21">coverage=0，group_generated=1；收集 H 步输出</text>
+<rect x="60" y="1539" width="20" height="20" fill="#f1f5f9" stroke="#64748b"/><text x="90" y="1556" font-size="19">输入 / 证据</text>
+<rect x="300" y="1539" width="20" height="20" fill="#ede9fe" stroke="#8b74b6"/><text x="330" y="1556" font-size="19">实体 / 特征投影</text>
+<rect x="540" y="1539" width="20" height="20" fill="#fff0d9" stroke="#cd9450"/><text x="570" y="1556" font-size="19">空间 / 关系</text>
+<rect x="780" y="1539" width="20" height="20" fill="#e3f0ff" stroke="#5486b9"/><text x="810" y="1556" font-size="19">状态 / 时间链</text>
+<rect x="1020" y="1539" width="20" height="20" fill="#ddf2ec" stroke="#589a8b"/><text x="1050" y="1556" font-size="19">条件 / teacher</text>
+<rect x="1260" y="1539" width="20" height="20" fill="#e8f3de" stroke="#7d9d60"/><text x="1290" y="1556" font-size="19">预测 / 权重</text>
+<rect x="1500" y="1539" width="20" height="20" fill="#fbe6ea" stroke="#b97586"/><text x="1530" y="1556" font-size="19">监督损失</text>
+</g></svg>

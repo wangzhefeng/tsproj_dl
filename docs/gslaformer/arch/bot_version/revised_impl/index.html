@@ -1,0 +1,261 @@
+<!doctype html><meta charset="utf-8"><title>GSLAformer 修订图册</title><style>body{margin:0;background:#e9eef4;font-family:sans-serif}nav{position:sticky;top:0;background:#203348;color:white;padding:16px}a{color:white;margin-right:24px}section{margin:24px;background:white}svg{display:block;width:100%;height:auto}</style><nav><a href="#overview">01 实体与空间</a><a href="#inference">02 预测与回灌</a><a href="#training">03 两阶段训练</a></nav><section id="overview"><svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1400" viewBox="0 0 1800 1400">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#4a5e74"/></marker></defs>
+<rect width="1800" height="1400" fill="#ffffff"/>
+<g font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif" fill="#203348">
+<text x="60" y="61" font-size="34" font-weight="700">GSLAformer · 实体历史与空间表示</text>
+<text x="60" y="104" font-size="21" fill="#5c6f83">01 / 通用 full 结构：总组数 G 与动态组数 Gd 分开；AIDC 六动态组仅是当前配置实例</text>
+<path d="M 300 320 L 300 370" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 300 510 L 300 535 L 172 535 L 172 560" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 300 510 L 300 535 L 428 535 L 428 560" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 172 700 L 172 730 L 300 730 L 300 760" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 428 700 L 428 730 L 300 730 L 300 760" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 540 832 L 660 832" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 910 700 L 910 760" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 910 905 L 910 965" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 910 1115 L 910 1170" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1500 320 L 1500 370" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1500 510 L 1500 560" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="60" y="180" width="480" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="78" y="213" font-size="25" font-weight="650">历史实体观测与属性</text>
+<text x="78" y="245" font-size="21">逐组 [B,L,Ng,Fg]；实体身份只用于对齐</text>
+<text x="78" y="273" font-size="21">数值、观测、适用性、静态属性及有效性</text>
+<rect x="60" y="370" width="480" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="403" font-size="25" font-weight="650">逐组共享实体适配</text>
+<text x="78" y="435" font-size="21">动态值、掩码与属性拼接</text>
+<text x="78" y="463" font-size="21">Linear → GELU → Linear；输出宽度 ds</text>
+<rect x="60" y="560" width="225" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="593" font-size="25" font-weight="650">动态组</text>
+<text x="78" y="625" font-size="21">同组共享 GRU</text>
+<text x="78" y="653" font-size="21">逐实体沿时间更新</text>
+<rect x="315" y="560" width="225" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="333" y="593" font-size="25" font-weight="650">纯静态组</text>
+<text x="333" y="625" font-size="21">无 GRU</text>
+<text x="333" y="653" font-size="21">适配结果直接传递</text>
+<rect x="60" y="760" width="480" height="145" rx="8" fill="#fff0d9" stroke="#cd9450" stroke-width="1.8"/>
+<text x="78" y="793" font-size="25" font-weight="650">逐组、逐时刻的实体交互</text>
+<text x="78" y="825" font-size="21">实体 + summary token → 单层空间注意力</text>
+<text x="78" y="853" font-size="21">去掉 summary 输出；保留实体 [B,L,Ng,ds]</text>
+<rect x="660" y="560" width="500" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="678" y="593" font-size="25" font-weight="650">历史关系与有效实体</text>
+<text x="678" y="625" font-size="21">每个历史时刻使用对应关系</text>
+<text x="678" y="653" font-size="21">有向类型、允许反向通信、padding / present</text>
+<rect x="660" y="760" width="500" height="145" rx="8" fill="#fff0d9" stroke="#cd9450" stroke-width="1.8"/>
+<text x="678" y="793" font-size="25" font-weight="650">跨组类型关系交互</text>
+<text x="678" y="825" font-size="21">在实体轴拼接全部 G 组；按帧独立计算</text>
+<text x="678" y="853" font-size="21">加性通信掩码与方向偏置；层数来自配置</text>
+<rect x="660" y="965" width="500" height="150" rx="8" fill="#fff0d9" stroke="#cd9450" stroke-width="1.8"/>
+<text x="678" y="998" font-size="25" font-weight="650">仅对动态组进行独立查询读出</text>
+<text x="678" y="1030" font-size="21">Q：可学习查询；K/V：实体 + 常驻空组 token</text>
+<text x="678" y="1058" font-size="21">池化结果拼接 log1p(N)、coverage → Linear</text>
+<text x="678" y="1086" font-size="21"> → LN</text>
+<rect x="660" y="1170" width="500" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="678" y="1203" font-size="25" font-weight="650">动态组历史状态 z</text>
+<text x="678" y="1235" font-size="21">全窗口 [B,L,Gd,dz]；单时刻 [B,Gd,dz]</text>
+<text x="678" y="1263" font-size="21">按组轴堆叠，进入时间链时才展平特征轴</text>
+<rect x="1260" y="180" width="480" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="1278" y="213" font-size="25" font-weight="650">预测起点的静态证据</text>
+<text x="1278" y="245" font-size="21">有效实体的属性、类别与数量</text>
+<text x="1278" y="273" font-size="21">起点关系的逐类型出入度；不读动态值</text>
+<rect x="1260" y="370" width="480" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1278" y="403" font-size="25" font-weight="650">逐组静态统计与投影</text>
+<text x="1278" y="435" font-size="21">均值、总和、可用率、数量及度数</text>
+<text x="1278" y="463" font-size="21">类别嵌入均值；每组 Linear → GELU</text>
+<rect x="1260" y="560" width="480" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1278" y="593" font-size="25" font-weight="650">固定静态条件 c</text>
+<text x="1278" y="625" font-size="21">拼接全部组统计表示 → 单 Linear</text>
+<text x="1278" y="653" font-size="21">[B,dt]；同一起点的整段预测共用</text>
+<rect x="1260" y="790" width="480" height="170" rx="8" fill="#ffffff" stroke="#c4cfdb" stroke-width="1.8"/>
+<text x="1278" y="823" font-size="25" font-weight="650">配置边界</text>
+<text x="1278" y="855" font-size="21">G：全部组；Gd：动态组</text>
+<text x="1278" y="883" font-size="21">所有组可参与关系；只有动态组产生 z</text>
+<text x="1278" y="911" font-size="21">关系层通常为 2 层，但不是硬编码常量</text>
+<rect x="1260" y="1060" width="480" height="170" rx="8" fill="#ffffff" stroke="#c4cfdb" stroke-width="1.8"/>
+<text x="1278" y="1093" font-size="25" font-weight="650">后续使用</text>
+<text x="1278" y="1125" font-size="21">z 与真实负荷历史用于时间预测</text>
+<text x="1278" y="1153" font-size="21">c 独立进入每一步条件融合</text>
+<text x="1278" y="1181" font-size="21">推理路径与训练路径分别见图 02、03</text>
+<rect x="60" y="1339" width="20" height="20" fill="#f1f5f9" stroke="#64748b"/><text x="90" y="1356" font-size="19">输入 / 证据</text>
+<rect x="300" y="1339" width="20" height="20" fill="#ede9fe" stroke="#8b74b6"/><text x="330" y="1356" font-size="19">实体 / 特征投影</text>
+<rect x="540" y="1339" width="20" height="20" fill="#fff0d9" stroke="#cd9450"/><text x="570" y="1356" font-size="19">空间 / 关系</text>
+<rect x="780" y="1339" width="20" height="20" fill="#e3f0ff" stroke="#5486b9"/><text x="810" y="1356" font-size="19">状态 / 时间链</text>
+<rect x="1020" y="1339" width="20" height="20" fill="#ddf2ec" stroke="#589a8b"/><text x="1050" y="1356" font-size="19">条件 / teacher</text>
+<rect x="1260" y="1339" width="20" height="20" fill="#e8f3de" stroke="#7d9d60"/><text x="1290" y="1356" font-size="19">预测 / 权重</text>
+<rect x="1500" y="1339" width="20" height="20" fill="#fbe6ea" stroke="#b97586"/><text x="1530" y="1356" font-size="19">监督损失</text>
+</g></svg></section><section id="inference"><svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1600" viewBox="0 0 1800 1600">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#4a5e74"/></marker></defs>
+<rect width="1800" height="1600" fill="#ffffff"/>
+<g font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif" fill="#203348">
+<text x="60" y="61" font-size="34" font-weight="700">GSLAformer · 直接预测与自由递推</text>
+<text x="60" y="104" font-size="21" fill="#5c6f83">02 / 两条路径分开：模型内部负荷为标准化坐标；对外结果另行反标准化</text>
+<path d="M 430 470 L 430 520" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 660 L 430 710" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 850 L 430 900" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 470 L 1330 520" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 660 L 1330 710" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 850 L 1330 900" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 1040 L 430 1090" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 430 1230 L 430 1310" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 1040 L 1330 1065 L 1142 1065 L 1142 1090" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1330 1040 L 1330 1065 L 1518 1065 L 1518 1090" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1142 1230 L 1142 1310" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1518 1230 L 1518 1310" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1680 1395 L 1740 1395 L 1740 400 L 1680 400" fill="none" stroke="#4a5e74" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arrow)"/>
+<rect x="60" y="150" width="1680" height="115" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="78" y="183" font-size="25" font-weight="650">同一起点只准备一次</text>
+<text x="78" y="215" font-size="21">历史编码得到 z、c；完整起点已知未来路径经双向注意力得到 p[1:H]；lead 相对原起点，不随滑窗重置。</text>
+<rect x="80" y="330" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="98" y="363" font-size="25" font-weight="650">A 阶段 / direct：真实历史窗口</text>
+<text x="98" y="395" font-size="21">z 展平 + 真实负荷 + 观测/生成标记</text>
+<text x="98" y="423" font-size="21">逐组 coverage/生成标记 + 日历四维</text>
+<rect x="80" y="520" width="700" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="98" y="553" font-size="25" font-weight="650">全部 token 特征联合投影</text>
+<text x="98" y="585" font-size="21">单 Linear → 加窗口内正弦位置</text>
+<text x="98" y="613" font-size="21">日历已在 token 内，不再独立投影相加</text>
+<rect x="80" y="710" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="98" y="743" font-size="25" font-weight="650">因果时间编码只运行一次</text>
+<text x="98" y="775" font-size="21">沿历史时间轴计算；取末位表示 h</text>
+<text x="98" y="803" font-size="21">所有未来步共享这个历史表示</text>
+<rect x="80" y="900" width="700" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="98" y="933" font-size="25" font-weight="650">按未来步条件融合</text>
+<text x="98" y="965" font-size="21">拼接 h、固定 c、p[k]、lead(k)</text>
+<text x="98" y="993" font-size="21">共享 Linear → GELU → Dropout → Linear</text>
+<rect x="80" y="1090" width="700" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="98" y="1123" font-size="25" font-weight="650">仅负荷头；没有 latent 预测和回灌</text>
+<text x="98" y="1155" font-size="21">各步共享 Linear(dt,1)</text>
+<text x="98" y="1183" font-size="21">收集 H 个预测，得到 [B,H,1]</text>
+<rect x="80" y="1310" width="700" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="98" y="1343" font-size="25" font-weight="650">对外负荷预测</text>
+<text x="98" y="1375" font-size="21">预测完成后反标准化</text>
+<text x="98" y="1403" font-size="21">物理单位遵循目标合同；不是 latent 的单位</text>
+<rect x="980" y="330" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="998" y="363" font-size="25" font-weight="650">自由递推：内部滚动状态窗口</text>
+<text x="998" y="395" font-size="21">由真实历史初始化；窗口长度始终为 L</text>
+<text x="998" y="423" font-size="21">预测写入内部状态，不改原始 target_history</text>
+<rect x="980" y="520" width="700" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="998" y="553" font-size="25" font-weight="650">全部 token 特征联合投影</text>
+<text x="998" y="585" font-size="21">单 Linear → 加当前窗口内正弦位置</text>
+<text x="998" y="613" font-size="21">每步重算；不是 KV cache 或跨起点记忆</text>
+<rect x="980" y="710" width="700" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="998" y="743" font-size="25" font-weight="650">每步重新计算因果时间编码</text>
+<text x="998" y="775" font-size="21">从当前窗口取末位表示 h[k]</text>
+<text x="998" y="803" font-size="21">空间历史只编码一次，不随滑窗重新运行</text>
+<rect x="980" y="900" width="700" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="998" y="933" font-size="25" font-weight="650">按未来步条件融合</text>
+<text x="998" y="965" font-size="21">拼接当前 h[k]、固定 c、p[k]、lead(k)</text>
+<text x="998" y="993" font-size="21">p 来自完整起点已知路径，不刷新晚到条件</text>
+<rect x="980" y="1090" width="325" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="998" y="1123" font-size="25" font-weight="650">动态组 latent 头</text>
+<text x="998" y="1155" font-size="21">每组 Linear(dt,dz)</text>
+<text x="998" y="1183" font-size="21">预测 [B,Gd,dz]</text>
+<rect x="1355" y="1090" width="325" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="1373" y="1123" font-size="25" font-weight="650">总负荷头</text>
+<text x="1373" y="1155" font-size="21">共享 Linear(dt,1)</text>
+<text x="1373" y="1183" font-size="21">预测 [B,1]</text>
+<rect x="980" y="1310" width="700" height="170" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="998" y="1343" font-size="25" font-weight="650">追加预测状态，下一步取新的 L 长窗口</text>
+<text x="998" y="1375" font-size="21">同时追加预测 z、y 与未来日历；丢弃最旧位置</text>
+<text x="998" y="1403" font-size="21">observed=false，generated=true</text>
+<text x="998" y="1431" font-size="21">coverage=0，group_generated=1；收集 H 步输出</text>
+<rect x="60" y="1539" width="20" height="20" fill="#f1f5f9" stroke="#64748b"/><text x="90" y="1556" font-size="19">输入 / 证据</text>
+<rect x="300" y="1539" width="20" height="20" fill="#ede9fe" stroke="#8b74b6"/><text x="330" y="1556" font-size="19">实体 / 特征投影</text>
+<rect x="540" y="1539" width="20" height="20" fill="#fff0d9" stroke="#cd9450"/><text x="570" y="1556" font-size="19">空间 / 关系</text>
+<rect x="780" y="1539" width="20" height="20" fill="#e3f0ff" stroke="#5486b9"/><text x="810" y="1556" font-size="19">状态 / 时间链</text>
+<rect x="1020" y="1539" width="20" height="20" fill="#ddf2ec" stroke="#589a8b"/><text x="1050" y="1556" font-size="19">条件 / teacher</text>
+<rect x="1260" y="1539" width="20" height="20" fill="#e8f3de" stroke="#7d9d60"/><text x="1290" y="1556" font-size="19">预测 / 权重</text>
+<rect x="1500" y="1539" width="20" height="20" fill="#fbe6ea" stroke="#b97586"/><text x="1530" y="1556" font-size="19">监督损失</text>
+</g></svg></section><section id="training"><svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1540" viewBox="0 0 1800 1540">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#4a5e74"/></marker></defs>
+<rect width="1800" height="1540" fill="#ffffff"/>
+<g font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif" fill="#203348">
+<text x="60" y="61" font-size="34" font-weight="700">GSLAformer · 两阶段训练与监督隔离</text>
+<text x="60" y="104" font-size="21" fill="#5c6f83">03 / full 的训练机制：teacher 仅产生监督标签，不进入生产预测状态；所有图示均非新增算法</text>
+<path d="M 530 215 L 600 215" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1200 230 L 1270 230" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 385 510 L 385 570" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 385 710 L 385 770" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 385 910 L 385 970" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1045 510 L 1045 570" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1045 710 L 1045 770" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1045 910 L 1045 970" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 510 L 1545 570" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 710 L 1545 770" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 910 L 1545 970" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1240 840 L 1295 840 L 1295 1040 L 1350 1040" fill="none" stroke="#4a5e74" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arrow)"/>
+<path d="M 1045 1110 L 1045 1200" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 1110 L 1545 1200" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="60" y="160" width="470" height="115" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="193" font-size="25" font-weight="650">A：负荷监督学习表示</text>
+<text x="78" y="225" font-size="21">latent 头冻结，不参与此阶段损失</text>
+<rect x="600" y="160" width="600" height="145" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="618" y="193" font-size="25" font-weight="650">阶段切换：加载 best_A 并冻结表示链</text>
+<text x="618" y="225" font-size="21">冻结实体历史、组内空间、关系、读出、静态链</text>
+<text x="618" y="253" font-size="21">冻结模块保持 eval；建立 latent 训练统计</text>
+<rect x="1270" y="160" width="470" height="145" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="1288" y="193" font-size="25" font-weight="650">B：自由递推与辅助监督</text>
+<text x="1288" y="225" font-size="21">时间链、未来路径、融合层、两头继续训练</text>
+<rect x="60" y="370" width="650" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="78" y="403" font-size="25" font-weight="650">历史与起点已知未来条件</text>
+<text x="78" y="435" font-size="21">真实未来负荷仅作为损失标签</text>
+<text x="78" y="463" font-size="21">不输入预测分支</text>
+<rect x="60" y="570" width="650" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="603" font-size="25" font-weight="650">直接多步负荷预测</text>
+<text x="78" y="635" font-size="21">完整空间/关系编码 + 时间链 + 条件融合</text>
+<text x="78" y="663" font-size="21">调用负荷头，不调用 latent 头；不回灌</text>
+<rect x="60" y="770" width="650" height="140" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="78" y="803" font-size="25" font-weight="650">主损失：预测负荷对真实标签</text>
+<text x="78" y="835" font-size="21">只在有效标签上计算</text>
+<text x="78" y="863" font-size="21">先按预测步分别平均，再等权汇总</text>
+<rect x="60" y="970" width="650" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="78" y="1003" font-size="25" font-weight="650">验证集选择 best_A</text>
+<text x="78" y="1035" font-size="21">B 从选中的 A 权重开始，而非最后一次更新</text>
+<text x="78" y="1063" font-size="21">A 阶段不以 latent 辅助目标预训练 latent 头</text>
+<rect x="60" y="1200" width="650" height="170" rx="8" fill="#ffffff" stroke="#c4cfdb" stroke-width="1.8"/>
+<text x="78" y="1233" font-size="25" font-weight="650">B 阶段课程与冻结边界</text>
+<text x="78" y="1265" font-size="21">监督递推长度：1 → min(3,H) → H</text>
+<text x="78" y="1293" font-size="21">未来条件仍编码完整 H；不截断回灌梯度</text>
+<text x="78" y="1321" font-size="21">B 的主预测路径不读取未来真实负荷或实体值</text>
+<rect x="850" y="370" width="390" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="868" y="403" font-size="25" font-weight="650">生产预测分支输入</text>
+<text x="868" y="435" font-size="21">真实历史 + 起点已知条件</text>
+<text x="868" y="463" font-size="21">不接收未来真值</text>
+<rect x="850" y="570" width="390" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="868" y="603" font-size="25" font-weight="650">双头自由递推</text>
+<text x="868" y="635" font-size="21">历史编码一次并冻结</text>
+<text x="868" y="663" font-size="21">预测 z、y 回灌内部窗口</text>
+<rect x="850" y="770" width="390" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="868" y="803" font-size="25" font-weight="650">预测负荷与预测 latent</text>
+<text x="868" y="835" font-size="21">主损失读取预测负荷</text>
+<text x="868" y="863" font-size="21">辅助损失读取预测 latent</text>
+<rect x="850" y="970" width="390" height="140" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="868" y="1003" font-size="25" font-weight="650">主负荷损失</text>
+<text x="868" y="1035" font-size="21">预测负荷对真实未来负荷</text>
+<text x="868" y="1063" font-size="21">遵守有效标签掩码</text>
+<rect x="1350" y="370" width="390" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="1368" y="403" font-size="25" font-weight="650">仅训练可用的监督数据</text>
+<text x="1368" y="435" font-size="21">未来实体观测及掩码</text>
+<text x="1368" y="463" font-size="21">不是生产模型输入</text>
+<rect x="1350" y="570" width="390" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1368" y="603" font-size="25" font-weight="650">冻结 teacher：no_grad</text>
+<text x="1368" y="635" font-size="21">复制历史末端实体 memory</text>
+<text x="1368" y="663" font-size="21">按起点上下文顺序延续编码</text>
+<rect x="1350" y="770" width="390" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1368" y="803" font-size="25" font-weight="650">规范 latent 标签与质量 q</text>
+<text x="1368" y="835" font-size="21">标签不写回生产窗口</text>
+<text x="1368" y="863" font-size="21">质量及维度权重仅用于损失</text>
+<rect x="1350" y="970" width="390" height="140" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="1368" y="1003" font-size="25" font-weight="650">latent 辅助损失</text>
+<text x="1368" y="1035" font-size="21">预测 latent 对 teacher 标签</text>
+<text x="1368" y="1063" font-size="21">按质量及训练方差加权</text>
+<rect x="850" y="1200" width="890" height="170" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="868" y="1233" font-size="25" font-weight="650">B 总损失与可训练参数更新</text>
+<text x="868" y="1265" font-size="21">主负荷损失 + λ × latent 辅助损失</text>
+<text x="868" y="1293" font-size="21">标准配置 λ=0.1；no_latent_loss 消融为 0</text>
+<text x="868" y="1321" font-size="21">冻结表示链不更新；teacher 不替代任何一步预测输入</text>
+<rect x="60" y="1479" width="20" height="20" fill="#f1f5f9" stroke="#64748b"/><text x="90" y="1496" font-size="19">输入 / 证据</text>
+<rect x="300" y="1479" width="20" height="20" fill="#ede9fe" stroke="#8b74b6"/><text x="330" y="1496" font-size="19">实体 / 特征投影</text>
+<rect x="540" y="1479" width="20" height="20" fill="#fff0d9" stroke="#cd9450"/><text x="570" y="1496" font-size="19">空间 / 关系</text>
+<rect x="780" y="1479" width="20" height="20" fill="#e3f0ff" stroke="#5486b9"/><text x="810" y="1496" font-size="19">状态 / 时间链</text>
+<rect x="1020" y="1479" width="20" height="20" fill="#ddf2ec" stroke="#589a8b"/><text x="1050" y="1496" font-size="19">条件 / teacher</text>
+<rect x="1260" y="1479" width="20" height="20" fill="#e8f3de" stroke="#7d9d60"/><text x="1290" y="1496" font-size="19">预测 / 权重</text>
+<rect x="1500" y="1479" width="20" height="20" fill="#fbe6ea" stroke="#b97586"/><text x="1530" y="1496" font-size="19">监督损失</text>
+</g></svg></section>

@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1540" viewBox="0 0 1800 1540">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#4a5e74"/></marker></defs>
+<rect width="1800" height="1540" fill="#ffffff"/>
+<g font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif" fill="#203348">
+<text x="60" y="61" font-size="34" font-weight="700">GSLAformer · 两阶段训练与监督隔离</text>
+<text x="60" y="104" font-size="21" fill="#5c6f83">03 / full 的训练机制：teacher 仅产生监督标签，不进入生产预测状态；所有图示均非新增算法</text>
+<path d="M 530 215 L 600 215" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1200 230 L 1270 230" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 385 510 L 385 570" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 385 710 L 385 770" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 385 910 L 385 970" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1045 510 L 1045 570" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1045 710 L 1045 770" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1045 910 L 1045 970" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 510 L 1545 570" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 710 L 1545 770" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 910 L 1545 970" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1240 840 L 1295 840 L 1295 1040 L 1350 1040" fill="none" stroke="#4a5e74" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arrow)"/>
+<path d="M 1045 1110 L 1045 1200" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1545 1110 L 1545 1200" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="60" y="160" width="470" height="115" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="193" font-size="25" font-weight="650">A：负荷监督学习表示</text>
+<text x="78" y="225" font-size="21">latent 头冻结，不参与此阶段损失</text>
+<rect x="600" y="160" width="600" height="145" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="618" y="193" font-size="25" font-weight="650">阶段切换：加载 best_A 并冻结表示链</text>
+<text x="618" y="225" font-size="21">冻结实体历史、组内空间、关系、读出、静态链</text>
+<text x="618" y="253" font-size="21">冻结模块保持 eval；建立 latent 训练统计</text>
+<rect x="1270" y="160" width="470" height="145" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="1288" y="193" font-size="25" font-weight="650">B：自由递推与辅助监督</text>
+<text x="1288" y="225" font-size="21">时间链、未来路径、融合层、两头继续训练</text>
+<rect x="60" y="370" width="650" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="78" y="403" font-size="25" font-weight="650">历史与起点已知未来条件</text>
+<text x="78" y="435" font-size="21">真实未来负荷仅作为损失标签</text>
+<text x="78" y="463" font-size="21">不输入预测分支</text>
+<rect x="60" y="570" width="650" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="603" font-size="25" font-weight="650">直接多步负荷预测</text>
+<text x="78" y="635" font-size="21">完整空间/关系编码 + 时间链 + 条件融合</text>
+<text x="78" y="663" font-size="21">调用负荷头，不调用 latent 头；不回灌</text>
+<rect x="60" y="770" width="650" height="140" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="78" y="803" font-size="25" font-weight="650">主损失：预测负荷对真实标签</text>
+<text x="78" y="835" font-size="21">只在有效标签上计算</text>
+<text x="78" y="863" font-size="21">先按预测步分别平均，再等权汇总</text>
+<rect x="60" y="970" width="650" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="78" y="1003" font-size="25" font-weight="650">验证集选择 best_A</text>
+<text x="78" y="1035" font-size="21">B 从选中的 A 权重开始，而非最后一次更新</text>
+<text x="78" y="1063" font-size="21">A 阶段不以 latent 辅助目标预训练 latent 头</text>
+<rect x="60" y="1200" width="650" height="170" rx="8" fill="#ffffff" stroke="#c4cfdb" stroke-width="1.8"/>
+<text x="78" y="1233" font-size="25" font-weight="650">B 阶段课程与冻结边界</text>
+<text x="78" y="1265" font-size="21">监督递推长度：1 → min(3,H) → H</text>
+<text x="78" y="1293" font-size="21">未来条件仍编码完整 H；不截断回灌梯度</text>
+<text x="78" y="1321" font-size="21">B 的主预测路径不读取未来真实负荷或实体值</text>
+<rect x="850" y="370" width="390" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="868" y="403" font-size="25" font-weight="650">生产预测分支输入</text>
+<text x="868" y="435" font-size="21">真实历史 + 起点已知条件</text>
+<text x="868" y="463" font-size="21">不接收未来真值</text>
+<rect x="850" y="570" width="390" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="868" y="603" font-size="25" font-weight="650">双头自由递推</text>
+<text x="868" y="635" font-size="21">历史编码一次并冻结</text>
+<text x="868" y="663" font-size="21">预测 z、y 回灌内部窗口</text>
+<rect x="850" y="770" width="390" height="140" rx="8" fill="#e8f3de" stroke="#7d9d60" stroke-width="1.8"/>
+<text x="868" y="803" font-size="25" font-weight="650">预测负荷与预测 latent</text>
+<text x="868" y="835" font-size="21">主损失读取预测负荷</text>
+<text x="868" y="863" font-size="21">辅助损失读取预测 latent</text>
+<rect x="850" y="970" width="390" height="140" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="868" y="1003" font-size="25" font-weight="650">主负荷损失</text>
+<text x="868" y="1035" font-size="21">预测负荷对真实未来负荷</text>
+<text x="868" y="1063" font-size="21">遵守有效标签掩码</text>
+<rect x="1350" y="370" width="390" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="1368" y="403" font-size="25" font-weight="650">仅训练可用的监督数据</text>
+<text x="1368" y="435" font-size="21">未来实体观测及掩码</text>
+<text x="1368" y="463" font-size="21">不是生产模型输入</text>
+<rect x="1350" y="570" width="390" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1368" y="603" font-size="25" font-weight="650">冻结 teacher：no_grad</text>
+<text x="1368" y="635" font-size="21">复制历史末端实体 memory</text>
+<text x="1368" y="663" font-size="21">按起点上下文顺序延续编码</text>
+<rect x="1350" y="770" width="390" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1368" y="803" font-size="25" font-weight="650">规范 latent 标签与质量 q</text>
+<text x="1368" y="835" font-size="21">标签不写回生产窗口</text>
+<text x="1368" y="863" font-size="21">质量及维度权重仅用于损失</text>
+<rect x="1350" y="970" width="390" height="140" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="1368" y="1003" font-size="25" font-weight="650">latent 辅助损失</text>
+<text x="1368" y="1035" font-size="21">预测 latent 对 teacher 标签</text>
+<text x="1368" y="1063" font-size="21">按质量及训练方差加权</text>
+<rect x="850" y="1200" width="890" height="170" rx="8" fill="#fbe6ea" stroke="#b97586" stroke-width="1.8"/>
+<text x="868" y="1233" font-size="25" font-weight="650">B 总损失与可训练参数更新</text>
+<text x="868" y="1265" font-size="21">主负荷损失 + λ × latent 辅助损失</text>
+<text x="868" y="1293" font-size="21">标准配置 λ=0.1；no_latent_loss 消融为 0</text>
+<text x="868" y="1321" font-size="21">冻结表示链不更新；teacher 不替代任何一步预测输入</text>
+<rect x="60" y="1479" width="20" height="20" fill="#f1f5f9" stroke="#64748b"/><text x="90" y="1496" font-size="19">输入 / 证据</text>
+<rect x="300" y="1479" width="20" height="20" fill="#ede9fe" stroke="#8b74b6"/><text x="330" y="1496" font-size="19">实体 / 特征投影</text>
+<rect x="540" y="1479" width="20" height="20" fill="#fff0d9" stroke="#cd9450"/><text x="570" y="1496" font-size="19">空间 / 关系</text>
+<rect x="780" y="1479" width="20" height="20" fill="#e3f0ff" stroke="#5486b9"/><text x="810" y="1496" font-size="19">状态 / 时间链</text>
+<rect x="1020" y="1479" width="20" height="20" fill="#ddf2ec" stroke="#589a8b"/><text x="1050" y="1496" font-size="19">条件 / teacher</text>
+<rect x="1260" y="1479" width="20" height="20" fill="#e8f3de" stroke="#7d9d60"/><text x="1290" y="1496" font-size="19">预测 / 权重</text>
+<rect x="1500" y="1479" width="20" height="20" fill="#fbe6ea" stroke="#b97586"/><text x="1530" y="1496" font-size="19">监督损失</text>
+</g></svg>

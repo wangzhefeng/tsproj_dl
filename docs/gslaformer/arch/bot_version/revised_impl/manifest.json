@@ -1,0 +1,26 @@
+{
+  "git_head": "e187f187e58e1d01cec59d83ea433263c49e0e9b",
+  "source_sha256": {
+    "models/transformer/GSLAformer.py": "c3a4a72a5a442cccde07c05447c96e18a4b0668c492c2c6e97a7b2cd79981634",
+    "layers/gslaformer/entity_history.py": "5d9dc8cab0924b74b68d995ab149fda48117d86a5eda6867a46c25bb8eca6098",
+    "layers/gslaformer/spatial.py": "07969572097ae19efa056f7823082d3511f8c09ae2b1f2adca58d5d578aa33a3",
+    "layers/gslaformer/relations.py": "b7af9cf1d106d43f7b2902ce1ce294017902074e2f1c34313b1e614d124692a6",
+    "layers/gslaformer/temporal.py": "6b68ee4bb8264562dd583a0783590c143fbe035143d5ed6e8492646b58c39d17",
+    "exp/exp_gslaformer_forecasting.py": "da4cbf81ad186b6514d5127d60e078c566f4ce545125ad0da6c1c9ad883e5d14",
+    "exp/gslaformer_support.py": "1c736ab6c7d0e9ae3e7e1ce187da19c5fccc283d02bfd2652e0d4c2873b20904",
+    "exp/gslaformer_inference.py": "f0beea08289d1f3376b97a7829989d9f875e000c10812f11e69f7be1b00a181c"
+  },
+  "original_assets_sha256": {
+    "diff.md": "12b934fb6770243b9cae89a38f79c5e20485c889bd2d944f1023ad51a48a1c35",
+    "gslaformer_diff.svg": "6b5bafd903a63d653416d0e108feeb69ca5d70c3ddb9d28ca2c2233d4b89564d",
+    "gslaformer_diff.pdf": "d843d1a89ad2063d9747ffe439b8f0b6e408003dc7c6d195fb6cb57fae94d13f",
+    "gslaformer_diff.png": "3a624ac8b5a90c9bec5a1a6aab602440ab0fd904ec33117f10eb50830f6f429a",
+    "gslaformer_diff.drawio": "17edafe2cf66bcd6b1476a2189c5daff8943ef45f56c607c5927da50b4c3cccc",
+    "gslaformer_impl.drawio": "a70c3cf8d79eb966d56cd53afa8641bc667c7da4f546b038349f6bd1468d0cef",
+    "gslaformer_impl.svg": "6b558a030bc9fdea4e5a517e1646f69cbeade438d1b8676688136cdb3cdc943c",
+    "gslaformer_impl.pdf": "5584f7cc7d80784e85b40c6d219ce793f6dec9b17e2e4e912672bca9ffd3ba49",
+    "gslaformer_impl.png": "69249bf06c1901b9c51acb8398aaf49f78874f567d9951f3f749f9f67112fc47"
+  },
+  "scope": "diagram-only; no training, tests, or source changes",
+  "drawio_export": "native editable geometry generated from same layout as SVG; desktop exporter unavailable"
+}

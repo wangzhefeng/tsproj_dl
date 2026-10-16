@@ -1,0 +1,37 @@
+{
+  "renderer": "isolated local headless Chrome / CDP",
+  "profile": "/Users/wangzf/.hermes/profiles/coder/cache/scratch/gsla-diagram-chrome-zdj9g987",
+  "diagrams": [
+    {
+      "name": "gslaformer_impl_revised_01",
+      "png_size": [
+        3600,
+        2800
+      ],
+      "text_overflow": [],
+      "edges_through_boxes": [],
+      "xml_valid": true
+    },
+    {
+      "name": "gslaformer_impl_revised_02",
+      "png_size": [
+        3600,
+        3200
+      ],
+      "text_overflow": [],
+      "edges_through_boxes": [],
+      "xml_valid": true
+    },
+    {
+      "name": "gslaformer_impl_revised_03",
+      "png_size": [
+        3600,
+        3080
+      ],
+      "text_overflow": [],
+      "edges_through_boxes": [],
+      "xml_valid": true
+    }
+  ],
+  "original_assets_unchanged": true
+}

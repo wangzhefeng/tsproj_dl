@@ -1,0 +1,84 @@
+<!doctype html><meta charset="utf-8"><title>gslaformer_impl_revised_01</title><style>@page{size:1800px 1400px;margin:0}html,body{margin:0;padding:0;width:1800px;height:1400px;background:white}svg{display:block}</style><svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1400" viewBox="0 0 1800 1400">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#4a5e74"/></marker></defs>
+<rect width="1800" height="1400" fill="#ffffff"/>
+<g font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif" fill="#203348">
+<text x="60" y="61" font-size="34" font-weight="700">GSLAformer · 实体历史与空间表示</text>
+<text x="60" y="104" font-size="21" fill="#5c6f83">01 / 通用 full 结构：总组数 G 与动态组数 Gd 分开；AIDC 六动态组仅是当前配置实例</text>
+<path d="M 300 320 L 300 370" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 300 510 L 300 535 L 172 535 L 172 560" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 300 510 L 300 535 L 428 535 L 428 560" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 172 700 L 172 730 L 300 730 L 300 760" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 428 700 L 428 730 L 300 730 L 300 760" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 540 832 L 660 832" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 910 700 L 910 760" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 910 905 L 910 965" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 910 1115 L 910 1170" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1500 320 L 1500 370" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M 1500 510 L 1500 560" fill="none" stroke="#4a5e74" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="60" y="180" width="480" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="78" y="213" font-size="25" font-weight="650">历史实体观测与属性</text>
+<text x="78" y="245" font-size="21">逐组 [B,L,Ng,Fg]；实体身份只用于对齐</text>
+<text x="78" y="273" font-size="21">数值、观测、适用性、静态属性及有效性</text>
+<rect x="60" y="370" width="480" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="403" font-size="25" font-weight="650">逐组共享实体适配</text>
+<text x="78" y="435" font-size="21">动态值、掩码与属性拼接</text>
+<text x="78" y="463" font-size="21">Linear → GELU → Linear；输出宽度 ds</text>
+<rect x="60" y="560" width="225" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="78" y="593" font-size="25" font-weight="650">动态组</text>
+<text x="78" y="625" font-size="21">同组共享 GRU</text>
+<text x="78" y="653" font-size="21">逐实体沿时间更新</text>
+<rect x="315" y="560" width="225" height="140" rx="8" fill="#ede9fe" stroke="#8b74b6" stroke-width="1.8"/>
+<text x="333" y="593" font-size="25" font-weight="650">纯静态组</text>
+<text x="333" y="625" font-size="21">无 GRU</text>
+<text x="333" y="653" font-size="21">适配结果直接传递</text>
+<rect x="60" y="760" width="480" height="145" rx="8" fill="#fff0d9" stroke="#cd9450" stroke-width="1.8"/>
+<text x="78" y="793" font-size="25" font-weight="650">逐组、逐时刻的实体交互</text>
+<text x="78" y="825" font-size="21">实体 + summary token → 单层空间注意力</text>
+<text x="78" y="853" font-size="21">去掉 summary 输出；保留实体 [B,L,Ng,ds]</text>
+<rect x="660" y="560" width="500" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="678" y="593" font-size="25" font-weight="650">历史关系与有效实体</text>
+<text x="678" y="625" font-size="21">每个历史时刻使用对应关系</text>
+<text x="678" y="653" font-size="21">有向类型、允许反向通信、padding / present</text>
+<rect x="660" y="760" width="500" height="145" rx="8" fill="#fff0d9" stroke="#cd9450" stroke-width="1.8"/>
+<text x="678" y="793" font-size="25" font-weight="650">跨组类型关系交互</text>
+<text x="678" y="825" font-size="21">在实体轴拼接全部 G 组；按帧独立计算</text>
+<text x="678" y="853" font-size="21">加性通信掩码与方向偏置；层数来自配置</text>
+<rect x="660" y="965" width="500" height="150" rx="8" fill="#fff0d9" stroke="#cd9450" stroke-width="1.8"/>
+<text x="678" y="998" font-size="25" font-weight="650">仅对动态组进行独立查询读出</text>
+<text x="678" y="1030" font-size="21">Q：可学习查询；K/V：实体 + 常驻空组 token</text>
+<text x="678" y="1058" font-size="21">池化结果拼接 log1p(N)、coverage → Linear</text>
+<text x="678" y="1086" font-size="21"> → LN</text>
+<rect x="660" y="1170" width="500" height="140" rx="8" fill="#e3f0ff" stroke="#5486b9" stroke-width="1.8"/>
+<text x="678" y="1203" font-size="25" font-weight="650">动态组历史状态 z</text>
+<text x="678" y="1235" font-size="21">全窗口 [B,L,Gd,dz]；单时刻 [B,Gd,dz]</text>
+<text x="678" y="1263" font-size="21">按组轴堆叠，进入时间链时才展平特征轴</text>
+<rect x="1260" y="180" width="480" height="140" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.8"/>
+<text x="1278" y="213" font-size="25" font-weight="650">预测起点的静态证据</text>
+<text x="1278" y="245" font-size="21">有效实体的属性、类别与数量</text>
+<text x="1278" y="273" font-size="21">起点关系的逐类型出入度；不读动态值</text>
+<rect x="1260" y="370" width="480" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1278" y="403" font-size="25" font-weight="650">逐组静态统计与投影</text>
+<text x="1278" y="435" font-size="21">均值、总和、可用率、数量及度数</text>
+<text x="1278" y="463" font-size="21">类别嵌入均值；每组 Linear → GELU</text>
+<rect x="1260" y="560" width="480" height="140" rx="8" fill="#ddf2ec" stroke="#589a8b" stroke-width="1.8"/>
+<text x="1278" y="593" font-size="25" font-weight="650">固定静态条件 c</text>
+<text x="1278" y="625" font-size="21">拼接全部组统计表示 → 单 Linear</text>
+<text x="1278" y="653" font-size="21">[B,dt]；同一起点的整段预测共用</text>
+<rect x="1260" y="790" width="480" height="170" rx="8" fill="#ffffff" stroke="#c4cfdb" stroke-width="1.8"/>
+<text x="1278" y="823" font-size="25" font-weight="650">配置边界</text>
+<text x="1278" y="855" font-size="21">G：全部组；Gd：动态组</text>
+<text x="1278" y="883" font-size="21">所有组可参与关系；只有动态组产生 z</text>
+<text x="1278" y="911" font-size="21">关系层通常为 2 层，但不是硬编码常量</text>
+<rect x="1260" y="1060" width="480" height="170" rx="8" fill="#ffffff" stroke="#c4cfdb" stroke-width="1.8"/>
+<text x="1278" y="1093" font-size="25" font-weight="650">后续使用</text>
+<text x="1278" y="1125" font-size="21">z 与真实负荷历史用于时间预测</text>
+<text x="1278" y="1153" font-size="21">c 独立进入每一步条件融合</text>
+<text x="1278" y="1181" font-size="21">推理路径与训练路径分别见图 02、03</text>
+<rect x="60" y="1339" width="20" height="20" fill="#f1f5f9" stroke="#64748b"/><text x="90" y="1356" font-size="19">输入 / 证据</text>
+<rect x="300" y="1339" width="20" height="20" fill="#ede9fe" stroke="#8b74b6"/><text x="330" y="1356" font-size="19">实体 / 特征投影</text>
+<rect x="540" y="1339" width="20" height="20" fill="#fff0d9" stroke="#cd9450"/><text x="570" y="1356" font-size="19">空间 / 关系</text>
+<rect x="780" y="1339" width="20" height="20" fill="#e3f0ff" stroke="#5486b9"/><text x="810" y="1356" font-size="19">状态 / 时间链</text>
+<rect x="1020" y="1339" width="20" height="20" fill="#ddf2ec" stroke="#589a8b"/><text x="1050" y="1356" font-size="19">条件 / teacher</text>
+<rect x="1260" y="1339" width="20" height="20" fill="#e8f3de" stroke="#7d9d60"/><text x="1290" y="1356" font-size="19">预测 / 权重</text>
+<rect x="1500" y="1339" width="20" height="20" fill="#fbe6ea" stroke="#b97586"/><text x="1530" y="1356" font-size="19">监督损失</text>
+</g></svg>

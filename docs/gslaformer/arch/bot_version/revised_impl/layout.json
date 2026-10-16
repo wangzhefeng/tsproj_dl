@@ -1,0 +1,1113 @@
+[
+  {
+    "name": "gslaformer_impl_revised_01",
+    "width": 1800,
+    "height": 1400,
+    "nodes": [
+      {
+        "id": "observations",
+        "title": "历史实体观测与属性",
+        "body": "逐组 [B,L,Ng,Fg]；实体身份只用于对齐\n数值、观测、适用性、静态属性及有效性",
+        "x": 60,
+        "y": 180,
+        "w": 480,
+        "h": 140,
+        "kind": "input"
+      },
+      {
+        "id": "adapter",
+        "title": "逐组共享实体适配",
+        "body": "动态值、掩码与属性拼接\nLinear → GELU → Linear；输出宽度 ds",
+        "x": 60,
+        "y": 370,
+        "w": 480,
+        "h": 140,
+        "kind": "entity"
+      },
+      {
+        "id": "dynamic",
+        "title": "动态组",
+        "body": "同组共享 GRU\n逐实体沿时间更新",
+        "x": 60,
+        "y": 560,
+        "w": 225,
+        "h": 140,
+        "kind": "entity"
+      },
+      {
+        "id": "static",
+        "title": "纯静态组",
+        "body": "无 GRU\n适配结果直接传递",
+        "x": 315,
+        "y": 560,
+        "w": 225,
+        "h": 140,
+        "kind": "entity"
+      },
+      {
+        "id": "within",
+        "title": "逐组、逐时刻的实体交互",
+        "body": "实体 + summary token → 单层空间注意力\n去掉 summary 输出；保留实体 [B,L,Ng,ds]",
+        "x": 60,
+        "y": 760,
+        "w": 480,
+        "h": 145,
+        "kind": "spatial"
+      },
+      {
+        "id": "edges",
+        "title": "历史关系与有效实体",
+        "body": "每个历史时刻使用对应关系\n有向类型、允许反向通信、padding / present",
+        "x": 660,
+        "y": 560,
+        "w": 500,
+        "h": 140,
+        "kind": "input"
+      },
+      {
+        "id": "relation",
+        "title": "跨组类型关系交互",
+        "body": "在实体轴拼接全部 G 组；按帧独立计算\n加性通信掩码与方向偏置；层数来自配置",
+        "x": 660,
+        "y": 760,
+        "w": 500,
+        "h": 145,
+        "kind": "spatial"
+      },
+      {
+        "id": "readout",
+        "title": "仅对动态组进行独立查询读出",
+        "body": "Q：可学习查询；K/V：实体 + 常驻空组 token\n池化结果拼接 log1p(N)、coverage → Linear → LN",
+        "x": 660,
+        "y": 965,
+        "w": 500,
+        "h": 150,
+        "kind": "spatial"
+      },
+      {
+        "id": "z",
+        "title": "动态组历史状态 z",
+        "body": "全窗口 [B,L,Gd,dz]；单时刻 [B,Gd,dz]\n按组轴堆叠，进入时间链时才展平特征轴",
+        "x": 660,
+        "y": 1170,
+        "w": 500,
+        "h": 140,
+        "kind": "state"
+      },
+      {
+        "id": "origin",
+        "title": "预测起点的静态证据",
+        "body": "有效实体的属性、类别与数量\n起点关系的逐类型出入度；不读动态值",
+        "x": 1260,
+        "y": 180,
+        "w": 480,
+        "h": 140,
+        "kind": "input"
+      },
+      {
+        "id": "group_static",
+        "title": "逐组静态统计与投影",
+        "body": "均值、总和、可用率、数量及度数\n类别嵌入均值；每组 Linear → GELU",
+        "x": 1260,
+        "y": 370,
+        "w": 480,
+        "h": 140,
+        "kind": "condition"
+      },
+      {
+        "id": "c",
+        "title": "固定静态条件 c",
+        "body": "拼接全部组统计表示 → 单 Linear\n[B,dt]；同一起点的整段预测共用",
+        "x": 1260,
+        "y": 560,
+        "w": 480,
+        "h": 140,
+        "kind": "condition"
+      },
+      {
+        "id": "scope",
+        "title": "配置边界",
+        "body": "G：全部组；Gd：动态组\n所有组可参与关系；只有动态组产生 z\n关系层通常为 2 层，但不是硬编码常量",
+        "x": 1260,
+        "y": 790,
+        "w": 480,
+        "h": 170,
+        "kind": "note"
+      },
+      {
+        "id": "next",
+        "title": "后续使用",
+        "body": "z 与真实负荷历史用于时间预测\nc 独立进入每一步条件融合\n推理路径与训练路径分别见图 02、03",
+        "x": 1260,
+        "y": 1060,
+        "w": 480,
+        "h": 170,
+        "kind": "note"
+      }
+    ],
+    "edges": [
+      {
+        "source": "observations",
+        "target": "adapter",
+        "points": [
+          [
+            300,
+            320
+          ],
+          [
+            300,
+            370
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "adapter",
+        "target": "dynamic",
+        "points": [
+          [
+            300,
+            510
+          ],
+          [
+            300,
+            535
+          ],
+          [
+            172,
+            535
+          ],
+          [
+            172,
+            560
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "adapter",
+        "target": "static",
+        "points": [
+          [
+            300,
+            510
+          ],
+          [
+            300,
+            535
+          ],
+          [
+            428,
+            535
+          ],
+          [
+            428,
+            560
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "dynamic",
+        "target": "within",
+        "points": [
+          [
+            172,
+            700
+          ],
+          [
+            172,
+            730
+          ],
+          [
+            300,
+            730
+          ],
+          [
+            300,
+            760
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "static",
+        "target": "within",
+        "points": [
+          [
+            428,
+            700
+          ],
+          [
+            428,
+            730
+          ],
+          [
+            300,
+            730
+          ],
+          [
+            300,
+            760
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "within",
+        "target": "relation",
+        "points": [
+          [
+            540,
+            832
+          ],
+          [
+            660,
+            832
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "edges",
+        "target": "relation",
+        "points": [
+          [
+            910,
+            700
+          ],
+          [
+            910,
+            760
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "relation",
+        "target": "readout",
+        "points": [
+          [
+            910,
+            905
+          ],
+          [
+            910,
+            965
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "readout",
+        "target": "z",
+        "points": [
+          [
+            910,
+            1115
+          ],
+          [
+            910,
+            1170
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "origin",
+        "target": "group_static",
+        "points": [
+          [
+            1500,
+            320
+          ],
+          [
+            1500,
+            370
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "group_static",
+        "target": "c",
+        "points": [
+          [
+            1500,
+            510
+          ],
+          [
+            1500,
+            560
+          ]
+        ],
+        "dashed": false
+      }
+    ]
+  },
+  {
+    "name": "gslaformer_impl_revised_02",
+    "width": 1800,
+    "height": 1600,
+    "nodes": [
+      {
+        "id": "shared",
+        "title": "同一起点只准备一次",
+        "body": "历史编码得到 z、c；完整起点已知未来路径经双向注意力得到 p[1:H]；lead 相对原起点，不随滑窗重置。",
+        "x": 60,
+        "y": 150,
+        "w": 1680,
+        "h": 115,
+        "kind": "condition"
+      },
+      {
+        "id": "direct_start",
+        "title": "A 阶段 / direct：真实历史窗口",
+        "body": "z 展平 + 真实负荷 + 观测/生成标记\n逐组 coverage/生成标记 + 日历四维",
+        "x": 80,
+        "y": 330,
+        "w": 700,
+        "h": 140,
+        "kind": "state"
+      },
+      {
+        "id": "direct_project",
+        "title": "全部 token 特征联合投影",
+        "body": "单 Linear → 加窗口内正弦位置\n日历已在 token 内，不再独立投影相加",
+        "x": 80,
+        "y": 520,
+        "w": 700,
+        "h": 140,
+        "kind": "entity"
+      },
+      {
+        "id": "direct_time",
+        "title": "因果时间编码只运行一次",
+        "body": "沿历史时间轴计算；取末位表示 h\n所有未来步共享这个历史表示",
+        "x": 80,
+        "y": 710,
+        "w": 700,
+        "h": 140,
+        "kind": "state"
+      },
+      {
+        "id": "direct_fusion",
+        "title": "按未来步条件融合",
+        "body": "拼接 h、固定 c、p[k]、lead(k)\n共享 Linear → GELU → Dropout → Linear",
+        "x": 80,
+        "y": 900,
+        "w": 700,
+        "h": 140,
+        "kind": "condition"
+      },
+      {
+        "id": "direct_load",
+        "title": "仅负荷头；没有 latent 预测和回灌",
+        "body": "各步共享 Linear(dt,1)\n收集 H 个预测，得到 [B,H,1]",
+        "x": 80,
+        "y": 1090,
+        "w": 700,
+        "h": 140,
+        "kind": "output"
+      },
+      {
+        "id": "direct_output",
+        "title": "对外负荷预测",
+        "body": "预测完成后反标准化\n物理单位遵循目标合同；不是 latent 的单位",
+        "x": 80,
+        "y": 1310,
+        "w": 700,
+        "h": 140,
+        "kind": "output"
+      },
+      {
+        "id": "ar_state",
+        "title": "自由递推：内部滚动状态窗口",
+        "body": "由真实历史初始化；窗口长度始终为 L\n预测写入内部状态，不改原始 target_history",
+        "x": 980,
+        "y": 330,
+        "w": 700,
+        "h": 140,
+        "kind": "state"
+      },
+      {
+        "id": "ar_project",
+        "title": "全部 token 特征联合投影",
+        "body": "单 Linear → 加当前窗口内正弦位置\n每步重算；不是 KV cache 或跨起点记忆",
+        "x": 980,
+        "y": 520,
+        "w": 700,
+        "h": 140,
+        "kind": "entity"
+      },
+      {
+        "id": "ar_time",
+        "title": "每步重新计算因果时间编码",
+        "body": "从当前窗口取末位表示 h[k]\n空间历史只编码一次，不随滑窗重新运行",
+        "x": 980,
+        "y": 710,
+        "w": 700,
+        "h": 140,
+        "kind": "state"
+      },
+      {
+        "id": "ar_fusion",
+        "title": "按未来步条件融合",
+        "body": "拼接当前 h[k]、固定 c、p[k]、lead(k)\np 来自完整起点已知路径，不刷新晚到条件",
+        "x": 980,
+        "y": 900,
+        "w": 700,
+        "h": 140,
+        "kind": "condition"
+      },
+      {
+        "id": "latent_head",
+        "title": "动态组 latent 头",
+        "body": "每组 Linear(dt,dz)\n预测 [B,Gd,dz]",
+        "x": 980,
+        "y": 1090,
+        "w": 325,
+        "h": 140,
+        "kind": "output"
+      },
+      {
+        "id": "load_head",
+        "title": "总负荷头",
+        "body": "共享 Linear(dt,1)\n预测 [B,1]",
+        "x": 1355,
+        "y": 1090,
+        "w": 325,
+        "h": 140,
+        "kind": "output"
+      },
+      {
+        "id": "append",
+        "title": "追加预测状态，下一步取新的 L 长窗口",
+        "body": "同时追加预测 z、y 与未来日历；丢弃最旧位置\nobserved=false，generated=true\ncoverage=0，group_generated=1；收集 H 步输出",
+        "x": 980,
+        "y": 1310,
+        "w": 700,
+        "h": 170,
+        "kind": "state"
+      }
+    ],
+    "edges": [
+      {
+        "source": "direct_start",
+        "target": "direct_project",
+        "points": [
+          [
+            430,
+            470
+          ],
+          [
+            430,
+            520
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "direct_project",
+        "target": "direct_time",
+        "points": [
+          [
+            430,
+            660
+          ],
+          [
+            430,
+            710
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "direct_time",
+        "target": "direct_fusion",
+        "points": [
+          [
+            430,
+            850
+          ],
+          [
+            430,
+            900
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "ar_state",
+        "target": "ar_project",
+        "points": [
+          [
+            1330,
+            470
+          ],
+          [
+            1330,
+            520
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "ar_project",
+        "target": "ar_time",
+        "points": [
+          [
+            1330,
+            660
+          ],
+          [
+            1330,
+            710
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "ar_time",
+        "target": "ar_fusion",
+        "points": [
+          [
+            1330,
+            850
+          ],
+          [
+            1330,
+            900
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "direct_fusion",
+        "target": "direct_load",
+        "points": [
+          [
+            430,
+            1040
+          ],
+          [
+            430,
+            1090
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "direct_load",
+        "target": "direct_output",
+        "points": [
+          [
+            430,
+            1230
+          ],
+          [
+            430,
+            1310
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "ar_fusion",
+        "target": "latent_head",
+        "points": [
+          [
+            1330,
+            1040
+          ],
+          [
+            1330,
+            1065
+          ],
+          [
+            1142,
+            1065
+          ],
+          [
+            1142,
+            1090
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "ar_fusion",
+        "target": "load_head",
+        "points": [
+          [
+            1330,
+            1040
+          ],
+          [
+            1330,
+            1065
+          ],
+          [
+            1518,
+            1065
+          ],
+          [
+            1518,
+            1090
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "latent_head",
+        "target": "append",
+        "points": [
+          [
+            1142,
+            1230
+          ],
+          [
+            1142,
+            1310
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "load_head",
+        "target": "append",
+        "points": [
+          [
+            1518,
+            1230
+          ],
+          [
+            1518,
+            1310
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "append",
+        "target": "ar_state",
+        "points": [
+          [
+            1680,
+            1395
+          ],
+          [
+            1740,
+            1395
+          ],
+          [
+            1740,
+            400
+          ],
+          [
+            1680,
+            400
+          ]
+        ],
+        "dashed": true
+      }
+    ]
+  },
+  {
+    "name": "gslaformer_impl_revised_03",
+    "width": 1800,
+    "height": 1540,
+    "nodes": [
+      {
+        "id": "phase_a",
+        "title": "A：负荷监督学习表示",
+        "body": "latent 头冻结，不参与此阶段损失",
+        "x": 60,
+        "y": 160,
+        "w": 470,
+        "h": 115,
+        "kind": "entity"
+      },
+      {
+        "id": "freeze",
+        "title": "阶段切换：加载 best_A 并冻结表示链",
+        "body": "冻结实体历史、组内空间、关系、读出、静态链\n冻结模块保持 eval；建立 latent 训练统计",
+        "x": 600,
+        "y": 160,
+        "w": 600,
+        "h": 145,
+        "kind": "condition"
+      },
+      {
+        "id": "phase_b",
+        "title": "B：自由递推与辅助监督",
+        "body": "时间链、未来路径、融合层、两头继续训练",
+        "x": 1270,
+        "y": 160,
+        "w": 470,
+        "h": 145,
+        "kind": "state"
+      },
+      {
+        "id": "a_input",
+        "title": "历史与起点已知未来条件",
+        "body": "真实未来负荷仅作为损失标签\n不输入预测分支",
+        "x": 60,
+        "y": 370,
+        "w": 650,
+        "h": 140,
+        "kind": "input"
+      },
+      {
+        "id": "a_direct",
+        "title": "直接多步负荷预测",
+        "body": "完整空间/关系编码 + 时间链 + 条件融合\n调用负荷头，不调用 latent 头；不回灌",
+        "x": 60,
+        "y": 570,
+        "w": 650,
+        "h": 140,
+        "kind": "entity"
+      },
+      {
+        "id": "a_loss",
+        "title": "主损失：预测负荷对真实标签",
+        "body": "只在有效标签上计算\n先按预测步分别平均，再等权汇总",
+        "x": 60,
+        "y": 770,
+        "w": 650,
+        "h": 140,
+        "kind": "loss"
+      },
+      {
+        "id": "best",
+        "title": "验证集选择 best_A",
+        "body": "B 从选中的 A 权重开始，而非最后一次更新\nA 阶段不以 latent 辅助目标预训练 latent 头",
+        "x": 60,
+        "y": 970,
+        "w": 650,
+        "h": 140,
+        "kind": "output"
+      },
+      {
+        "id": "curriculum",
+        "title": "B 阶段课程与冻结边界",
+        "body": "监督递推长度：1 → min(3,H) → H\n未来条件仍编码完整 H；不截断回灌梯度\nB 的主预测路径不读取未来真实负荷或实体值",
+        "x": 60,
+        "y": 1200,
+        "w": 650,
+        "h": 170,
+        "kind": "note"
+      },
+      {
+        "id": "b_input",
+        "title": "生产预测分支输入",
+        "body": "真实历史 + 起点已知条件\n不接收未来真值",
+        "x": 850,
+        "y": 370,
+        "w": 390,
+        "h": 140,
+        "kind": "input"
+      },
+      {
+        "id": "b_roll",
+        "title": "双头自由递推",
+        "body": "历史编码一次并冻结\n预测 z、y 回灌内部窗口",
+        "x": 850,
+        "y": 570,
+        "w": 390,
+        "h": 140,
+        "kind": "state"
+      },
+      {
+        "id": "b_y",
+        "title": "预测负荷与预测 latent",
+        "body": "主损失读取预测负荷\n辅助损失读取预测 latent",
+        "x": 850,
+        "y": 770,
+        "w": 390,
+        "h": 140,
+        "kind": "output"
+      },
+      {
+        "id": "loss_y",
+        "title": "主负荷损失",
+        "body": "预测负荷对真实未来负荷\n遵守有效标签掩码",
+        "x": 850,
+        "y": 970,
+        "w": 390,
+        "h": 140,
+        "kind": "loss"
+      },
+      {
+        "id": "teacher_input",
+        "title": "仅训练可用的监督数据",
+        "body": "未来实体观测及掩码\n不是生产模型输入",
+        "x": 1350,
+        "y": 370,
+        "w": 390,
+        "h": 140,
+        "kind": "input"
+      },
+      {
+        "id": "teacher",
+        "title": "冻结 teacher：no_grad",
+        "body": "复制历史末端实体 memory\n按起点上下文顺序延续编码",
+        "x": 1350,
+        "y": 570,
+        "w": 390,
+        "h": 140,
+        "kind": "condition"
+      },
+      {
+        "id": "labels",
+        "title": "规范 latent 标签与质量 q",
+        "body": "标签不写回生产窗口\n质量及维度权重仅用于损失",
+        "x": 1350,
+        "y": 770,
+        "w": 390,
+        "h": 140,
+        "kind": "condition"
+      },
+      {
+        "id": "loss_z",
+        "title": "latent 辅助损失",
+        "body": "预测 latent 对 teacher 标签\n按质量及训练方差加权",
+        "x": 1350,
+        "y": 970,
+        "w": 390,
+        "h": 140,
+        "kind": "loss"
+      },
+      {
+        "id": "combined",
+        "title": "B 总损失与可训练参数更新",
+        "body": "主负荷损失 + λ × latent 辅助损失\n标准配置 λ=0.1；no_latent_loss 消融为 0\n冻结表示链不更新；teacher 不替代任何一步预测输入",
+        "x": 850,
+        "y": 1200,
+        "w": 890,
+        "h": 170,
+        "kind": "loss"
+      }
+    ],
+    "edges": [
+      {
+        "source": "phase_a",
+        "target": "freeze",
+        "points": [
+          [
+            530,
+            215
+          ],
+          [
+            600,
+            215
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "freeze",
+        "target": "phase_b",
+        "points": [
+          [
+            1200,
+            230
+          ],
+          [
+            1270,
+            230
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "a_input",
+        "target": "a_direct",
+        "points": [
+          [
+            385,
+            510
+          ],
+          [
+            385,
+            570
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "a_direct",
+        "target": "a_loss",
+        "points": [
+          [
+            385,
+            710
+          ],
+          [
+            385,
+            770
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "a_loss",
+        "target": "best",
+        "points": [
+          [
+            385,
+            910
+          ],
+          [
+            385,
+            970
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "b_input",
+        "target": "b_roll",
+        "points": [
+          [
+            1045,
+            510
+          ],
+          [
+            1045,
+            570
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "b_roll",
+        "target": "b_y",
+        "points": [
+          [
+            1045,
+            710
+          ],
+          [
+            1045,
+            770
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "b_y",
+        "target": "loss_y",
+        "points": [
+          [
+            1045,
+            910
+          ],
+          [
+            1045,
+            970
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "teacher_input",
+        "target": "teacher",
+        "points": [
+          [
+            1545,
+            510
+          ],
+          [
+            1545,
+            570
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "teacher",
+        "target": "labels",
+        "points": [
+          [
+            1545,
+            710
+          ],
+          [
+            1545,
+            770
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "labels",
+        "target": "loss_z",
+        "points": [
+          [
+            1545,
+            910
+          ],
+          [
+            1545,
+            970
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "b_y",
+        "target": "loss_z",
+        "points": [
+          [
+            1240,
+            840
+          ],
+          [
+            1295,
+            840
+          ],
+          [
+            1295,
+            1040
+          ],
+          [
+            1350,
+            1040
+          ]
+        ],
+        "dashed": true
+      },
+      {
+        "source": "loss_y",
+        "target": "combined",
+        "points": [
+          [
+            1045,
+            1110
+          ],
+          [
+            1045,
+            1200
+          ]
+        ],
+        "dashed": false
+      },
+      {
+        "source": "loss_z",
+        "target": "combined",
+        "points": [
+          [
+            1545,
+            1110
+          ],
+          [
+            1545,
+            1200
+          ]
+        ],
+        "dashed": false
+      }
+    ]
+  }
+]

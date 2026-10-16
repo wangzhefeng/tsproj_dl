@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "original_asset_hashes_verified": 9,
+  "source_file_hashes_verified": 8,
+  "diagram_count": 3,
+  "pdf_pages_per_diagram": [1, 1, 1],
+  "png_dimensions": [[3600, 2800], [3600, 3200], [3600, 3080]],
+  "drawio_connected_edges": [11, 13, 14],
+  "local_document_links_verified": 13,
+  "svg_text_bounds": "passed in actual Chrome renderer",
+  "edge_box_intersections": "none",
+  "png_visual_review": "all three reviewed",
+  "git_diff_check": "passed",
+  "drawio_desktop_render": "not_run: application not installed",
+  "model_tests_or_training": "not_run: explicitly out of scope",
+  "writes_scope": "docs/gslaformer/arch/bot_version/revised_impl only; isolated Chrome profile and logs in Hermes scratch",
+  "concurrent_workspace_changes": "Other pre-existing or concurrent work outside this directory was not modified."
+}
